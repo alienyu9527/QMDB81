@@ -1,0 +1,331 @@
+/****************************************************************************************
+*@Copyrights  2008，中兴软创（南京）计算机有限公司 开发部 CCB项目--C++框架组
+*@                   All rights reserved.
+*@Name：	    miniDBErr.h		
+*@Description： 负责管理miniDB的个中错误信息和错误代码
+*@Author:		li.shugang
+*@Date：	    2008年11月03日
+*@History:
+******************************************************************************************/
+#ifndef __QUICK_MEMORY_DATABASE_ERROR_H__
+#define __QUICK_MEMORY_DATABASE_ERROR_H__
+
+//namespace QuickMDB{
+
+//QuickMDB错误码范围为20001~40000,内部程序使用负的错误码-20001~-40000
+//格式#define [空格]  [宏以ERROR_开头],关于错误码解释参见mdbErrorHelper.cpp中
+//未知错误10000
+#define ERROR_SUCCESS        (0)
+#define ERROR_UNKNOWN        (-40000) //Unknow Error
+                                    
+//数据库级错误20001---20099
+#define ERR_DB_DSN_INVALID         (-20001) //DSN does not exist
+#define ERR_DB_USER_INVALID        (-20002) //user does not exist
+#define ERR_DB_PASSWORD_INVALID    (-20003) //Password is incorrect
+#define ERR_DB_PRIVILEGE_INVALID   (-20004) //user does not have privilege to the operation
+#define ERR_DB_NOT_CREATE           (-20005) //QMDB was not created
+#define ERR_DB_HAS_CREATED          (-20006) //QMDB has already created.
+#define ERR_DB_NOT_CONNECTED        (-20007) //QMDB was not connected.
+#define ERR_DB_LOCAL_CONNECT        (-20008) //failed to connect DSN,connection to QMDB refused
+#define ERR_DB_REMOTE_CONNECT       (-20009) //failed to connect remote DSN,connection to QMDB refused
+#define ERR_DB_EXCEED_MAX_REMOTE_CONNECTION  (-20010) //maximum number of QMDB remote connection exceeded
+#define ERR_DB_EXCEED_MAX_LOCAL_CONNECTION   (-20011) //maximum number of QMDB local connection exceeded
+#define ERR_DB_EXCEED_MAX_PEER_CONNECTION    (-20012) //maximum number of QMDB replication connection exceeded
+#define ERR_DB_DSN_ATTR_NOT_EXIST             (-20013) //attribute of DSN does not exist
+#define ERR_DB_USER_ALREADY_EXIST             (-20014) //user already exists
+#define ERR_DB_USRE_NOT_EXIST                  (-20015) //user to modify doex not exist
+#define ERR_DB_CREATE_TABLESPACE_FAILED  (-20016) //can not create tablespace
+#define ERR_DB_ALTER_TABLESPACE_FAILED   (-20017) //can not modify tablespace
+#define ERR_DB_DROP_TABLESPACE_FAILED  (-20018) //can not drop tablespace
+#define ERR_DB_TABLESPACE_ALREADY_EXIST  (-20019) //tablespace already exists
+#define ERR_DB_TABLESPACE_NOT_EXIST       (-20020) //tablespace does not exist
+#define ERR_DB_CREATE_TABLE_FAILED        (-20021) //can not create table
+#define ERR_DB_DROP_TABLE_FAILED          (-20022) //can not drop table
+#define ERR_DB_CREATE_USER_FAILED         (-20023) //failure to create user
+#define ERR_DB_MODIFY_PASSWORD_FAILED    (-20024) //failure to modify user's password
+#define ERR_DB_INVALID_ACCESS             (-20025) //failure to modify user's privilege
+#define ERR_DB_DROP_USER_FAILED           (-20026) //failure to drop user
+#define ERR_DB_SYS_TABLE_NOT_DROP         (-20027) //can not drop system table
+#define ERR_DB_INVALID_DATASOURCE         (-20028) //invalid data source configuration
+#define ERR_DB_SEQUECE_NOT_EXIST          (-20029) //sequence does not exist
+#define ERR_DB_SEQUECE_EXISTS             (-20030) //sequence already exists
+#define ERR_DB_CREATE_JOB_FAILED          (-20031) //can not create job
+#define ERR_DB_UPDATE_JOB_FAILED          (-20032) //can not update job
+#define ERR_DB_DROP_JOB_FAILED            (-20033) //can not drop job
+#define ERR_DB_JOB_NOT_EXIST              (-20034) //job does not exist
+#define ERR_DB_JOB_ALREADY_EXIST          (-20035) //job already exists
+#define ERR_DB_JOB_EXECUTE_SQL_ISNULL    (-20036) //no SQL is set for a job
+#define ERR_DB_JOB_CONFIG_ERROR           (-20037) //invalid configuration of job
+#define ERR_DB_TSPACE_NAME_INVALID        (-20038) //invalid tablespace name
+#define ERR_DB_TSAPCE_NUM_EXCEED_MAX      (-20039) //maximum number of tablespace exceeded
+#define ERR_DB_TSPACE_ID_INVALID          (-20040) //invalid tablespace id
+#define ERR_DB_VERSION_NOT_MATCH          (-20041) //Version mismatch
+#define ERR_DB_STOP_TIMEOUT                (-20042) //too long time between Start and Create operation - exceeding
+#define ERR_DB_MAX_USER_NUMBER            (-20043) //maximum number of user exceeded
+#define ERR_DB_JOB_NUM_EXCEED_MAX         (-20044) //maximum number of job exceeded
+#define ERR_DB_TPS_ID_NOT_EXIST           (-20045) //the tablespace ID of table is not found
+#define ERR_DB_INVALID_VALUE      		(-20046) //Some DB Value is invalid
+#define ERR_DB_OBSERVE				        (-20047)  //Observe is error	
+#define ERR_PAGE_NO_MEMORY                (-20048)  //Page has no memory
+#define ERR_DB_MAX_DSN_NUMBER            (-20049) //maximum number of dsn exceeded
+#define ERR_DB_DSN_ALREADY_EXISTS         (-20050) //DSN exists
+#define ERR_DB_LOAD_DATA_FAILED         (-20051) //Load data failed
+
+
+//表级错误20101---20199
+#define ERR_TAB_CONFIG_TABLENAME_NOT_EXIST      (-20101)
+#define ERR_TAB_CONFIG_TABLENAME_ALREADY_EXIST  (-20102)
+#define ERR_TAB_TABLE_NAME_INVALID  (-20103)
+#define ERR_TAB_TABLE_NUM_EXCEED_MAX (-20104)
+#define ERR_TAB_TABLEID_ALREADY_EXIST (-20105)
+#define ERR_TAB_TABLEID_INVALID (-20106)
+#define ERR_TAB_INDEX_ALREADY_EXIST (-20107)
+#define ERR_TAB_INDEX_NOT_EXIST (-20108)
+#define ERR_TAB_HAS_NO_INDEX (-20109)
+#define ERR_TAB_INDEX_NUM_EXCEED_MAX (-20110)
+#define ERR_TAB_INDEX_NAME_INVALID (-20111)
+#define ERR_TAB_INDEXD_COLUMN_NOT_EXIST (-20112)
+#define ERR_TAB_COLUMN_NUM_EXCEED_MAX (-20113)
+#define ERR_TAB_COLUMN_ALREADY_EXIST (-20114)
+#define ERR_TAB_COLUMN_NOT_EXIST (-20115)
+#define ERR_TAB_COLUMN_POS_NOT_EXIST (-20116)
+#define ERR_TAB_COLUMN_NAME_INVALID (-20117)
+#define ERR_TAB_COLUMN_DATA_TYPE_INVALID (-20118)
+#define ERR_TAB_COLUMN_LENGTH_INVALID (-20119)
+#define ERR_TAB_DEFAULT_VALUE_LENGTH_INVALID (-20120)
+#define ERR_TAB_DATE_DEFAULT_VALUE_LENGTH_INVALID (-20121)
+#define ERR_TAB_DEFAULT_VALUE_TYPE_INVALID (-20122)
+#define ERR_TAB_COLUMN_REP_TYPE_INVALID (-20123)
+#define ERR_TAB_NO_COLUMN (-20124)
+#define ERR_TAB_NO_PRIMARY_KEY (-20125)
+#define ERR_TAB_PK_COLUMN_POS_INVALID (-20126)
+#define ERR_TAB_PK_COLUMN_NUM_EXCEED_MAX (-20127)
+#define ERR_TAB_PR_COLUMN_IS_NOT_NULLABLE (-20128)
+#define ERR_TAB_PK_COLUMN_HAS_DEFAULT_VALUE (-20129)
+#define ERR_TAB_RECORD_LENGTH_EXCEED_MAX (-20130)
+#define ERR_TAB_PAGE_SIZE_TOO_LARGE (-20131)
+#define ERR_TAB_PK_CONFLICT (-20132)
+#define ERR_TAB_ATTR_ALREADY_EXIST (-20133)
+#define ERR_TAB_ATTR_NOT_EXIST (-20134)
+#define ERR_TAB_REP_TYPE_INVALID (-20135)
+#define ERR_TAB_CREATE_INDEX (-20136)
+#define ERR_TAB_DROP_INDEX (-20137)
+#define ERR_TAB_CREATE_PRIMARY_KEY (-20138)
+#define ERR_TAB_DROP_PRIMARY_KEY (-20139)
+#define ERR_TAB_MISSING_COLUMN (-20140)
+#define ERR_TAB_COLUMN_VALUE_INVALID (-20041)
+#define ERR_TAB_DATA_SIZE_TOO_SMALL (-20142)
+#define ERR_TAB_NO_CONFLICT_INDEX_NODE (-20143)
+#define ERR_TAB_NO_TABLE (-20144)
+#define ERR_TAB_INDEX_INVALID_TYPE (-20145)
+#define ERR_TAB_INDEX_NO_CMP_BTREE_INDEX (-20146)
+#define ERR_TAB_ADD_INDEX_FAILED (-20147)
+#define ERR_TAB_INDEX_NUM_INVALID (-20148)
+#define ERR_TAB_INDEX_NOT_INIT (-20149)
+#define ERR_TAB_INDEX_CALC_VALUE_FAILED (-20150)
+
+
+//SQL级错误20201---20299
+#define ERR_SQL_INVALID (-20201)
+#define ERR_SQL_TOO_LONG (-20202)
+#define ERR_SQL_TYPE_NOT_SUPPORT (-20203)
+#define ERR_SQL_NOT_NORMAL_END (-20204)
+#define ERR_SQL_IDENTIFIER_INVALID (-20205)
+#define ERR_SQL_IS_NOT_SET (-20206)
+#define ERR_SQL_PARAME_NOT_BOUND (-20207)
+#define ERR_SQL_PARAM_NAME_DUPLICATE (-20208)
+#define ERR_SQL_PARAM_NAME_NOT_EXIST (-20209)
+#define ERR_SQL_PARAM_INDEX_INVALID (-20210)
+#define ERR_SQL_PARAM_DATA_TYPE_ERROR (-20211)
+#define ERR_SQL_PARAM_VALUE_LEN_TOO_LONG (-20212)
+#define ERR_SQL_NO_OPEN_OPERATION (-20213)
+#define ERR_SQL_COLUMN_NOT_EXIST (-20214)
+#define ERR_SQL_COLUMN_INDEX_INVALID (-20215)
+#define ERR_SQL_CONVERT_COLUMNVALUE_TO_NUMBER (-20216)
+#define ERR_SQL_CONVERT_COLUMNVALUE_TO_STRING (-20217)
+#define ERR_SQL_CONVERT_COLUMNVALUE_TO_DATE (-20218)
+#define ERR_SQL_CONVERT_COLUMNVALUE_TO_BLOB (-20219)
+#define ERR_SQL_CONVERT_NULL_VALUE_ERROR (-20220)
+#define ERR_SQL_PARAM_VALUE_FOR_NULL (-20221)
+#define ERR_SQL_FLOAT_PARAM_NOT_SUPPORT_BIND (-20222)
+#define ERR_SQL_BLOB_PARAM_NOT_SUPPORT_BIND (-20223)
+#define ERR_SQL_SETPARAMETER_METHOD_ERROR (-20224)
+#define ERR_SQL_COLUMN_NUM_NOTEQ_VALUE_NUM (-20225)
+#define ERR_SQL_VALUE_TYPE_NOTMATCH_COLUMN_TYPE (-20226)
+#define ERR_SQL_FUNCTION_NOT_SUPPORT (-20227)
+#define ERR_SQL_COLUMN_NOT_SUPORT_NULL (-20228)
+#define ERR_SQL_EXECUTE_TIMEOUT (-20229)
+#define ERR_SQL_CAL_WHERE_EXP_ERROR (-20230)
+#define ERR_SQL_TOO_MUCH_FOR_ORDERBY (-20231)
+#define ERR_SQL_TYPE_INVALID (-20232)
+#define ERR_SQL_CALCULATE_EXP_ERROR (-20233)
+#define ERR_SQL_DATA_TYPE_INVALID (-20234)
+#define ERR_SQL_DATA_LEN_ERROR (-20235)
+#define ERR_SQL_GET_MEMORY_VALUE_ERROR (-20236)
+#define ERR_SQL_INDEX_COLUMN_ERROR (-20237)
+#define ERR_SQL_DATE_VALUE_INVALID (-20238)
+#define ERR_SQL_ROLLBACK_SEG_TOO_LARGE (-20239)
+#define ERR_SQL_NO_FIND_FREE_ROLLBACK_UNIT (-20240)
+#define ERR_SQL_FILL_MDB_INFO (-20241) 
+#define ERR_SQL_SETPARAMETER_TYPE (-20242)
+#define ERR_SQL_FLUSH_DATA (-20243)
+#define ERR_SQL_STOP_EXEC (-20244)
+#define ERR_SQL_NO_COLUMN_ATTR (-20245)
+#define ERR_SQL_NOT_SUPPORT_SETPARAM_ARRAY (-20246)
+#define ERR_SQL_NOT_SUPPORT_FILE_STORAGE (-20247)
+
+//OS级错误20301---20399
+#define ERR_OS_CREATE_SHM (-20301)
+#define ERR_OS_ATTACH_SHM (-20302)
+#define ERR_OS_DETACH_SHM (-20303)
+#define ERR_OS_DESTROY_SHME (-20304)
+#define ERR_OS_SHM_EXIST (-20305)
+#define ERR_OS_SHM_NOT_EXIST (-20306)
+#define ERR_OS_NO_MEMROY (-20307)
+#define ERR_OS_CREATE_THREAD (-20308)
+#define ERR_OS_SET_THREAD_ATTR (-20309)
+#define ERR_OS_WAIT_THREAD (-20310)
+#define ERR_OS_CREATE_DIR (-20311)
+#define ERR_OS_OPEN_FILE (-20312)
+#define ERR_OS_READ_FILE (-20313)
+#define ERR_OS_WRITE_FILE (-20314)
+#define ERR_OS_REMOVE_FILE (-20315)
+#define ERR_OS_FCLOSE_FILE (-20316)
+#define ERR_OS_BACKUP_FILE (-20317)
+#define ERR_OS_OPEN_DIR (-20318)
+#define ERR_OS_GET_FILE_SIZE (-20319)
+#define ERR_OS_LOCK_FILE (-20320)
+#define ERR_OS_UNLOCK_FILE (-20321)
+#define ERR_OS_NO_FILE (-20322)
+#define ERR_OS_NO_DIR (-20323)
+#define ERR_OS_SET_MUTEX_ATTR (-20324)
+#define ERR_OS_MUTEX_LOCK (-20325)
+#define ERR_OS_MUTEX_UNLOCK (-20326)
+#define ERR_OS_POPEN (-20327)
+#define ERR_OS_ENV_VARIABLE_NOT_SET (-20328)
+#define  ERR_OS_CREATE_FILE (-20329)
+#define  ERR_OS_NO_DISK_SPACE  (-20330)
+
+
+//网络通信错误20401---20499
+#define ERR_NET_CREATE_SOCKET (-20401)
+#define ERR_NET_BIND_PORT (-20402)
+#define ERR_NET_LISTEN_PORT (-20403)
+#define ERR_NET_ACCEPT (-20404)
+#define ERR_NET_SET_ATTR (-20405)
+#define ERR_NET_PEER_INVALID (-20406)
+#define ERR_NET_PEER_REFUSE (-20407)
+#define ERR_NET_SOCKET_INVALID (-20408)
+#define ERR_NET_RECV_FAILED (-20409)
+#define ERR_NET_SEND_FAILED (-20410)
+#define ERR_NET_IP_INVALID (-20411)
+#define ERR_NET_SELECT (-20412)
+#define ERR_NET_SOCKET_CLOSE (-20413)
+#define ERR_NET_GET_HOST_NAME (-20414)
+#define ERR_NET_GET_HOST_BY_NAME (-20415)
+#define ERR_NET_NTC_START (-20416)
+#define ERR_NET_RECV_DATA_FORMAT (-20417)
+
+//应用级错误20501---20599
+#define ERR_APP_CMD_FORMAT_INVALID (-20501)
+#define ERR_APP_OPERATION_INVALID (-20502)
+#define ERR_APP_MDB_NOT_RUNNING (-20503)
+#define ERR_APP_DSN_EMPTY (-20504)
+#define ERR_APP_USER_EMPTY (-20505)
+#define ERR_APP_PWD_EMPTY (-20506)
+#define ERR_APP_SYS_PROCESS_EXIST (-20507)
+#define ERR_APP_ORA_PROCESS_EXIST (-20508)
+#define ERR_APP_PROC_START_FAILED (-20509)
+#define ERR_APP_PROC_KILL_FAILED (-20510)
+#define ERR_APP_PROC_NOT_EXIST (-20511)
+#define ERR_APP_PROC_RESTART_FAILED (-20512)
+#define ERR_APP_CONFIG_TPS_DIFF_MEMORY (-20513)
+#define ERR_APP_CONFIG_TABLE_NOT_IN_MEMORY (-20514)
+#define ERR_APP_CONFIG_TABLE_DIFF_MEMORY (-20515)
+#define ERR_APP_EXCEED_MAX_CONNECT_NUM (-20516)
+#define ERR_APP_ADMIN_USER_NOT_EXIST (-20517)
+#define ERR_APP_CONNCET_ORACLE_FAILED (-20518)
+#define ERR_APP_ORACLE_LOGIN_INFO_INVALID (-20519)
+#define ERR_APP_REP_AREA_NOT_EXIST (-20520)
+#define ERR_APP_ROUTINGLIST_EXCEED_MAX (-20521)
+#define ERR_APP_PROC_REG_FAILED (-20522)
+#define ERR_APP_PROC_ALREADY_EXIST (-20523)
+#define ERR_APP_REG_PROC_NUM_EXCEED_MAX (-20524)
+#define ERR_APP_SEQ_EXCEED_MAX_VALUE (-20525)
+#define ERR_APP_INVALID_PARAM (-20526)
+#define ERR_APP_INT_VALUE_INVALID (-20527)
+#define ERR_APP_BOOL_VALUE_INVALID (-20528)
+#define ERR_APP_DATE_VALUE_INVALID (-20529)
+#define ERR_APP_DATA_TYPE_INVALID (-20530)
+#define ERR_APP_DATA_OVERFLOW (-20531)
+#define ERR_APP_DATA_INVALID (-20532)
+#define ERR_APP_FILE_NAME_TOO_LONG (-20533)
+#define ERR_APP_PATH_IS_NULL (-20534)
+#define ERR_APP_PATH_NAME_TOO_LONG (-20535)
+#define ERR_APP_SEQNO_INVALID (-20536)
+#define ERP_APP_UPDATE_BLOB_NOT_SUPPORT (-20537)
+#define ERR_APP_TIME_FORMAT_INVALID (-20538)
+#define ERR_APP_DAY_INVALID (-20539)
+#define ERR_APP_MONTH_INVALID (-20540)
+#define ERR_APP_SECOND_INVALID (-20541)
+#define ERR_APP_PATH_NOT_EXIST (-20542)
+#define ERR_APP_LAOD_TABLE_FAILED (-20543)
+#define ERR_APP_SYS_TABLE_NOT_SUPPORT_REP (-20544)
+#define ERR_APP_REP_DATA_FORMAT_INVALID (-20545)
+#define ERR_APP_FILE_DATE_FORMAT_INVALID (-20546)
+#define ERR_APP_DDL_NOT_SUPPORT (-20547)
+#define ERR_APP_DML_NOT_SUPPORT_OFFLINE (-20548)
+#define ERR_APP_TABLE_ATTR_INVALID (-20549)
+#define ERR_APP_SYS_ATTR_INVALID (-20550)
+#define ERR_APP_COLUMN_LENGTH_TOO_SMALL (-20551)
+#define ERR_APP_TABLE_XML_NOT_MATCH (-20552)
+#define ERR_APP_LAOD_CONFIG_FILE_FALIED (-20553)
+#define ERR_APP_CONFIG_ITEM_VALUE_INVALID (-20554)
+#define ERR_APP_DB_TYPE_INVALID (-20555)
+#define ERR_APP_DSN_NAME_CONFIG (-20556)
+#define ERR_APP_DSN_VALUE_INVALID (-20557)
+#define ERR_APP_KILL_TIME_VALUE_INVALID (-20558)
+#define ERR_APP_DELAY_TIME_INVALID (-20559)
+#define ERR_APP_CLEAN_TIME_INVALID (-20560)
+#define ERR_APP_REPTYPE_INVALID (-20561)
+#define ERR_APP_ORAREP_COUNTS_INVALID (-20562)
+#define ERR_APP_HEART_BEAT_FATAL_INVALID (-20563)
+#define ERR_APP_IS_PEER_REP_INVALID (-20564)
+#define ERR_APP_MANAGE_SIZE_EXCEED_MAX (-20565)
+#define ERR_APP_REP_FILE_TIMEOUT_INVALID (-20566)
+#define ERR_APP_IS_ZIP_TIME_INVALID (-20567)
+#define ERR_APP_UNKNOWN_CONFIG_ITEM (-20568)
+#define ERR_APP_CONFIG_ITEM_NOT_EXIST (-20569)
+#define ERR_APP_STRING_OUT_BOUND (-20570)
+#define ERR_APP_REGISTER_FAILED (-20571)
+#define ERR_APP_FLUSH_LOG (-20572)
+#define ERR_APP_FILE_IS_EXIST (-20573)
+#define ERR_APP_PARAM_INVALID (-20574)
+#define ERR_APP_CONFIG_NOT_EXIST (-20575)
+#define ERR_APP_EXCEED_MAX_CS_PEER_COUNT (-20576)
+#define ERR_APP_CONFIG_FORMAT (-20577)
+#define ERR_APP_STORAGE_NOT_EXIST (-20578)
+
+//CSP协议20601---20699 
+#define ERR_CSP_PARSER_LOGON (-20601)
+#define ERR_CSP_LOGON_FAILED (-20602)
+#define ERR_CSP_PARSER_SESSIONID_NOEQUAL (-20603)
+#define ERR_CSP_PARSER_HEAD_ERROR (-20604)
+#define ERR_CSP_INVALID_RCV_PACKAGE (-20605)
+#define ERR_CSP_INVALID_SEND_PACKAGE (-20606)
+#define ERR_CSP_INVALID_AVP_CODE (-20607)
+#define ERR_CSP_FIND_FREE_AVP_ITEM (-20608)
+#define ERR_CSP_SET_AVP_NULL (-20609)
+#define ERR_CSP_SET_AVP_FAILED (-20610)
+#define ERR_CSP_COPY_AVP (-20611)
+#define ERR_CSP_AVP_ITEM_NOT_EXIST (-20612)
+#define ERR_CSP_AVP_ITEM_TYPE (-20613)
+#define ERR_CSP_SEQ_EXCEED_MAX (-20614)
+#define ERR_CSP_SEQ_VALUE (-20615)
+#define ERR_CSP_PARSER_ERROR_CSP (-20616)
+#define ERR_CSP_KEEP_ON_RECV (-20617)
+
+//}
+
+#endif
+

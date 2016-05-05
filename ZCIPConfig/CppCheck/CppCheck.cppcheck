@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="1">
+    <paths>
+		<dir name="${base.dir}/App/"/>
+		<dir name="${base.dir}/Control/"/>
+		<dir name="${base.dir}/Helper/"/>
+		<dir name="${base.dir}/Interface/"/>
+		<dir name="${base.dir}/Tools/"/>
+		<dir name="${base.dir}/Replication/"/>
+		<dir name="${base.dir}/Dbflush/"/>
+		<dir name="${base.dir}/Agent/"/>
+	</paths>
+	<exclude>
+		<dir name="${base.dir}/etc/"/>
+		<dir name="${base.dir}/log/"/>
+		<dir name="${base.dir}/rapidjson/"/>
+		<dir name="${base.dir}/Helper/tinyxml2.cpp"/>
+		<dir name="${base.dir}/Helper/string_ex.cpp"/>
+		<dir name="${base.dir}/Interface/mdbNosqlQuery.cpp"/>
+	</exclude>
+	<throw_allow>
+		<path name="${base.dir}/Helper"/>
+	</throw_allow>
+</project>
+

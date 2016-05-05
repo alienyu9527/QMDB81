@@ -1,0 +1,236 @@
+###########################
+# Application DIRs & APPs #
+###########################
+MDB_DIR="Helper Common  App Control  Interface Tools Dbflush Replication Agent"
+
+
+#################
+# Default Value #
+#################
+HOME_DIR=`pwd`
+isInstall='N'
+isMake='Y'
+isMakeThirdParty='N'
+DATABASE=ORACLE
+OBJECT_MODE=64
+COMPILE_MODE=DEBUG
+MAKE_LIB=N
+TRACK_FLAG='-D_NOTRACK'
+VERSION_FILE="mdbVersion"
+VERSION_FLAG=0
+VERSION_TIME=""
+###############
+# Parse Param #
+###############
+
+while [ "$1" ]
+do
+    ####################
+    #choose object mode#
+    ####################
+    if [ "$1" = "thirdparty" ]
+    then
+			isMakeThirdParty="Y"
+    fi;
+
+    if [ "$1" = "obj32" ]
+    then
+			OBJECT_MODE="32"
+    fi;
+
+    if [ "$1" = "obj64" ]
+    then
+			OBJECT_MODE="64"
+    fi;
+	
+	####################
+    #choose database   #
+    ####################
+    if [ "$1" = "ORACLE" -o "$1" = "oracle" ]
+    then
+        DATABASE=ORACLE
+    fi;
+	if [ "$1" = "MYSQL" -o "$1" = "mysql" ]
+    then
+        DATABASE=MYSQL
+    fi;
+	if [ "$1" = "NODB" -o "$1" = "nodb" ]
+    then
+        DATABASE=NODB
+    fi;
+	
+    #####################
+    #choose compile mode#
+    #####################
+
+    if [ "$1" = "debug" ]
+    then
+			COMPILE_MODE="DEBUG"
+    fi;
+
+    if [ "$1" = "release" ]
+    then
+			COMPILE_MODE="RELEASE"
+    fi;
+    
+    #####################
+    #make libary only   #
+    #####################
+
+    if [ "$1" = "lib" ]
+    then
+			MAKE_LIB=Y
+    fi;
+        
+    ####################
+    # test and install #
+    ####################
+    if [ "$1" = "install" ]
+    then
+			isInstall='Y'
+			MAKE_LIB=Y
+    fi;
+    
+    if [ $VERSION_FLAG = 1 ]
+    then
+        VERSION_TIME=$1
+        VERSION_FLAG=0
+    fi
+    if [ "$1" = "version" ]
+    then
+       VERSION_FLAG=1
+    fi;
+    if [ "$1" = "help" ]
+    then
+            echo
+            echo "Usage:"
+            echo "$0 [debug/release] [lib] [obj32/obj64] [install] [version \"20151125162600\"]"
+			echo
+            echo "Note: "
+            echo "     obj32 : Compile in 32Bit-Object-Mode"
+            echo "     obj64 : Compile in 64Bit-Object-Mode"
+            echo "     install: Compile , Link and publish "
+            echo "     lib   : Compile only,and publich .a file to $PROJECT_DIR"
+            echo "     version: set release vesion, default is current date and time  "
+            echo "Example: $0 release obj64 install"
+			echo "         Complie in 64 bit optimized ,link and publish "
+            echo 
+            exit 1;
+    fi;
+
+shift
+done;	
+
+case `uname` in
+    AIX)
+        PLATFORM=IBM
+        ;;
+    SunOS)
+		PLATFORM=SUN
+        ;;
+    Linux)
+		PLATFORM=LINUX
+        ;;
+    HP-UX)
+		PLATFORM=HP
+        ;;
+    CYGWIN_NT-5.1)
+		PLATFORM=CYGWIN
+        ;;        
+	*)
+	    ;;
+esac
+
+#######################
+# Install third party #
+#######################
+if [ "$isMakeThirdParty" = "Y" ];then
+	if [ "$PLATFORM" = "LINUX" -o "$PLATFORM" = "IBM" ];then
+		echo "paltform=$PLATFORM"
+		cd thirdparty
+		echo "Start Install Thirdparty"
+
+		sh install.sh $OBJECT_MODE
+		if [ $? -eq 0 ];then
+
+		THRID_PARTY_FLAG='-DHAVE_READLINE'
+		THRID_PARTY_INC='-I$(QuickMDB_HOME)/mdb_thirdparty/include'
+		THRID_PARTY_LIB='-L$(QuickMDB_HOME)/lib -lreadline -lncurses'
+		fi
+		echo "Finish Install Thirdparty"
+		cd ..
+	fi
+fi
+
+
+echo SRCHOME = $HOME_DIR  >./Makefile.incl.platform
+echo PLATFORM = $PLATFORM >>./Makefile.incl.platform
+echo OBJECT_MODE = $OBJECT_MODE   >>./Makefile.incl.platform
+echo COMPILE_MODE = $COMPILE_MODE >>./Makefile.incl.platform
+echo DATABASE = $DATABASE >>./Makefile.incl.platform
+echo THRID_PARTY_FLAG = $THRID_PARTY_FLAG >>./Makefile.incl.platform
+echo THRID_PARTY_INC = $THRID_PARTY_INC >>./Makefile.incl.platform
+echo THRID_PARTY_LIB = $THRID_PARTY_LIB >>./Makefile.incl.platform
+
+if [ ! -d "$QuickMDB_HOME/bin" ]
+     then 
+       echo "making dir $QuickMDB_HOME/bin"
+       mkdir $QuickMDB_HOME/bin
+fi
+if [ ! -d "$QuickMDB_HOME/lib" ]
+   then	
+     echo "making dir $QuickMDB_HOME/lib"
+     mkdir $QuickMDB_HOME/lib
+fi
+
+if [ "$VERSION_TIME" = "" ]
+then
+    VERSION_TIME=`date +%Y%m%d%H%M%S`
+fi
+echo ${VERSION_TIME}>$QuickMDB_HOME/bin/${VERSION_FILE}
+if [ "$isMake" = "Y" ]
+then
+        for mdb_dir in $MDB_DIR
+        do
+                echo "Making $HOME_DIR/$mdb_dir ..."
+                echo " "
+                cd $HOME_DIR
+                cd $mdb_dir
+                if [ "$isInstall" = "Y" ]
+                then 
+                    make install
+                else
+                    make all
+                fi                                
+                echo " "
+        done
+fi
+
+if [ "$isInstall" = "Y" ]
+then
+        for mdb_dir in $MDB_DIR
+        do
+                echo "Making $HOME_DIR/$mdb_dir ..."
+                echo " "
+                cd $HOME_DIR
+                cd $mdb_dir
+                make build             
+                echo " "
+        done
+fi
+
+
+cd $HOME_DIR
+
+if [ "$MAKE_LIB" = "Y" ]
+then
+  if [ ! -d "$QuickMDB_HOME/lib" ]
+   then	
+     echo "making dir $QuickMDB_HOME/lib"
+     mkdir $QuickMDB_HOME/lib
+  fi
+  
+
+fi 
+echo "Use [ $0 help ] for more Compile option!"
+echo "done!"

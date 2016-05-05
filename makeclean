@@ -1,0 +1,32 @@
+HOME_DIR=`pwd`
+
+##################
+# Default value  #
+##################
+isAll='Y'
+
+###############
+# Parse Param #
+###############
+
+
+ALL_DIR="Common App Control Helper Interface Tools Dbflush Replication Agent"
+
+if [ "$isAll" = "Y" ]
+then
+    for cur_dir in $ALL_DIR
+    do
+        echo "Cleaning $HOME_DIR/$cur_dir ..."
+        echo " "
+        cd $HOME_DIR
+        cd $cur_dir
+        make clean
+        echo " "
+    done
+
+fi 
+
+
+cd $HOME_DIR
+	
+

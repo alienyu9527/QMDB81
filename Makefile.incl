@@ -1,0 +1,173 @@
+#SRCHOME = /TT/DailyBuild/work
+#PLATFORM = IBM
+#DATABASE = ORACLE
+#OBJECT_MODE = 32
+#COMPILE_MODE = DEBUG
+PROJECT_DIR = $(QuickMDB_HOME)
+
+include ../Makefile.incl.platform
+#############################
+# Application Dirs and Libs #
+#############################
+APPDIR           = $(SRCHOME)/App
+CONTROLDIR       = $(SRCHOME)/Control
+HELPERDIR        = $(SRCHOME)/Helper
+INTERFACEDIR     = $(SRCHOME)/Interface
+TOOLSDIR         = $(SRCHOME)/Tools
+REPLICATIONDIR   = $(SRCHOME)/Replication
+DBFLUSHDIR   = $(SRCHOME)/Dbflush
+AGENTDIR   = $(SRCHOME)/Agent
+COMMONDIR           = $(SRCHOME)/Common
+#STORAGEDIR         = $(SRCHOME)/Storage
+
+OSDIR            = $(SRCHOME)
+#FRAMEWORK_INC     = -I$(SRCHOME)/../BillingFramework/BillingSDK/include -I$(SRCHOME)/../BillingFramework/BillingNTC/include
+APP_INC = -I$(OSDIR)
+
+APP_LIB = -L$(APPDIR)            -lmdbApp \
+					-L$(CONTROLDIR)        -lmdbControl \
+					-L$(HELPERDIR)         -lmdbHelper \
+					-L$(INTERFACEDIR)      -lmdbInterface \
+					-L$(TOOLSDIR)          -lmdbTools \
+					-L$(REPLICATIONDIR)    -lmdbReplication \
+					-L$(AGENTDIR)          -lmdbAgent \
+					-L$(DBFLUSHDIR)        -lmdbdbflush \
+					-L$(COMMONDIR)         -lmdbCommon
+#					-L$(STORAGEDIR)        -lmdbStorage \
+					
+#FRAMWORK_LIB = -L$(SRCHOME)/../lib -lBillingSDK -lBillingNTC			
+
+##############################
+# 32bit or 64bit object mode #
+##############################
+ORACLE_LIB32=lib32
+ORACLE_LIB64=lib
+
+#########################
+# Debug or Release mode #
+#########################
+COMPILE_DEBUG     = -g
+COMPILE_RELEASE   = -g -O 
+BASEFLAGS_DEBUG   =  -D_DEBUG $(TRACK_FLAG) $(THRID_PARTY_FLAG)
+BASEFLAGS_RELEASE =  $(TRACK_FLAG) $(THRID_PARTY_FLAG)
+
+####################
+# PLATFORM SETTING #
+####################
+
+IBM_COMPILER = GNUC
+SUN_COMPILER = GNUC
+HP_COMPILER  = aCC
+LINUX_COMPILER= GNUC
+CYGWIN_COMPILER= GNUC
+
+IBM_CC	  = xlC
+SUN_CC	  = CC
+HP_CC     = aCC
+LINUX_CC  = g++
+CYGWIN_CC = g++
+
+SUN_AR   = CC -G -KPIC -DSYB_LP$(OBJECT_MODE) -m$(OBJECT_MODE) -DSUN_CC_HAS_PVFC_BUG -D_REENTRANT -w  -DSIZEOF_LONG=8 -misalign -o
+IBM_AR   = xlC -q$(OBJECT_MODE) -G -qmkshrobj  -o
+HP_AR    = aCC -b +DD$(OBJECT_MODE) +u1  -o  
+LINUX_AR = g++ -shared -m$(OBJECT_MODE) -o 
+CYGWIN_AR= ar -rv
+
+IBM_LINKFLAGS   =  -q$(OBJECT_MODE) -brtl
+SUN_LINKFLAGS   = -DSYB_LP$(OBJECT_MODE) -KPIC -m$(OBJECT_MODE) -DSUN_CC_HAS_PVFC_BUG -D_REENTRANT -w  -DSIZEOF_LONG=8 -misalign  
+HP_LINKFLAGS    = +DD$(OBJECT_MODE) -AA -mt -Wl,+as,mpas -Wl,+as,mpas -Wl,-w
+LINUX_LINKFLAGS = -m$(OBJECT_MODE)
+CYGWIN_LINKFLAGS=
+
+IBM_FLAGS   = -q$(OBJECT_MODE) -qstaticinline -bhalt:5 -qformat=all
+SUN_FLAGS   = -DSYB_LP$(OBJECT_MODE) -KPIC -m$(OBJECT_MODE) -DSUN_CC_HAS_PVFC_BUG   -DSIZEOF_LONG=8 -misalign -D_REENTRANT -w -features=extensions -template=no%extdef
+HP_FLAGS    = +Z +DD$(OBJECT_MODE) -AA -mt +u1 -DHP_UNIX -D_64_BIT_ -w -DOS_HP -D_BIG_ENDIAN_ -D_REENTRANT -Wl,+as,mpas -Wl,-w
+LINUX_FLAGS = -fPIC -finline-functions -m$(OBJECT_MODE) -Wall -Wformat=2 -Wconversion -Wsign-conversion
+CYGWIN_FLAGS=
+
+SUN_LIBS   = -ldl -lrt -lsocket -lnsl
+IBM_LIBS   = -lpthread  -lm -lperfstat
+HP_LIBS	   = -lpthread -lrt
+LINUX_LIBS = -ldl -lutil -lrt
+CYGWIN_LIBS=
+
+SUN_TRUESUFFIX   = so 
+IBM_TRUESUFFIX   = so
+HP_TRUESUFFIX	 = sl
+LINUX_TRUESUFFIX = so
+CYGWIN_TRUESUFFIX= dll
+
+####################################
+# 3rd Party Software INCs and LIBs #
+####################################
+SUN_ORACLEINC   = -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public $(ODBC_INCLUDE)
+SUN_ORACLELIBS   = -L$(ORACLE_HOME)/lib -lclntsh $(ODBC_LIB)
+SUN_MYSQLINC    = -I$(MYSQL_HOME)/include -I/usr/include/mysql
+SUN_MYSQLLIBS   = -L$(MYSQL_HOME)/lib -lmysqlclient -lrt -lpthread -ldl -L$(MYSQL_HOME)/lib$(OBJECT_MODE) -lmysqlclient -lrt -lpthread -ldl -L/usr/lib(OBJECT_MODE)/mysql -lmysqlclient -lrt -lpthread  -ldl
+
+#===============================================
+IBM_ORACLEINC   = -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public $(ODBC_INCLUDE)
+IBM_ORACLELIBS   = -L$(ORACLE_HOME)/$(ORACLE_LIB$(OBJECT_MODE)) -lclntsh $(ODBC_LIB)
+IBM_MYSQLINC    = -I$(MYSQL_HOME)/include -I/usr/include/mysql
+IBM_MYSQLIBS    = -L$(MYSQL_HOME)/lib -lmysqlclient -lrt -lpthread -ldl -L$(MYSQL_HOME)/lib$(OBJECT_MODE) -lmysqlclient -lrt -lpthread -ldl -L/usr/lib$(OBJECT_MODE)/mysql -lmysqlclient -lrt -lpthread  -ldl
+
+#===============================================
+HP_ORACLEINC   = -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public
+HP_ORACLELIBS   = -L$(ORACLE_HOME)/$(ORACLE_LIB$(OBJECT_MODE)) -lclntsh
+HP_MYSQLINC    = -I$(MYSQL_HOME)/include -I/usr/include/mysql
+HP_MYSQLLIBS   = -L$(MYSQL_HOME)/lib -lmysqlclient -lrt -lpthread -ldl -L$(MYSQL_HOME)/lib$(OBJECT_MODE) -lmysqlclient -lrt -lpthread -ldl -L/usr/lib$(OBJECT_MODE)/mysql -lmysqlclient -lrt -lpthread  -ldl
+
+#===============================================
+LINUX_ORACLEINC   = -I$(ORACLE_HOME)/rdbms/demo -I$(ORACLE_HOME)/rdbms/public
+LINUX_ORACLELIBS   = -L$(ORACLE_HOME)/$(ORACLE_LIB$(OBJECT_MODE)) -lclntsh
+LINUX_MYSQLINC    = -I$(MYSQL_HOME)/include -I/usr/include/mysql
+LINUX_MYSQLLIBS   = -L$(MYSQL_HOME)/lib -lmysqlclient -lrt -lpthread -ldl -L$(MYSQL_HOME)/lib$(OBJECT_MODE)  -lmysqlclient -lrt -lpthread -ldl -L/usr/lib$(OBJECT_MODE)/mysql -lmysqlclient -lrt -lpthread -ldl
+
+#===============================================
+CYGWIN_ORACLEINC   = -I/usr/include/oracle
+CYGWIN_ORACLELIBS   = -L/lib/oracle -loci
+CYGWIN_MYSQLINC    = -I$(MYSQL_HOME)/include -I/usr/include/mysql
+CYGWIN_MYSQLLIBS   = -L$(MYSQL_HOME)/lib -lmysqlclient -lrt -lpthread -ldl -L$(MYSQL_HOME)/lib$(OBJECT_MODE) -lmysqlclient -lrt -lpthread -ldl -L/usr/lib$(OBJECT_MODE)/mysql -lmysqlclient -lrt -lpthread  -ldl
+
+#===============================================
+
+######################### 
+# Choose Platform param #
+#########################
+CCC	     = $($(PLATFORM)_CC)
+LLDFLAGS = $($(PLATFORM)_LINKFLAGS)
+AR       = $($(PLATFORM)_AR)
+COMPILER = $($(PLATFORM)_COMPILER)
+
+DATABASE_INC  = $($(PLATFORM)_$(DATABASE)INC)
+DATABASE_LIBS = $($(PLATFORM)_$(DATABASE)LIBS)
+TRUESUFFIX    = $($(PLATFORM)_TRUESUFFIX)
+
+LONGSIZE = LONG$(OBJECT_MODE)
+CCFLAGS	 = $(COMPILE_$(COMPILE_MODE)) -D$(COMPILER) -D$(LONGSIZE) -D_$(OBJECT_MODE)_BIT_ -DNO_DEBUG_NEW $(BASEFLAGS_$(COMPILE_MODE)) -DOS_$(PLATFORM) -D_$(PLATFORM) -DOS_UNIX -D_$(DATABASE) -D_THREAD_SAFE_ERRNO $($(PLATFORM)_FLAGS) -DDB_$(DATABASE)
+
+LOCALINC = $(APP_INC) $(DATABASE_INC) $(THRID_PARTY_INC)
+LOCALLIB = $(APP_LIB) $(DATABASE_LIBS) $($(PLATFORM)_LIBS) $(THRID_PARTY_LIB)
+
+####################
+# Complie and Link #
+####################
+.SUFFIXES: .c .cpp .o .exe
+
+.c.o:
+	$(CCC) -c $(CCFLAGS) -c $< -o $*.o $(LOCALINC)
+	
+.cpp.o:
+	$(CCC) -c $(CCFLAGS) -c $< -o $*.o $(LOCALINC)
+
+.o.exe:
+	$(CCC)  $(LLDFLAGS) -o $* $< $(LOCALLIB)
+
+.cpp.exe:
+	$(CCC) -c $(CCFLAGS) -c $< -o $*.o $(LOCALINC)
+	$(CCC)  $(LLDFLAGS) -o $* $*.o  $(LOCALLIB)
+
+.c.exe:
+	$(CCC) -c $(CCFLAGS) -c $< -o $*.o $(LOCALINC)
+	$(CCC)  $(LLDFLAGS) -o $* $*.o  $(LOCALLIB)
+
