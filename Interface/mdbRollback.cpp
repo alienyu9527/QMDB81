@@ -312,12 +312,16 @@
 			}
 			break;
 		case DT_VarChar:
+			{
+				//变长数据获取
+            	sprintf(m_pBuffer+strlen(m_pBuffer), "%c",RB_COL_SPLIT);
+            	m_pVarcharCtrl.GetVarcharValue(&m_pBuffer[strlen(m_pBuffer)], (char*)&pData[pColumn->iOffSet],false);	
+			}
 		case DT_Blob:
 			{
 				//变长数据获取
-
-            sprintf(m_pBuffer+strlen(m_pBuffer), "%c",RB_COL_SPLIT);
-            m_pVarcharCtrl.GetVarcharValue(&m_pBuffer[strlen(m_pBuffer)], (char*)&pData[pColumn->iOffSet]);
+            	sprintf(m_pBuffer+strlen(m_pBuffer), "%c",RB_COL_SPLIT);
+            	m_pVarcharCtrl.GetVarcharValue(&m_pBuffer[strlen(m_pBuffer)], (char*)&pData[pColumn->iOffSet],true);
 			}
 			break;
 		case DT_DateStamp:

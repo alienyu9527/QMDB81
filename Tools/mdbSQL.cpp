@@ -1093,6 +1093,13 @@ int TMdbRichSQL::ShowSelectResult()
             {
                 printf("%-*s", iLen, m_pQuery->Field(i).AsString());
             }
+			else if(MemValueHasAnyProperty(m_pQuery->Field(i).m_pMemValue,MEM_Blob))
+			{
+				unsigned char buffer[8192]={0};
+				int iBlobLen = 0;
+				m_pQuery->Field(i).AsBlobBuffer(buffer,iBlobLen);
+				printf("%-*s", iLen, buffer);
+			}
 
         }
 

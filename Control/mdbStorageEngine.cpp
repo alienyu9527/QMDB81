@@ -4057,11 +4057,20 @@ int TMdbStorageEngine::LoadDataFromRedoLog()
 		                        break;
 		                    }
 		                    case DT_Blob:
+							{
+		                        int iWhichPos = -1;
+		                        unsigned int iRowId = 0;
+		                        CHECK_RET(m_pVarcharCtrl->Insert(pNewColumn->iDefaultValue, iWhichPos, iRowId,'Y',true),"Insert Blob into Varchar Failed,ColoumName=[%s],iVarCharlen[%d]",
+		                            pNewColumn->sName,*(int*)(pNewColumn->iDefaultValue));
+		                        m_pVarcharCtrl->SetStorgePos(iWhichPos, iRowId, &m_pInsertBlock[pNewColumn->iOffSet]);
+		                        break;
+		                    }		
+								
 		                    case DT_VarChar:  //VarChar
 		                    {
 		                        int iWhichPos = -1;
 		                        unsigned int iRowId = 0;
-		                        CHECK_RET(m_pVarcharCtrl->Insert(pNewColumn->iDefaultValue, iWhichPos, iRowId,'Y'),"Insert Varchar Failed,ColoumName=[%s],iVarCharlen[%d]",
+		                        CHECK_RET(m_pVarcharCtrl->Insert(pNewColumn->iDefaultValue, iWhichPos, iRowId,'Y',false),"Insert Varchar Failed,ColoumName=[%s],iVarCharlen[%d]",
 		                            pNewColumn->sName,strlen(pNewColumn->iDefaultValue));
 		                        m_pVarcharCtrl->SetStorgePos(iWhichPos, iRowId, &m_pInsertBlock[pNewColumn->iOffSet]);
 		                        break;

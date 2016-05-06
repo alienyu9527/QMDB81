@@ -370,6 +370,30 @@
         }
         break;
         case DT_Blob:
+		{
+			TADD_DETAIL("Fill Column[%s].",pstMemValue->sValue);
+            do
+            {
+                int iWhichPos = -1;
+                unsigned int iRowId = 0;
+                m_tVarcharCtrl.GetStoragePos(pDataAddr+iOffSet, iWhichPos, iRowId);
+                TMdbTableSpace * pTablespace = m_pShmDsn->GetTableSpaceAddrByName(m_pMdbTable->m_sTableSpace);
+                char cStorage = pTablespace->m_bFileStorage?'Y':'N';
+                if(iWhichPos >= VC_16 && iWhichPos <=VC_8192)
+                {//有数据，更新该位置上的数据			
+                    CHECK_RET(m_tVarcharCtrl.Update(pstMemValue->sValue, iWhichPos, iRowId,cStorage,true),"Update Blob Faild,ColoumName=[%s],iVarCharlen[%d]",pstMemValue->pColumnToSet->sName,*(int*)(pstMemValue->sValue))
+                    //whichpos 和 rowid可能发生改变，因此这里需要重新设置一下
+                    m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, pDataAddr+iOffSet);
+                }
+                else
+                {
+                    CHECK_RET(m_tVarcharCtrl.Insert(pstMemValue->sValue, iWhichPos, iRowId,cStorage,true),"Insert Blob Faild,ColoumName=[%s],iVarCharlen[%d]",pstMemValue->pColumnToSet->sName,*(int*)(pstMemValue->sValue))
+                    m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, pDataAddr+iOffSet);
+                }
+                
+            }while(0);
+            break;
+		}
         case DT_VarChar:
         {
             
@@ -382,9 +406,7 @@
                 TMdbTableSpace * pTablespace = m_pShmDsn->GetTableSpaceAddrByName(m_pMdbTable->m_sTableSpace);
                 char cStorage = pTablespace->m_bFileStorage?'Y':'N';
                 if(iWhichPos >= VC_16 && iWhichPos <=VC_8192)
-                {//有数据，更新该位置上的数据
-                	
-					
+                {//有数据，更新该位置上的数据					
                     CHECK_RET(m_tVarcharCtrl.Update(pstMemValue->sValue, iWhichPos, iRowId,cStorage),"Update Varchar Faild,ColoumName=[%s],iVarCharlen[%d]",pstMemValue->pColumnToSet->sName,strlen(pstMemValue->sValue))
                     //whichpos 和 rowid可能发生改变，因此这里需要重新设置一下
                     m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, pDataAddr+iOffSet);
@@ -452,21 +474,26 @@
             break;
         }
         case DT_VarChar:  //VarChar
-        case DT_Blob:
         {
             if(iValueSize <=0 ){sValue = GetColValueBlockByPos(pColumn->iPos);}
-            //如果地址信息为空，则不处理
-            /*if(sValue[0] == 0) 
-            {
-                TADD_WARNING("varchar address = [%s]",sValue);
-                break;
-            }*/
-            CHECK_RET(m_tVarcharCtrl.GetVarcharValue(sValue,pDataAddr+iOffset),"column[%s],offset[%d] GetVarcharValue failed.",
+
+            CHECK_RET(m_tVarcharCtrl.GetVarcharValue(sValue,pDataAddr+iOffset,false),"column[%s],offset[%d] GetVarcharValue failed.",
                             pColumn->sName,iOffset);
             iResultType = MEM_Str;
             TADD_FLOW("column[%s].value=[%s]",pColumn->sName,sValue);
             break;
         }
+		case DT_Blob:
+		{
+			if(iValueSize <=0 ){sValue = GetColValueBlockByPos(pColumn->iPos);}
+			
+			CHECK_RET(m_tVarcharCtrl.GetVarcharValue(sValue,pDataAddr+iOffset,true),"column[%s],offset[%d] GetVarcharValue failed.",
+							pColumn->sName,iOffset);
+			iResultType = MEM_Blob;
+			TADD_FLOW("column[%s].value=[%s]",pColumn->sName,sValue);
+
+			break;
+		}
         case DT_DateStamp: //时间
         {
             if(iValueSize <= 0)

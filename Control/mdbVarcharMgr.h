@@ -83,12 +83,12 @@ public:
     int InitPage(char* pAddr, int iPageSID, int iPageFID, TMdbVarchar* pVarChar);//初始化申请的页面
     char* GetAddrByPageID(TMdbVarchar* pVarChar,int iPageID);//根据pageid获取page地址
     char* GetAddrByPageID(TMdbVarchar* pVarChar,int iPageID,bool& isNoPage);//根据pageid获取page地址
-    int Insert(char* pValue,int& iWhichPos,unsigned int& iRowId,char cStorage); //插入一条varchar数据
-    int Update(char * pValue,int& iWhichPos,unsigned int& iRowId,char cStorage); //更新一条varchar数据
+    int Insert(char* pValue,int& iWhichPos,unsigned int& iRowId,char cStorage,bool bBlob=false); //插入一条varchar数据
+    int Update(char * pValue,int& iWhichPos,unsigned int& iRowId,char cStorage,bool bBlob=false); //更新一条varchar数据
     int Delete(int& iWhichPos, unsigned int& iRowId); //删除一条varchar数据
     int SetStorgePos(int iWhichPos, unsigned int iRowId,char* pAddr);
     int GetStoragePos(char* pAddr,int & iWhichPos,unsigned int & iRowId);//获取存储pos
-    int  GetVarcharValue(char *pResultValue ,char* const pData);
+    int  GetVarcharValue(char *pResultValue ,char* const pData, bool bBlob = false);
     int CreateOrAddFile();
     int GetFreePage(TMdbPage * & pFreePage);
     int GetValueSize(int iWhichPos);
