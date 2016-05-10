@@ -1038,7 +1038,6 @@
             {
                 case MEM_Int:
                 case MEM_Str:
-				case MEM_Blob:
                     break;
                 case MEM_Null:
                     pMemValue->SetNull();
@@ -1636,12 +1635,14 @@
 		            TADD_FLOW("Column[%d] is NULL",i);
 		            break;
 		        }
-                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(pStructAddr+Column[i], m_pDataAddr+pMdbColumn->iOffSet,true),
+                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(pStructAddr+Column[i], m_pDataAddr+pMdbColumn->iOffSet),
                                ERR_SQL_GET_MEMORY_VALUE_ERROR,"GetVarcharValue ERROR");
                 TADD_FLOW("Column[%d] value=[%s],col_pos=[%d]",i,(char *)(pStructAddr+Column[i]),Column[i]);
-				int iBlobLen =  *(int*)(pStructAddr+Column[i]);
-                memset(pStructAddr+Column[i],0,iBlobLen); //清除原来数据
-                memcpy(pStructAddr+Column[i],pStructAddr+Column[i]+4,iBlobLen);
+                //Base64解码
+                std::string encoded = (pStructAddr+Column[i]);
+                std::string decoded = Base::base64_decode(encoded);
+                memset(pStructAddr+Column[i],0,strlen(pStructAddr+Column[i])); //清除原来数据
+                memcpy(pStructAddr+Column[i],decoded.c_str(),decoded.length());
             }
             break;
             case DT_VarChar:  //VarChar
@@ -1652,7 +1653,7 @@
 		            TADD_FLOW("Column[%d] is NULL",i);
 		            break;
 		        }
-                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(pStructAddr+Column[i], m_pDataAddr+pMdbColumn->iOffSet, false),
+                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(pStructAddr+Column[i], m_pDataAddr+pMdbColumn->iOffSet),
                                ERR_SQL_GET_MEMORY_VALUE_ERROR,"GetVarcharValue ERROR");
                 TADD_FLOW("Column[%d] value=[%s],col_pos=[%d]",i,(char *)(pStructAddr+Column[i]),Column[i]);
                 break;

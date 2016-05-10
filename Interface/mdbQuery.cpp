@@ -502,13 +502,20 @@ void TMdbField::AsBlobBuffer(unsigned char *buffer, int &iBufferLen) throw (TMdb
     {
         ERROR_TO_THROW_NOSQL(ERR_TAB_COLUMN_VALUE_INVALID,"Column=[%s] is NULL",m_pMemValue->sAlias);
     }
-
-    //blob
-    if(MemValueHasProperty(m_pMemValue,MEM_Blob))
+    /*
+    if(m_pMemValue->IsNull())
     {
-    	iBufferLen = *(int*)(m_pMemValue->sValue);
-    	//开头有个头标识长度，需要跳过去
-        memcpy(buffer,m_pMemValue->sValue+sizeof(int),iBufferLen);
+        buffer[0] = 0;
+        return;
+    }*/
+    //blob
+    if(MemValueHasProperty(m_pMemValue,MEM_Str))
+    {
+        //Base64解码
+        std::string encoded = m_pMemValue->sValue;
+        std::string decoded = Base::base64_decode(encoded);
+        iBufferLen = decoded.length();
+        memcpy(buffer,decoded.c_str(),decoded.length());
     }
     else
     {
@@ -2175,22 +2182,23 @@ void TMdbQuery::SetParameter(int iParamIndex,const char* sParamValue,int iBuffer
     ST_MEM_VALUE * pMemValue = GetParamByIndex(iParamIndex);
     if(NULL != pMemValue)
     {
-        int iBlobLen = iBufferLen;
-        if(iBlobLen + sizeof(int) >= pMemValue->iSize)
+        //find
+        std::string encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(sParamValue),iBufferLen);
+
+        if((int)encoded.length() >= pMemValue->iSize)
         {
             ERROR_TO_THROW(ERR_SQL_PARAM_INDEX_INVALID,m_pszSQL,
                 "File=[%s], Line=[%d], SetParameter() failed, ParamIndex(%d) type size(%d) > memsize(%d).",
-                __FILE__, __LINE__, iParamIndex,iBlobLen ,pMemValue->iSize);
+                __FILE__, __LINE__, iParamIndex,encoded.length(),pMemValue->iSize);
         }
         else
         {
             pMemValue->ClearValue();
-			//拷贝头部
-			memcpy(pMemValue->sValue, &iBlobLen, sizeof(int));
-			//拷贝内容
-            memcpy(pMemValue->sValue + sizeof(int), sParamValue, iBlobLen);
+            SAFESTRCPY(pMemValue->sValue,pMemValue->iSize,encoded.c_str());
         }
-
+        //pMemValue->sValue = QMDB_MALLOC->CopyFromStr(encoded.c_str());
+        //pMemValue->iFlags|= (MEM_Str);
+        //pMemValue->iSize  = encoded.length();
     }
     else
     {

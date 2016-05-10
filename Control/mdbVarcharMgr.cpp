@@ -457,13 +457,12 @@ char* TMdbVarCharCtrl::GetAddrByPageID(TMdbVarchar* pVarChar,int iPageID,bool& i
 * 返回值	: 
 * 作者		:  dong.chun
 *******************************************************************************/
-int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,char cStorage,bool bBlob)
+int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,char cStorage)
 {
     TADD_FUNC(" Start.");
     int iRet = 0;
     iWhichPos = -1;
-	int iLen = bBlob ? (4+*(int*)pValue) : strlen(pValue);
-    CHECK_RET(VarCharWhichStore(iLen,iWhichPos),"Get VarCharWhichStore[%d] Faild",iWhichPos);
+    CHECK_RET(VarCharWhichStore(strlen(pValue),iWhichPos),"Get VarCharWhichStore[%d] Faild",iWhichPos);
     TMdbRowID rowID;
     while(true)
     {
@@ -525,12 +524,12 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	* 返回值	: 
 	* 作者		:  dong.chun
 	*******************************************************************************/
-	int TMdbVarCharCtrl::Update(char * pValue,int& iWhichPos, unsigned int& iRowId,char cStorage, bool bBlob)
+	int TMdbVarCharCtrl::Update(char * pValue,int& iWhichPos, unsigned int& iRowId,char cStorage)
 	{
 	    TADD_FUNC(" Start.");
 	    int iRet = 0;
-	    unsigned int iOldRowId = iRowId;	   
-	    int iLen = bBlob ? (4+*(int*)pValue) : strlen(pValue);	   
+	    unsigned int iOldRowId = iRowId;
+	    int iLen = strlen(pValue);
 	    int iNewWhichPos = -1;
 	    int iOldWhichPos = iWhichPos;
 	    CHECK_RET(VarCharWhichStore(iLen,iNewWhichPos),"Get VarCharWhichStore[%d] Faild",iNewWhichPos);
@@ -555,7 +554,7 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    else
 	    {
 	        //插入新数据
-	        CHECK_RET(Insert(pValue,iWhichPos,iRowId,cStorage,bBlob),"Insert[%d] Faild",iWhichPos);
+	        CHECK_RET(Insert(pValue,iWhichPos,iRowId,cStorage),"Insert[%d] Faild",iWhichPos);
 	        CHECK_RET(Delete(iOldWhichPos,iOldRowId),"Delete[%d] Faild",iOldWhichPos);
 	    }    
 	    TADD_FUNC("Finish.");
@@ -621,7 +620,7 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    return 0;
 	}
 
-	int TMdbVarCharCtrl::GetVarcharValue(char * pResultValue, char * const pData, bool bBlob)
+	int TMdbVarCharCtrl::GetVarcharValue(char * pResultValue, char * const pData)
 	{
 	    TADD_FUNC("Start.");
 	    int iRet = 0;
@@ -641,16 +640,10 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    tRowId.SetRowId(iRowId);
 	    char* pAddr = GetAddressRowId(&tRowId);
 	    CHECK_OBJ(pAddr);
-		if(bBlob)
-		{
-			memcpy(pResultValue,pAddr,4+*(int*)pAddr);
-		}
-		else
-		{		
-	    	int iSize = GetValueSize(iWhichPos);
-	    	SAFESTRCPY(pResultValue, iSize, pAddr);
-		}
-
+	    int iSize = GetValueSize(iWhichPos);
+	    SAFESTRCPY(pResultValue, iSize, pAddr);
+	    //memcpy(pResultValue,pAddr,iSize);
+	    //pResultValue[iSize] = 0;
 	    TADD_FUNC("TMdbVarcharMgr::GetVarcharValue() ： Finish(0).");
 	    return iRet;
 	}

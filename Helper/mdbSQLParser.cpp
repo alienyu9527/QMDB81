@@ -626,11 +626,6 @@ void TMdbSqlParser::CollectOutputValue()
                 m_tError.FillErrMsg(ERR_SQL_INVALID,"sName and sSpan is NULL");
                 continue;
             }
-			if(pMemValue->pColumn->iDataType == DT_Blob)
-			{
-				MemValueClearProperty(pMemValue,MEM_Str);
-				MemValueSetProperty(pMemValue,MEM_Blob);
-			}
             m_listOutputCollist.vMemValue.push_back(pMemValue);
         }
     }
@@ -1411,17 +1406,19 @@ int TMdbSqlParser::SpanInsertCollumnList(ST_ID_LIST * pExistList)
                 }
                 else
                 {
+                    std::string encoded;
                     const char * sDefault = pColumn->iDefaultValue;
                     if(DT_Blob == pColumn->iDataType)
-                    {//blob型需要转化                   
-						int iBlobLen = strlen(sDefault);
-		                memcpy(pMemValue->sValue,&iBlobLen,sizeof(int));
-		                memcpy(pMemValue->sValue+4,sDefault,iBlobLen);
+                    {//blob型需要转化
+                        encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pColumn->iDefaultValue),strlen(pColumn->iDefaultValue));
+                        sDefault = encoded.c_str();
                     }
-					else
-					{
-                    	SAFESTRCPY(pMemValue->sValue,pMemValue->iSize,sDefault);
-					}
+                    if((int)strlen(sDefault) >= pMemValue->iSize)
+                    {
+                        CHECK_RET(ERR_SQL_INVALID,"Column[%s] is blob,after encode=[%s],len[%d] >= column-size[%d]",
+                            pColumn->sName,sDefault,strlen(sDefault),pMemValue->iSize);
+                    }
+                    SAFESTRCPY(pMemValue->sValue,pMemValue->iSize,sDefault);
                 }
             }  
             m_listOutputCollist.vMemValue.push_back(pMemValue);
@@ -5099,20 +5096,12 @@ int TMdbSqlParser::TranslateBlobColumnValue(ST_EXPR * pExpr,TMdbColumn * pColumn
         {
         case TK_STRING:
             {
-                //以静态sql的方式插入的blob，一定是字符串的形式
-               	int iBlobLen = strlen(pExpr->pExprValue->sValue);
-				char*  sTemp = new char[iBlobLen + 4];
-				memcpy(sTemp, &iBlobLen, 4);
-				memcpy(sTemp + 4, pExpr->pExprValue->sValue, iBlobLen);
-				
+                //转换
+                std::string encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pExpr->pExprValue->sValue),strlen(pExpr->pExprValue->sValue));
                 QMDB_MALLOC->ReleaseStr(pExpr->pExprValue->sValue);
-				
-                pExpr->pExprValue->sValue = new  char[iBlobLen + 4];
-                pExpr->pExprValue->iSize  = iBlobLen + 4;
-                MemValueSetProperty(pExpr->pExprValue,MEM_Blob|MEM_Dyn);
-				memcpy(pExpr->pExprValue->sValue,sTemp,iBlobLen + 4);
-				
-                QMDB_MALLOC->ReleaseStr(sTemp);
+                pExpr->pExprValue->sValue = QMDB_MALLOC->CopyFromStr(encoded.c_str());
+                pExpr->pExprValue->iSize  = strlen(pExpr->pExprValue->sValue) +1;
+                MemValueSetProperty(pExpr->pExprValue,MEM_Str|MEM_Dyn);
             }
             break;
         case TK_ID: //列和绑定变量无需转换         

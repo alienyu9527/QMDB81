@@ -120,7 +120,7 @@ void* TestInsert(void* p)
     	gettimeofday(&tTV, NULL);
     	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
     	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
-		char blob[8] = {'y','l','x',0,0,'l','a',0};
+		//char blob[8] = {'y','l','x',0,0,'l','a',0};
         for(int i=0;i<CYCLE_NUM;i++)
     	{
     		char sSession_ID[128] = {0};
@@ -130,7 +130,7 @@ void* TestInsert(void* p)
 	 		pQuery->SetParameter(0,sSession_ID);
 			pQuery->SetParameter(1,i);
 	        pQuery->SetParameter(2,"20160222125959");
-	        pQuery->SetParameter(3,blob,8);
+	        pQuery->SetParameter(3,"ylx");
 
 			
 	 		pQuery->Execute();
