@@ -891,9 +891,6 @@ public:
 
 
 	//Trie Ê÷RootË÷Òý¶Î
-	SHAMEM_T iTrieRootMgrShmId; 
-    int iTrieRootMgrShmKey;
-
     int iTrieRootIdxShmCnt;  
     SHAMEM_T iTrieRootIdxShmID[MAX_BRIE_SHMID_COUNT]; 
     int iTrieRootIdxShmKey[MAX_BRIE_SHMID_COUNT]; 

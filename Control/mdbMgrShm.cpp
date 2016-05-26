@@ -759,20 +759,17 @@
         m_pTMdbDSN->iTrieConfMgrShmId = INITVAl;
         m_pTMdbDSN->iTrieConfMgrShmKey = m_iMgrKey+11;
 
-		m_pTMdbDSN->iTrieRootMgrShmId = INITVAl;
-        m_pTMdbDSN->iTrieRootMgrShmKey = m_iMgrKey+12;
 
         for(i = 0; i < MAX_BRIE_SHMID_COUNT; ++i)
         {
+            m_pTMdbDSN->iTrieRootIdxShmKey[i] = m_iMgrKey + 37*i + 12;
+            m_pTMdbDSN->iTrieRootIdxShmID[i] = INITVAl;
+			
             m_pTMdbDSN->iTrieBranchIdxShmKey[i] = m_iMgrKey + 37*i + 13;
             m_pTMdbDSN->iTrieBranchIdxShmID[i] = INITVAl;
 
             m_pTMdbDSN->iTrieConfIdxShmKey[i] = m_iMgrKey + 37*i + 14;
-            m_pTMdbDSN->iTrieConfIdxShmID[i] = INITVAl;
-			
-            m_pTMdbDSN->iTrieRootIdxShmKey[i] = m_iMgrKey + 37*i + 14;
-            m_pTMdbDSN->iTrieRootIdxShmID[i] = INITVAl;
-			
+            m_pTMdbDSN->iTrieConfIdxShmID[i] = INITVAl;		
         }
 
 		/***********************for trie end*************************/

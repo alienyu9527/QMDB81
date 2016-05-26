@@ -940,8 +940,9 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
 				"GetOneColumnValue failed.");
 
 			SAFESTRCPY(sTrieWord, MAX_TRIE_WORD_LEN, sValue);
-            
+            return iRet;
 		}
+		CHECK_RET(-1,"Trie Index Only Support Char/VarChar.");
 		return iRet;
     }
 

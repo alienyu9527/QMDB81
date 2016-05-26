@@ -505,7 +505,6 @@
         return iRet;
     }
 
-	// not support conflict yet
     int TMdbTrieIndexCtrl::InsertIndexNode(char* sTrieWord,ST_TRIE_INDEX_INFO& tTrieIndex, TMdbRowID& rowID)
     {
         TADD_FUNC("Start.");
