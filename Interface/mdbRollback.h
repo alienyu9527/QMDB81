@@ -118,7 +118,5 @@
 		//TMdbSplit * m_pRBValueSplit;//回滚数据分隔器
 	};
 //}
-
-
 #endif //__QUICK_MEMORY_DATABASE_ROLLBACK_H__
 

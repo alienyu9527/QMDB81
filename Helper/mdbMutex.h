@@ -21,7 +21,7 @@
     {
     	MUTEX_TYPE_PAGE  = 1, //ฦีอจาณห๘
     	MUTEX_TYPE_VARCHAR_PAGE = 2, //varcharาณห๘
-    	MUTEX_TYPE_INDEX = 3 //ห๗าýห๘
+    	MUTEX_TYPE_ROW = 3 //ะะห๘
     };
 
     class TMdbMutex

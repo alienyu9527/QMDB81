@@ -41,7 +41,8 @@ int TMdbLinkCtrl::Attach(const char * sDsn)
     m_pShmDsn = TMdbShmMgr::GetShmDSN(sDsn);
     CHECK_OBJ(m_pShmDsn);
     m_pDsn = m_pShmDsn->GetInfo();
-    CHECK_OBJ(m_pDsn);
+    CHECK_OBJ(m_pDsn);	
+	m_tMgrShmAlloc.AttachByKey(m_pShmDsn->GetMgrKey(),m_pMgrAddr);	
     return iRet;
 }
 /******************************************************************************
@@ -66,6 +67,13 @@ int TMdbLinkCtrl::RegLocalLink(TMdbLocalLink *& pLocalLink)
         pLocalLink->iTID = TMdbOS::GetTID();
         pLocalLink->cState = Link_use;
         pLocalLink->iLogLevel = m_pDsn->iLogLevel;//日志级别暂时没用
+        
+        //链接回滚链表到共享内存
+        int iRet = pLocalLink->m_RBList.Attach(m_tMgrShmAlloc,pLocalLink->iRBAddrOffset);
+		CHECK_RET(iRet,"Attach RBList of LoaclLink Failed.");
+		//申请事务ID
+        pLocalLink->iSessionID = m_pDsn->GetSessionID();
+		
         SAFESTRCPY(pLocalLink->sStartTime,MAX_TIME_LEN,m_pShmDsn->GetInfo()->sCurTime);
         SAFESTRCPY(pLocalLink->sFreshTime,MAX_TIME_LEN,m_pShmDsn->GetInfo()->sCurTime);
     }while(0);
@@ -220,6 +228,7 @@ int TMdbLinkCtrl::ClearInvalidLink()
         {        
             TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itor->iPID,itor->iTID); 
             itor->Clear();
+			itor->RollBack();
         }
     }
     TShmList<TMdbRepLink>::iterator itorRep  = m_pShmDsn->m_RepLinkList.begin();

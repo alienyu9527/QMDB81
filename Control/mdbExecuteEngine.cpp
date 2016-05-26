@@ -88,7 +88,7 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbExecuteEngine::Init(TMdbSqlParser * pMdbSqlParser,MDB_INT32 iFlag)
+    int TMdbExecuteEngine::Init(TMdbSqlParser * pMdbSqlParser,MDB_INT32 iFlag, TMdbLocalLink* pLocalLink)
     {
         TADD_FUNC("Start.iFlag=[%d].",iFlag);
         int iRet = 0;
@@ -97,6 +97,8 @@
         SAFE_DELETE_ARRAY(m_aRowIndexPos);//清理
         CHECK_OBJ_FILL(pMdbSqlParser);
         m_pMdbSqlParser = pMdbSqlParser;
+		CHECK_OBJ_FILL(pLocalLink);
+		m_pLocalLink = pLocalLink;
         ClearLastExecute();
         m_pTable = m_pMdbSqlParser->m_stSqlStruct.pMdbTable;
         TADD_DETAIL("Execute Table=[%s].",m_pTable->sTableName);
@@ -1425,7 +1427,14 @@
         {
             //只有在事务中的时候，才需要采集回滚数据
             iRet = m_pRollback->PushData(m_iRBUnitPos,pDataAddr,m_iRowsAffected,pExtraDataAddr,&m_tRowCtrl);
-        }
+
+			//test
+			TRBRowUnit tRBRowUnit;
+			m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit);
+				
+
+		}
+		
         return iRet;
     }
 

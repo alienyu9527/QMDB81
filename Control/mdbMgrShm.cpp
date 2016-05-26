@@ -715,6 +715,16 @@
 			pMutex->Create();
 			pMutex++;
 		}
+
+		m_tMgrShmAlloc.Allocate(MAX_ROW_MUTEX_COUNTS * sizeof(TMutex) + INTERVAL_SIZE, m_pTMdbDSN->iRowMutexAddr);
+		pMutex = (TMutex*) GetRowMutexAddr();
+		CHECK_OBJ(pMutex);
+		for( i=0; i<MAX_ROW_MUTEX_COUNTS; i++)
+		{
+			pMutex->Create();
+			pMutex++;
+		}
+		
 		        
         //设置各个共享块的key
         for(i=0; i<MAX_SHM_ID; ++i)
@@ -783,7 +793,10 @@
         tSA.m_iShmID = INITVAl;
         tSA.m_iShmKey = m_iMgrKey + 9;
         
-        m_pTMdbDSN->tMutex.Create();            //管理区共享锁
+        m_pTMdbDSN->tMutex.Create();            //管理区共享锁        
+        m_pTMdbDSN->m_SessionMutex.Create();            //事务ID共享锁
+        
+        
         //list 首次attach
         CHECK_RET(m_TableList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iUserTableAddr),"tTableList Attach failed.");
         CHECK_RET(m_TSList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iTableSpaceAddr),"m_TSList Attach failed.");
@@ -1442,6 +1455,28 @@
 		else
 		{
 			return GetAddrByOffset(m_pTMdbDSN->iVarcharPageMutexAddr);
+		}
+	}
+
+
+	/******************************************************************************
+	* 函数名称	:  GetRowMutexAddr
+	* 函数描述	: 获取行锁地址
+	* 输入		:  
+	* 输入		:  
+	* 输出		:  
+	* 返回值	:  NULL - 失败 !NULL -成功
+	* 作者		:  yu.lianxiang
+	*******************************************************************************/
+	char * TMdbShmDSN::GetRowMutexAddr()
+	{
+		if(NULL == m_pTMdbDSN)
+		{
+			return NULL;
+		}
+		else
+		{
+			return GetAddrByOffset(m_pTMdbDSN->iRowMutexAddr);
 		}
 	}
 

@@ -99,6 +99,7 @@
         CHECK_OBJ(m_pShmDsn);
         m_pMdbTable = m_pShmDsn->GetTableByName(sTableName);
         CHECK_OBJ(m_pMdbTable);
+		SetDSN(sDsn,MUTEX_TYPE_ROW);
         CHECK_RET(m_tVarcharCtrl.Init(sDsn),"varchar Init faild.");
         //计算null flag
         SAFE_DELETE_ARRAY(m_arrColNullFlag);
@@ -125,6 +126,9 @@
         CHECK_OBJ(m_pShmDsn);
         CHECK_OBJ(pTable);
         m_pMdbTable = pTable;
+
+		SetDSN(sDsn,MUTEX_TYPE_ROW);
+		
         CHECK_RET(m_tVarcharCtrl.Init(sDsn),"varchar Init faild.");
         //计算null flag
         SAFE_DELETE_ARRAY(m_arrColNullFlag);
@@ -143,6 +147,22 @@
         ClearColValueBlock();
         return iRet;
     }
+
+
+	int TMdbRowCtrl::SetDSN(const char* pszDSN, E_MUTEX_TYPE eMutexType)
+    {
+        return m_tMutex.Init(pszDSN, m_pDSN, eMutexType);
+    }
+
+	void TMdbRowCtrl::Lock(int iRowID)
+	{
+		 m_tMutex.Lock(iRowID);
+	}
+	void  TMdbRowCtrl::UnLock(int iRowID)
+	{
+		 m_tMutex.UnLock(iRowID);
+	}	
+	
     /******************************************************************************
     * 函数名称	:  ClearColValueBlock
     * 函数描述	:  清理临时区

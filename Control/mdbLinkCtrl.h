@@ -35,8 +35,9 @@ public:
 	int ClearAllLink();//清除所有链接
 private:
 	TMdbShmDSN * m_pShmDsn;//管理区
-	TMdbDSN       *  m_pDsn;//dsn信息
-	
+	TMdbDSN       *  m_pDsn;//dsn信息	
+	TShmAlloc m_tMgrShmAlloc;//共享内存分配器
+	char* m_pMgrAddr;
 };
 
 

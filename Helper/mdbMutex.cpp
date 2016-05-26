@@ -38,16 +38,17 @@
     		switch(eMutexType)
     		{
     			case MUTEX_TYPE_PAGE://Ò³Ëø
-    				m_pMutex = (TMutex*)  pShmDSN->GetPageMutexAddr();//(pAddr+pDSN->iPageMutexAddr);
+    				m_pMutex = (TMutex*)  pShmDSN->GetPageMutexAddr();
 					iMutexCount = MAX_MUTEX_COUNTS;
 					break;
 				case MUTEX_TYPE_VARCHAR_PAGE://VARCHARÒ³Ëø
 					m_pMutex = (TMutex*) pShmDSN->GetVarcharPageMutexAddr();
 					iMutexCount = MAX_VARCHAR_MUTEX_COUNTS;
 					break;
-    			case MUTEX_TYPE_INDEX://Ë÷ÒýËø
-    				//m_pMutex = (TMutex*)(pAddr+pDSN->iIndexMutexAddr);
-    				//break;
+    			case MUTEX_TYPE_ROW://ÐÐËø
+    				m_pMutex = (TMutex*)pShmDSN->GetRowMutexAddr();
+					iMutexCount = MAX_ROW_MUTEX_COUNTS;
+    				break;
     			default:
     				return -1;
     				break;

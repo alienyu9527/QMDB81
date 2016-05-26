@@ -105,6 +105,8 @@
         char* GetDataShmAddr(SHAMEM_T iShmID);
         char* GetVarcharShmAddr(SHAMEM_T iShmID);
         int   AttachvarCharBlockShm(int iPos, char **pAddr);
+		long long GetMgrKey(){return m_iMgrKey;}
+		
     public:
         TMdbTable * GetTableByName(const char * pTableName);//根据表名获取表
         //TMdbTable * GetTableById(int iTableId);//根据表id获取表
@@ -115,8 +117,12 @@
         TObservePoint * GetObPiontByName(const char * sName);
         TMdbProc * GetProcByPid(int iPid);//根据进程ID，获取进程信息
         char * GetVarcharMgrAddr();//获取varchar 管理区
+
+		//锁地址
         char * GetPageMutexAddr();//获取页锁地址
         char * GetVarcharPageMutexAddr();//获取varchar页锁地址
+		char * GetRowMutexAddr();//获取行锁地址
+		
         TMemSeq * GetMemSeqByName(const char * sSeqName);//根据seqname获取
         TMdbProc * GetProcByName(const char * sName);//根据名字获取进程
         size_t GetUsedSize(){return m_tMgrShmAlloc.m_pShmHead->m_iFreeOffSet;};//获取空闲大小

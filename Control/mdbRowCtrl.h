@@ -36,6 +36,7 @@
         ~TMdbRowCtrl();
         int Init(const char * sDsn,const char * sTableName);//初始化
         int Init(const char* sDsn,TMdbTable* pTable);
+		int SetDSN(const char* pszDSN, E_MUTEX_TYPE eMutexType);
         int SetColumnNull(TMdbColumn * const & pColumn,char* const & pDataAddr);//设置null数据
         int ClearColumnNULL(TMdbColumn * const & pColumn,char* const & pDataAddr);//清理Null数据
         bool IsColumnNull(TMdbColumn * const & pColumn,const char*  pDataAddr);//是否是null数据
@@ -44,16 +45,19 @@
                                                                        char * & sValue,int iValueSize,int & iResultType);//获取某列值
         int SetTimeStamp(char* const & pDataAddr, int iOffSet,long long iTimeStamp);              
         int GetTimeStamp(char* pDataAddr, int iOffSet,long long & iTimeStamp);
+		void Lock(int iRowID);
+		void UnLock(int iRowID);
     private:
         int ClearColValueBlock();   //清理临时区
         char * GetColValueBlockByPos(int iPos);//根据column -pos 获取记录临时区
     private:
         TMdbTable * m_pMdbTable;
         TMdbShmDSN * m_pShmDsn;
-        //TMdbVarcharMgr m_tVarcharMgr;
 		TMdbVarCharCtrl m_tVarcharCtrl;
         char *  m_pArrColValueBlock[MAX_COLUMN_COUNTS];//临时记录区
         TMdbColumnNullFlag * m_arrColNullFlag;//列的null标识
+        TMdbMutex m_tMutex;
+        TMdbDSN* m_pDSN;
     };
 //}
 #endif

@@ -914,7 +914,7 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
                        "Link-Access is [%d],trying to operate system table[%s].",
                        m_pMdb->m_pConfig->GetAccess(),m_pMdbSqlParser->m_stSqlStruct.pMdbTable->sTableName);
     }
-    CHECK_RET_THROW(m_pExecuteEngine->Init(m_pMdbSqlParser,m_iQueryFlag),m_pExecuteEngine->m_tError.GetErrCode(),
+    CHECK_RET_THROW(m_pExecuteEngine->Init(m_pMdbSqlParser,m_iQueryFlag,m_pMdb->m_pLocalLink),m_pExecuteEngine->m_tError.GetErrCode(),
                     m_pszSQL,"[%s].",m_pExecuteEngine->m_tError.GetErrMsg());
     if(IsCanRollback())
     {
@@ -2576,7 +2576,9 @@ bool TMdbDatabase::Connect(bool bIsAutoCommit) throw (TMdbException)
     }
     CHECK_RET_THROW_NOSQL(m_pLinkCtrl->Attach(m_sDSN),ERR_OS_ATTACH_SHM," Attach [%s] failed.",m_sDSN);
     CHECK_RET_THROW_NOSQL(m_pLinkCtrl->RegLocalLink(m_pLocalLink),ERR_DB_EXCEED_MAX_LOCAL_CONNECTION,"Register link failed.");//向共享内存注册链接信息
-    
+
+	m_iSessionID = m_pLocalLink->iSessionID;
+	
     m_bConnectFlag = true;
     if(m_pRollback == NULL)
     {
@@ -2728,6 +2730,9 @@ void TMdbDatabase::Commit()
         m_iTransactionState = TRANS_COMMIT;
         m_pRollback->Commit();
     }
+
+	m_pLocalLink->Commit();
+	
     m_iTransactionState = TRANS_IN;
     return;
 }
@@ -2761,11 +2766,13 @@ void TMdbDatabase::Rollback()
         m_iTransactionState = TRANS_ROLLBACK;
         m_pRollback->RollbackAll();
        // m_pRollback->Rollback(false);
-    }
+    }	
+	
+	m_pLocalLink->RollBack();
+	
     m_iTransactionState = TRANS_IN;
     return;
 }
-
 /******************************************************************************
 * 函数名称	:  IsNullConnect
 * 函数描述	:  是否为空连接

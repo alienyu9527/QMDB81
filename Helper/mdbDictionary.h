@@ -16,6 +16,7 @@
 #include "Helper/mdbHashAlgo.h"
 #include <vector>
 #include "Helper/mdbJson.h"
+#include "Helper/mdbShmSTL.h"
 
 //namespace QuickMDB{
 
@@ -97,6 +98,7 @@
                  return (this->m_iRowID == t1.m_iRowID);
              }  
 			unsigned int m_iRowID;
+			int iSessionID;
         private:
             
            // int iPageID;  //所属页号
@@ -609,6 +611,29 @@ public:
     int Serialize(MDB_JSON_WRITER_DEF & writer);//序列化
 };
 
+//回滚单元
+class TRBRowUnit 
+{	
+	public:
+		TRBRowUnit(){}
+		~TRBRowUnit(){}
+		int Commit(){return 0;}
+		int RollBack(){return 0;}
+	public:
+		char	SQLType;		//Insert or  delete or update
+	 	int 	iRealRowID;		//代表共享内存中原始数据记录位置
+	 	int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
+
+	private:
+		int CommitInsert(){return 0;}
+		int CommitUpdate(){return 0;}
+		int CommitDelete(){return 0;}
+		int RollBackInsert(){return 0;}
+		int RollBackUpdate(){return 0;}
+		int RollBackDelete(){return 0;}
+};
+
+
 
 //数据库本地链接信息
 class TMdbLocalLink
@@ -619,6 +644,10 @@ public:
     void Show(bool bIfMore=false);
     bool IsValid(){return (iPID > 0 && 0 != sStartTime[0]);};//是否是合法的
     bool IsCurrentThreadLink();//是否是当前线程的链接
+    void Commit();
+	void RollBack();
+	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
+	
 public:
     int iPID;         //进程的PID
     unsigned long int iTID;         //进程的Thread-ID
@@ -642,9 +671,11 @@ public:
     int  iDeleteCounts; //删除次数
     int  iDeleteFailCounts; //删除次数
 
-    //char sCurrentSQL[1024];  //当前链接上执行的sql
-    //char aOper ;
     char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
+	
+    int iSessionID; //事务id
+    TShmList<TRBRowUnit>  m_RBList; //回滚链表
+	size_t  iRBAddrOffset;
 };
 
 //数据库远程链接信息
@@ -948,6 +979,7 @@ public:
 public:
     size_t iPageMutexAddr;       //页锁管理区偏移量
     size_t iVarcharPageMutexAddr;//varchar页锁管理区偏移量
+    size_t iRowMutexAddr;//行管理区偏移量
     int m_iTimeDifferent;//时差
     int m_iOraRepCounts;        //oracle备份进程数
 private:
@@ -971,7 +1003,14 @@ private:
     
     long long m_iLSN;// 日志序列号,每个操作【增删改】递增
     
-    
+private:
+	TMutex m_SessionMutex;
+	int m_iSessionID;
+	
+public:
+	int GetSessionID();
+		
+
 };
 
 

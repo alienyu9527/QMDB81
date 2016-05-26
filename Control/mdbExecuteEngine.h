@@ -31,7 +31,7 @@
     public:
         TMdbExecuteEngine();
         ~TMdbExecuteEngine();
-        int Init(TMdbSqlParser * pMdbSqlParser,MDB_INT32 iFlag);//初始化工作
+        int Init(TMdbSqlParser * pMdbSqlParser, MDB_INT32 iFlag, TMdbLocalLink* pLocalLink);//初始化工作
         int Execute();//执行
         int Next(bool & bResult);//获取下一条
         int FillCollist();//填充列值
@@ -123,6 +123,7 @@
         TMdbRowCtrl m_tRowCtrl;//记录控制
         int* m_aRowIndexPos; 
         TMdbCacheTable m_tCacheTable;//缓存表
+        TMdbLocalLink* m_pLocalLink;
     public:
         TMdbErrorHelper m_tError;
     };

@@ -896,6 +896,8 @@
         
         
         memset(sProcessName,0,sizeof(sProcessName));
+
+		iRBAddrOffset = 0;
     }    
     //是否是当前线程的链接
     bool TMdbLocalLink::IsCurrentThreadLink()
@@ -950,7 +952,65 @@
         TADD_NORMAL("    iDeleteFailCounts    = %d.", iDeleteFailCounts);
         TADD_NORMAL("==============Local-Link=================");
     }
+	
 
+
+	void TMdbLocalLink::Commit()
+	{
+		if(m_RBList.empty()) return;
+		
+		TADD_NORMAL("TMdbLocalLink::Commit\n");
+			
+		//正向遍历
+		TShmList<TRBRowUnit>::iterator itor = m_RBList.begin();
+        for(;itor != m_RBList.end();++itor)
+        {
+			if(itor->Commit()!=0)break;
+        }
+
+		//不管执行情况如何，最终清空回滚
+		m_RBList.clear();
+	}
+	void  TMdbLocalLink::RollBack()
+	{
+		if(m_RBList.empty()) return;
+	
+		TADD_NORMAL("TMdbLocalLink::RollBack\n");
+		
+		//反向遍历
+		TShmList<TRBRowUnit>::iterator itor = m_RBList.end();
+		while(1)
+		{
+			--itor;			
+			if(itor->RollBack()!=0)break;			
+			if(itor == m_RBList.begin())
+			{
+				break;
+			}
+		}
+		
+		//不管执行情况如何，最终清空回滚
+		m_RBList.clear();
+	}
+
+	int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)
+	{
+		int iRet = 0;
+		TADD_NORMAL("TMdbLocalLink::AddNewRBRowUnit\n");
+		TShmList<TRBRowUnit>::iterator itorNew =  m_RBList.insert(m_RBList.end());
+        if(itorNew != m_RBList.end())
+        {//分配成功
+            TRBRowUnit* pNewRBRowUnit = &(*itorNew);
+            pNewRBRowUnit->SQLType = pRBRowUnit->SQLType;
+            pNewRBRowUnit->iRealRowID = pRBRowUnit->iRealRowID;
+            pNewRBRowUnit->iVirtualRowID = pRBRowUnit->iVirtualRowID;
+        }
+        else
+        {//分配失败
+            CHECK_RET(ERR_OS_NO_MEMROY,"no mem space for RBRowUnit");
+        }
+		return iRet;
+}
     bool TMdbRemoteLink::IsCurrentThreadLink()
     {
 
@@ -1390,6 +1450,9 @@
         m_iTimeDifferent = 0;
         m_iOraRepCounts = 1;
         m_bDiscDisasterLink = false;
+
+		m_iSessionID = 0;
+		
     }
 
     void TMdbDSN::Show(bool bIfMore)
@@ -1467,6 +1530,19 @@
         }
     }
 
+	int TMdbDSN::GetSessionID()
+	{
+		m_SessionMutex.Lock(true);
+		if(m_iSessionID < 0)
+			m_iSessionID=0;
+
+		int iTmp = m_iSessionID;
+		m_iSessionID++;
+		m_SessionMutex.UnLock(true);
+		
+		return iTmp;
+	}
+	
     void TMdbTableSpace::Clear()
     {
         m_bFileStorage = false;

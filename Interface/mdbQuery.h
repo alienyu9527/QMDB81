@@ -398,6 +398,7 @@ private:
     static int m_iSQLFlag; //sql标签
     bool m_bAsManager;//作为管理员登陆(无需验证用户名密码)
     int  m_iTransactionState;//事务状态
+    int m_iSessionID;
 
     TMdbLinkCtrl * m_pLinkCtrl;//链接管理
     TMdbMultiProtector * m_pMultiProtector;//并发保护
