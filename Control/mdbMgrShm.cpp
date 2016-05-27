@@ -715,15 +715,6 @@
 			pMutex->Create();
 			pMutex++;
 		}
-
-		m_tMgrShmAlloc.Allocate(MAX_ROW_MUTEX_COUNTS * sizeof(TMutex) + INTERVAL_SIZE, m_pTMdbDSN->iRowMutexAddr);
-		pMutex = (TMutex*) GetRowMutexAddr();
-		CHECK_OBJ(pMutex);
-		for( i=0; i<MAX_ROW_MUTEX_COUNTS; i++)
-		{
-			pMutex->Create();
-			pMutex++;
-		}
 		
 		        
         //设置各个共享块的key
@@ -1458,27 +1449,6 @@
 		}
 	}
 
-
-	/******************************************************************************
-	* 函数名称	:  GetRowMutexAddr
-	* 函数描述	: 获取行锁地址
-	* 输入		:  
-	* 输入		:  
-	* 输出		:  
-	* 返回值	:  NULL - 失败 !NULL -成功
-	* 作者		:  yu.lianxiang
-	*******************************************************************************/
-	char * TMdbShmDSN::GetRowMutexAddr()
-	{
-		if(NULL == m_pTMdbDSN)
-		{
-			return NULL;
-		}
-		else
-		{
-			return GetAddrByOffset(m_pTMdbDSN->iRowMutexAddr);
-		}
-	}
 
     /******************************************************************************
     * 函数名称	: CreateSyncAreaShm 

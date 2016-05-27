@@ -121,7 +121,6 @@
 		//锁地址
         char * GetPageMutexAddr();//获取页锁地址
         char * GetVarcharPageMutexAddr();//获取varchar页锁地址
-		char * GetRowMutexAddr();//获取行锁地址
 		
         TMemSeq * GetMemSeqByName(const char * sSeqName);//根据seqname获取
         TMdbProc * GetProcByName(const char * sName);//根据名字获取进程

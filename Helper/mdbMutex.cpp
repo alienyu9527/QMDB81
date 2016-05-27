@@ -45,10 +45,6 @@
 					m_pMutex = (TMutex*) pShmDSN->GetVarcharPageMutexAddr();
 					iMutexCount = MAX_VARCHAR_MUTEX_COUNTS;
 					break;
-    			case MUTEX_TYPE_ROW://ÐÐËø
-    				m_pMutex = (TMutex*)pShmDSN->GetRowMutexAddr();
-					iMutexCount = MAX_ROW_MUTEX_COUNTS;
-    				break;
     			default:
     				return -1;
     				break;

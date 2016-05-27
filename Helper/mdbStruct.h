@@ -128,9 +128,6 @@ typedef key_t		SMKey;
 //varchar互斥锁最大个数
 #define MAX_VARCHAR_MUTEX_COUNTS 10000
 
-//行锁最大个数
-#define MAX_ROW_MUTEX_COUNTS 16383
-
 //管理区的间隔大小
 #define INTERVAL_SIZE      1024
 

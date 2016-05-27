@@ -980,7 +980,6 @@ public:
 public:
     size_t iPageMutexAddr;       //页锁管理区偏移量
     size_t iVarcharPageMutexAddr;//varchar页锁管理区偏移量
-    size_t iRowMutexAddr;//行管理区偏移量
     int m_iTimeDifferent;//时差
     int m_iOraRepCounts;        //oracle备份进程数
 private:
