@@ -930,6 +930,25 @@
         }   
     }
 
+	
+    void TMdbLocalLink::ShowRBUnits()
+    {
+		if(m_RBList.empty()) return;
+		
+		int iMaxShow = 100;
+		int i = 0;
+		TShmList<TRBRowUnit>::iterator itor = m_RBList.begin();
+        for(;itor != m_RBList.end();++itor)
+        {
+        	if(i>100)
+			{
+				printf("Only Show %d RBUnits.\n",iMaxShow);
+			}
+			printf("[%d]--",i);
+			itor->Show();
+			i++;
+        }
+	}
     void TMdbLocalLink::Print()
     {
         TADD_NORMAL("==============Local-Link=================");
@@ -974,7 +993,8 @@
 	void  TMdbLocalLink::RollBack()
 	{
 		if(m_RBList.empty()) return;
-	
+
+		
 		TADD_NORMAL("TMdbLocalLink::RollBack\n");
 		
 		//·´Ïò±éÀú

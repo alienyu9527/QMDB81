@@ -617,6 +617,7 @@ class TRBRowUnit
 	public:
 		TRBRowUnit(){}
 		~TRBRowUnit(){}
+		void Show(){printf("[SQLType:%d][iRealRowID:%d][iVirtualRowID:%d]\n",SQLType,iRealRowID,iVirtualRowID);}
 		int Commit(){return 0;}
 		int RollBack(){return 0;}
 	public:
@@ -647,7 +648,7 @@ public:
     void Commit();
 	void RollBack();
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
-	
+	void ShowRBUnits();
 public:
     int iPID;         //进程的PID
     unsigned long int iTID;         //进程的Thread-ID

@@ -140,6 +140,7 @@
                 if(pLocalLink->iPID >= 0)
                 {
                     pLocalLink->Show(m_bMore);
+					pLocalLink->ShowRBUnits();
                 }
             }
         }

@@ -97,6 +97,7 @@ int TMdbLinkCtrl::UnRegLocalLink(TMdbLocalLink *& pLocalLink)
     int iRet = 0;
     CHECK_OBJ(pLocalLink);
     CHECK_RET(m_pDsn->tMutex.Lock(true,&(m_pDsn->tCurTime)), "lock failed.");//¼ÓËø
+    pLocalLink->RollBack();
     pLocalLink->Clear();
     pLocalLink = NULL;
     CHECK_RET(m_pDsn->tMutex.UnLock(true),"unlock failed.");//¼ÓËø
@@ -227,8 +228,8 @@ int TMdbLinkCtrl::ClearInvalidLink()
             false == TMdbOS::IsProcExistByPopen(itor->iPID))
         {        
             TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itor->iPID,itor->iTID); 
-            itor->Clear();
 			itor->RollBack();
+            itor->Clear();
         }
     }
     TShmList<TMdbRepLink>::iterator itorRep  = m_pShmDsn->m_RepLinkList.begin();
