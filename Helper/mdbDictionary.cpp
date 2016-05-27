@@ -981,36 +981,40 @@
 		TADD_NORMAL("TMdbLocalLink::Commit\n");
 			
 		//正向遍历
-		TShmList<TRBRowUnit>::iterator itor = m_RBList.begin();
-        for(;itor != m_RBList.end();++itor)
-        {
-			if(itor->Commit()!=0)break;
-        }
-
-		//不管执行情况如何，最终清空回滚
-		m_RBList.clear();
+		TShmList<TRBRowUnit>::iterator itorB = m_RBList.begin();
+		while(!m_RBList.empty())
+		{		
+			if(itorB->Commit()!=0)break;	
+			itorB= m_RBList.erase(itorB);
+		}
+		
 	}
+
+	int gdb_shut()
+	{		
+		while(getchar()!='\n');
+		return 1;
+	}
+	
+	
 	void  TMdbLocalLink::RollBack()
 	{
+	
+	//gdb_shut();
 		if(m_RBList.empty()) return;
-
 		
 		TADD_NORMAL("TMdbLocalLink::RollBack\n");
 		
+		
 		//反向遍历
 		TShmList<TRBRowUnit>::iterator itor = m_RBList.end();
-		while(1)
+		while(!m_RBList.empty())
 		{
-			--itor;			
-			if(itor->RollBack()!=0)break;			
-			if(itor == m_RBList.begin())
-			{
-				break;
-			}
+			--itor;	
+			itor->Show();
+			if(itor->RollBack()!=0)break;	
+			itor = m_RBList.erase(itor);
 		}
-		
-		//不管执行情况如何，最终清空回滚
-		m_RBList.clear();
 	}
 
 	int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)

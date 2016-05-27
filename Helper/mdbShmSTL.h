@@ -306,7 +306,11 @@ public:
 	}
 	//ÊÇ·ñÎª¿Õ
     bool empty()const{
-		return m_HeadNode->GetNext(m_pStartAddr) == m_HeadNode;
+    	link_type NextNode = m_HeadNode->GetNext(m_pStartAddr);
+		if (NULL == NextNode) 
+			return true;
+		else
+			return NextNode == m_HeadNode;
 	}
 	//Çå¿Õ
 	void clear()

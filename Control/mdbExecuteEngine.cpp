@@ -1430,6 +1430,9 @@
 
 			//test
 			TRBRowUnit tRBRowUnit;
+			tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
+			tRBRowUnit.iRealRowID = 10085;
+			tRBRowUnit.iVirtualRowID = 32123;
 			m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit);
 				
 
