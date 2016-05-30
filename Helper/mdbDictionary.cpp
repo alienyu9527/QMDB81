@@ -175,6 +175,22 @@
             return (iDataOffset - sizeof(TMdbPage)-sizeof(TMdbPageNode))/(m_iRecordSize + sizeof(TMdbPageNode));
         }
 
+		int TMdbPage::LockRow(int iDataOffset,char* pHeadAddr)
+		{
+			int iRet = 0;
+			TMdbPageNode* pPageNode = (TMdbPageNode*)(pHeadAddr+iDataOffset-sizeof(TMdbPageNode));
+			CHECK_RET(pPageNode->tMutex.Lock(true),"LockPageNode Failed");
+			return iRet;
+		}
+
+		int TMdbPage::UnLockRow(int iDataOffset,char* pHeadAddr)
+		{
+			int iRet = 0;
+			TMdbPageNode* pPageNode = (TMdbPageNode*)(pHeadAddr+iDataOffset-sizeof(TMdbPageNode));
+			CHECK_RET(pPageNode->tMutex.UnLock(true),"UnLockPageNode Failed");
+			return iRet;
+		}
+		
         int TMdbPage::GetFreeRecord(int & iNewDataOffset,int iDataSize)
         {
             TADD_FUNC("Start.pPageAddr = [%p],iDataSize = [%d]",this,iDataSize);
@@ -218,7 +234,8 @@
 	                m_iFreePageNode = -1;
 	                pFreePageNode->iNextNode = m_iFullPageNode;
 	                m_iFullPageNode = iNewDataOffset - sizeof(TMdbPageNode);
-				}                
+				}
+				pFreePageNode->tMutex.Create();
             }
             else if(m_iFreeOffSet + m_iRecordSize + (int)sizeof(TMdbPageNode) < m_iPageSize)
             {//获取新位置
@@ -241,6 +258,7 @@
 	                m_iFullPageNode = m_iFreeOffSet;
 	                m_iFreeOffSet += m_iRecordSize + sizeof(TMdbPageNode);
             	}
+				pFreePageNode->tMutex.Create();
             }
             else 
             {

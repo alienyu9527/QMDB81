@@ -144,21 +144,6 @@
         return iRet;
     }
 
-
-	int TMdbRowCtrl::SetDSN(const char* pszDSN, E_MUTEX_TYPE eMutexType)
-    {
-        return m_tMutex.Init(pszDSN, m_pDSN, eMutexType);
-    }
-
-	void TMdbRowCtrl::Lock(int iRowID)
-	{
-		 m_tMutex.Lock(iRowID);
-	}
-	void  TMdbRowCtrl::UnLock(int iRowID)
-	{
-		 m_tMutex.UnLock(iRowID);
-	}	
-	
     /******************************************************************************
     * 函数名称	:  ClearColValueBlock
     * 函数描述	:  清理临时区
