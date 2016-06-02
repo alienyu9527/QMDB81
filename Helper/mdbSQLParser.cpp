@@ -1219,9 +1219,10 @@ int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr)
 	CheckLPM(pstExpr->pLeft);
 	CheckLPM(pstExpr->pRight);
 	if(pstExpr->pExprValue->pColumn)
-	{
-		ST_TABLE_INDEX_INFO * pTableIndex = m_MdbIndexCtrl.GetIndexByName(pstExpr->pExprValue->pColumn->sName);
-		if(pTableIndex && pTableIndex->pIndexInfo->m_iAlgoType==INDEX_TRIE)
+	{	
+		int iColNoPos = 0;
+		ST_TABLE_INDEX_INFO * pTableIndex = m_MdbIndexCtrl.GetIndexByColumnPos(pstExpr->pExprValue->pColumn->iPos,iColNoPos);
+		if(pTableIndex && (iColNoPos == 0) && pTableIndex->pIndexInfo->m_iAlgoType==INDEX_TRIE)
 		{
 			MemValueSetProperty(pstExpr->pExprValue, MEM_LPM);
 			printf("Where %s set LPM\n",pstExpr->pExprValue->pColumn->sName);
