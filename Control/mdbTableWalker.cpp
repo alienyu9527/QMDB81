@@ -591,47 +591,64 @@ bool TMdbTableWalker::NextByPage()
 		int iChildPos = -1;
 
 		if (m_sTrieWord[0]== 0) return false;
-		
-	    for(;;++cPos)
-	    {
-	    	CHECK_OBJ(pCur);
 
-			//没到结尾符，存在一下个孩子节点
-			if(m_sTrieWord[cPos])
-			{
-		    	iChrIndex = m_sTrieWord[cPos] - '0';
-				iChildPos = pCur->m_iChildrenPos[iChrIndex];
-			}
 
-			//没有数据
-			if( (pCur == pRoot)&&(-1==iChildPos) )
-			{
-				StopWalk();
-				return false;
-			}
+		//在树枝上
+		if(m_iNextIndexPos == -1)
+		{
+		    for(;;++cPos)
+		    {
+		    	CHECK_OBJ(pCur);
 
-			//没有孩子节点了
-			if( ((-1 == iChildPos) || (m_sTrieWord[cPos]==0)) && (pCur != pRoot))
-			{
-				m_tCurRowIDData = pCur->m_NodeInfo.m_tRowId;
-
-				if(!m_tCurRowIDData.IsEmpty())
+				//没到结尾符，存在一下个孩子节点
+				if(m_sTrieWord[cPos])
 				{
-					m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+			    	iChrIndex = m_sTrieWord[cPos] - '0';
+					iChildPos = pCur->m_iChildrenPos[iChrIndex];
 				}
-				break;
+
+				//没有数据
+				if( (pCur == pRoot)&&(-1==iChildPos) )
+				{
+					StopWalk();
+					return false;
+				}
+
+				//没有孩子节点了
+				if( ((-1 == iChildPos) || (m_sTrieWord[cPos]==0)) && (pCur != pRoot))
+				{
+					m_tCurRowIDData = pCur->m_NodeInfo.m_tRowId;
+					m_iNextIndexPos = pCur->m_NodeInfo.m_iNextConfPos;
+					if(!m_tCurRowIDData.IsEmpty())
+					{
+						m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+					}
+					break;
+				}
+								
+				pChild = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iChildPos ,sizeof(TMdbTrieIndexNode),false);				
+				CHECK_OBJ(pChild);
+				pCur = pChild;
 			}
-							
-			pChild = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iChildPos ,sizeof(TMdbTrieIndexNode),false);				
-			CHECK_OBJ(pChild);
-			pCur = pChild;
 		}
-		
+		//在冲突链上
+		else
+		{
+			TMdbTrieConfIndexNode* pConflictNode = (TMdbTrieConfIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieConfIndex->iHeadBlockId, m_iNextIndexPos ,sizeof(TMdbTrieConfIndexNode),true);
+			CHECK_OBJ(pConflictNode);
+			m_tCurRowIDData = pConflictNode->m_NodeInfo.m_tRowId;
+			m_iNextIndexPos = pConflictNode->m_NodeInfo.m_iNextConfPos;
+			if(!m_tCurRowIDData.IsEmpty())
+			{
+				m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+			}
+		}
+
 
 		if(NULL != m_pDataAddr)
-        {
-            TADD_FUNC("Finish[true].");	
-			m_bStopScanTrie = true;
+        {			
+			if(-1==m_iNextIndexPos)
+				m_bStopScanTrie = true;
             return true;
         }
 		

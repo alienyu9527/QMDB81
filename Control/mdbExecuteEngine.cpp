@@ -1515,12 +1515,13 @@
             iRet = m_pRollback->PushData(m_iRBUnitPos,pDataAddr,m_iRowsAffected,pExtraDataAddr,&m_tRowCtrl);
 
 			//test
+			/*
 			TRBRowUnit tRBRowUnit;
 			tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
 			tRBRowUnit.iRealRowID = 10085;
 			tRBRowUnit.iVirtualRowID = 32123;
 			m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit);
-				
+				*/
 
 		}
 		

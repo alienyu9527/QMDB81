@@ -523,7 +523,12 @@
 	    for(; sTrieWord[cPos] != 0; ++cPos)
 	    {
 	    	CHECK_OBJ(pCur);
+			if(!isdigit(sTrieWord[cPos]))
+			{
+				CHECK_RET(-1,"TrieIndex only support '0~9'. ");
+			}
 	    	iChrIndex = sTrieWord[cPos] - '0';
+			
 			//当前孩子节点是空的,就填一个上去
 	    	if(-1 == pCur->m_iChildrenPos[iChrIndex])  
 	    	{
@@ -581,7 +586,7 @@
         CHECK_OBJ(pFreeNode);
         pFreeNode->m_NodeInfo.m_tRowId = rowID;//放入数据
         tTrieIndex.pConflictIndex->iFreeHeadPos = pFreeNode->m_iNextPos;
-        pFreeNode->m_iNextPos = tNodeInfo.m_iNextConfPos;
+        pFreeNode->m_NodeInfo.m_iNextConfPos= tNodeInfo.m_iNextConfPos;
         tNodeInfo.m_iNextConfPos = iFreePos;
         tTrieIndex.pConflictIndex->iFreeNodeCounts --;//剩余节点数-1
         
