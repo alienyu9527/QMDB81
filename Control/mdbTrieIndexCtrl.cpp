@@ -692,7 +692,7 @@
 
     int TMdbTrieIndexCtrl::DeleteIndexNode(char* sTrieWord, ST_TRIE_INDEX_INFO& tTrieIndex, TMdbRowID& rowID)
     {
-    /*
+    
     	int iRet =0;
         TADD_FUNC("Start.");
 		
@@ -703,14 +703,6 @@
 
 		if(0 == sTrieWord[0])
 		{
-			if(pRoot->m_NodeInfo.m_iConfPos == -1)
-			{
-				pRoot->m_NodeInfo.Clear();
-			}
-			else
-			{
-				DeleteIndexNodeOnConfList(pRoot->m_NodeInfo, tTrieIndex, rowID);	
-			}
 			return iRet;
 		}
 
@@ -725,32 +717,28 @@
 		{
 			CHECK_OBJ(pCur);
 			iChrIndex = sTrieWord[cPos] - '0';
+
+			//匹配失败
 			if(-1 == pCur->m_iChildrenPos[iChrIndex])  
 			{
 				return iRet;   
 			}
 
-			//已经到达最后一个字符,放置数据
-			if(0 == sTrieWord[cPos+1])
-			{
-				if(pCur->m_NodeInfo.m_tRowId.IsEmpty())
-				{
-					pCur->m_NodeInfo.m_tRowId = rowID;
-				}
-				else
-				{
-					InsertConflictNode(pCur->m_NodeInfo, tTrieIndex, rowID);	
-				}
-				break;
-			}
-			else
-			{
-				pCur = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId, pCur->m_iChildrenPos[iChrIndex] ,sizeof(TMdbTrieIndexNode),false);
-			}
+			pCur = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId, pCur->m_iChildrenPos[iChrIndex] ,sizeof(TMdbTrieIndexNode),false);
+
 		}
-       
+
+		if(pCur->m_NodeInfo.m_tRowId == rowID)
+		{
+			pCur->m_NodeInfo.m_tRowId.Clear();
+		}
+        else
+        {
+        	bool bFound = false;
+			DeleteIndexNodeOnConfList(tTrieIndex,&(pCur->m_NodeInfo),rowID,bFound);
+		}
         TADD_FUNC("Finish.");
-        return iRet;*/
+        return iRet;
     }
 
     
