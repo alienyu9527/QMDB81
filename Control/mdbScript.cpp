@@ -1532,6 +1532,10 @@ int TMdbScript::AddSysInfo(MDBXMLElement *pESys,TMdbCfgDSN  *pDsn)
     //ADDSYSINFO(pESys,"peer-standby-ip", pDsn->sStandByIP);
    // ADDSYSINFO(pESys,"peer-standby-port", pDsn->iStandbyPort);
     ADDSYSINFO(pESys,"agent-port", pDsn->sAgentPortStr);
+	
+	ADDSYSINFO(pESys,"use-ntc-agent-port", pDsn->sNtcPortStr);
+	ADDSYSINFO(pESys,"notuse-ntc-agent-port", pDsn->sNoNtcPortStr);
+	
     ADDSYSINFO(pESys,"manager-size", pDsn->iManagerSize/(1024*1024));
     ADDSYSINFO(pESys,"data-size", pDsn->iDataSize/(1024*1024));
     ADDSYSINFO(pESys,"client-timeout", pDsn->iClientTimeout);
@@ -1546,6 +1550,9 @@ int TMdbScript::AddSysInfo(MDBXMLElement *pESys,TMdbCfgDSN  *pDsn)
     ADDSYSINFO_YN(pESys,"is-shard-backup", pDsn->m_bIsShardBackup);
     ADDSYSINFO_YN(pESys,"is-single-disaster", pDsn->m_bSingleDisaster);
     ADDSYSINFO_YN(pESys,"is-null", pDsn->m_bNull);
+	
+	ADDSYSINFO_YN(pESys,"is-use-ntc", pDsn->m_bUseNTC);
+	
     ADDSYSINFO(pESys,"CsPumpMaxCount", pDsn->m_iCSPumpMaxCount);
     ADDSYSINFO(pESys,"CsPumpInitCount", pDsn->m_iCSPumpInitCount);
     ADDSYSINFO(pESys,"CsPeerCountPerPump", pDsn->m_iCSPeerCountPerPump);

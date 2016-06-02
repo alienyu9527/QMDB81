@@ -521,11 +521,26 @@
         CHECK_RET(SyncDataAreaResource(pQuery,stResourceInfo),"SyncDataAreaResource falsed.");
         //变长存储区
         CHECK_RET(SyncVarcharAreaResource(pQuery,stResourceInfo),"SyncVarcharAreaResource falsed.");
-        //基础索引区
+
+		//Hash基础索引区
         CHECK_RET(SyncBaseIdxAreaResource(pQuery,stResourceInfo),"SyncBaseIdxAreaResource falsed.");
-        //冲突索引区
+        //Hash冲突索引区
         CHECK_RET(SyncConflictIdxAreaResource(pQuery,stResourceInfo),"SyncConflictIdxAreaResource falsed.");
-        //同步区
+
+		//Mhash阶梯索引基础索引区
+        CHECK_RET(SyncMhashBaseIdxAreaResource(pQuery,stResourceInfo),"SyncMhashBaseIdxAreaResource falsed.");	
+		//Mhash冲突索引基础索引管理区
+		CHECK_RET(SyncMhashConflictIdxMgrAreaResource(pQuery,stResourceInfo),"SyncMhashConflictIdxMgrAreaResource falsed.");
+		//Mhash冲突索引基础索引区
+		CHECK_RET(SyncMhashConflictIdxAreaResource(pQuery,stResourceInfo),"SyncMhashConflictIdxAreaResource falsed.");
+		//Mhash阶梯索引基础索引管理区
+		CHECK_RET(SyncMhashLayerIdxMgrAreaResource(pQuery,stResourceInfo),"SyncMhashLayerIdxMgrAreaResource falsed.");
+		//Mhash阶梯索引基础索引区
+		CHECK_RET(SyncMhashLayerIdxAreaResource(pQuery,stResourceInfo),"SyncMhashLayerIdxAreaResource falsed.");
+		//Mhash阶梯索引位置锁区		
+		CHECK_RET(SyncMhashMutexAreaResource(pQuery,stResourceInfo),"SyncMhashMutexAreaResource falsed.");
+
+		//同步区
         CHECK_RET(SyncSAResouce(pQuery,stResourceInfo),"SyncSAResouce failed.");
         #if 0
         //主备同步缓存
@@ -909,6 +924,181 @@
         }
         return iRet;
     }
+	
+
+	int TMdbSysTableSync::SyncMhashBaseIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+    {
+        int iRet = 0;
+        for(int i = 0; i < m_pDsn->iMHashBaseIdxShmCnt; ++i)
+        {
+            if(m_pDsn->iMHashBaseIdxShmID[i]<= 0)
+            {
+                continue;
+            }
+            TMdbMHashBaseIndexMgrInfo* pInfo  = (TMdbMHashBaseIndexMgrInfo*)m_pShmDSN->GetMHashBaseIndex(i);
+            if(NULL == pInfo)
+            {
+                continue;
+            }
+            stResourceInfo.Clear();
+            stResourceInfo.iMemId = m_pDsn->iMHashBaseIdxShmID[i];
+            stResourceInfo.llMemKey = m_pDsn->iMHashBaseIdxShmKey[i];
+            stResourceInfo.llMemSize = pInfo->iTotalSize;
+            size_t iMemLeft = 0;
+            for(int j = 0; j<MAX_MHASH_INDEX_COUNT; j++)
+            {
+                if(pInfo->tFreeSpace[j].iPosAdd == 0)
+                {
+                    break;
+                }
+                iMemLeft += pInfo->tFreeSpace[j].iSize;
+            }
+            stResourceInfo.llMemLeft  = iMemLeft;
+            SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashBaseIndexBlock");
+            CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+        }
+        return iRet;
+    }
+
+	int TMdbSysTableSync::SyncMhashMutexAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+	{
+		int iRet = 0;
+		for(int i = 0; i < m_pDsn->iMHashMutexShmCnt; ++i)
+		{
+			if(m_pDsn->iMHashMutexShmID[i]<= 0)
+			{
+				continue;
+			}
+			TMdbMHashMutexMgrInfo* pInfo  = (TMdbMHashMutexMgrInfo*)m_pShmDSN->GetMHashMutex(i);
+			if(NULL == pInfo)
+			{
+				continue;
+			}
+			stResourceInfo.Clear();
+			stResourceInfo.iMemId = m_pDsn->iMHashMutexShmID[i];
+			stResourceInfo.llMemKey = m_pDsn->iMHashMutexShmKey[i];
+			stResourceInfo.llMemSize = pInfo->iTotalSize;
+			size_t iMemLeft = 0;
+			for(int j = 0; j<MAX_MHASH_INDEX_COUNT; j++)
+			{
+				if(pInfo->tFreeSpace[j].iPosAdd == 0)
+				{
+					break;
+				}
+				iMemLeft += pInfo->tFreeSpace[j].iSize;
+			}
+			stResourceInfo.llMemLeft  = iMemLeft;
+			SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashMutexBlock");
+			CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+		}
+		return iRet;
+	}
+
+	
+	int TMdbSysTableSync::SyncMhashConflictIdxMgrAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+    {
+        int iRet = 0;
+
+        if(m_pDsn->iMhashConfMgrShmId<= 0)
+        {
+            return iRet;
+        }
+        TMdbMHashConflictIndexMgrInfo* pInfo  = (TMdbMHashConflictIndexMgrInfo*)m_pShmDSN->GetMHashConfMgr();
+        if(NULL == pInfo)
+        {
+            return iRet;
+        }
+        stResourceInfo.Clear();
+        stResourceInfo.iMemId = m_pDsn->iMhashConfMgrShmId;
+        stResourceInfo.llMemKey = m_pDsn->iMhashConfMgrShmKey;
+        stResourceInfo.llMemSize = sizeof(TMdbMHashConflictIndexMgrInfo);    
+        stResourceInfo.llMemLeft  = 0;
+        SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashConflictIdxMgrBlock");
+        CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+
+        return iRet;
+    }
+
+
+	int TMdbSysTableSync::SyncMhashConflictIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+    {
+        int iRet = 0;
+	
+        for(int i = 0; i < m_pDsn->iMHashConfIdxShmCnt; ++i)
+        {
+            if(m_pDsn->iMHashConfIdxShmID[i]<= 0)
+            {
+                continue;
+            }
+			TMdbMhashBlock* pBlock =  m_pShmDSN->GetMhashConfBlockById(i);
+            if(NULL == pBlock)
+            {
+                continue;
+            }		
+			stResourceInfo.Clear();
+            stResourceInfo.iMemId = m_pDsn->iMHashConfIdxShmID[i];
+            stResourceInfo.llMemKey = m_pDsn->iMHashConfIdxShmKey[i];
+            stResourceInfo.llMemSize = pBlock->iSize;
+            stResourceInfo.llMemLeft  = 0;
+            SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashConflictIdxBlock");
+            CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+        }
+        return iRet;
+    }
+
+	int TMdbSysTableSync::SyncMhashLayerIdxMgrAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+    {
+        int iRet = 0;
+
+        if(m_pDsn->iMhashLayerMgrShmId<= 0)
+        {
+            return iRet;
+        }
+        TMdbMHashLayerIndexMgrInfo* pInfo  = (TMdbMHashLayerIndexMgrInfo*)m_pShmDSN->GetMHashLayerMgr();
+        if(NULL == pInfo)
+        {
+            return iRet;
+        }
+        stResourceInfo.Clear();
+        stResourceInfo.iMemId = m_pDsn->iMhashLayerMgrShmId;
+        stResourceInfo.llMemKey = m_pDsn->iMhashLayerMgrShmKey;
+        stResourceInfo.llMemSize = sizeof(TMdbMHashLayerIndexMgrInfo);
+        stResourceInfo.llMemLeft  = 0;
+        SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashLayerIdxMgrBlock");
+        CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+
+        return iRet;
+    }
+
+	int TMdbSysTableSync::SyncMhashLayerIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+    {
+        int iRet = 0;
+	
+        for(int i = 0; i < m_pDsn->iMHashLayerIdxShmCnt; ++i)
+        {
+            if(m_pDsn->iMHashLayerIdxShmID[i]<= 0)
+            {
+                continue;
+            }
+			TMdbMhashBlock* pBlock =  m_pShmDSN->GetMhashLayerBlockById(i);
+            if(NULL == pBlock)
+            {
+                continue;
+            }		
+			stResourceInfo.Clear();
+            stResourceInfo.iMemId = m_pDsn->iMHashLayerIdxShmID[i];
+            stResourceInfo.llMemKey = m_pDsn->iMHashLayerIdxShmKey[i];
+            stResourceInfo.llMemSize = pBlock->iSize;
+            stResourceInfo.llMemLeft  = 0;
+            SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),"MhashLayerIdxBlock");
+            CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+        }
+        return iRet;
+    }
+
+
+	
+	
 
     /******************************************************************************
     * 函数名称	:  SyncSAResouce

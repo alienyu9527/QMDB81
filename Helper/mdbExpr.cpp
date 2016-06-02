@@ -666,6 +666,11 @@ int TMdbExpr::CalcBinaryExpr(ST_EXPR * & pstExpr,int iSubValueType)
 			    {
     			    pResultValue->lValue = 0;
 			    }
+				else if(pRightValue->IsLPM() || pLeftValue->IsLPM() )
+				{	
+					printf("find LPM \n");
+                    //pResultValue->lValue = (TMdbMemValue::CompareExprValueLPM(pLeftValue,pRightValue,false) == 0)?1:0;
+				}
 			    else 
 			    {
                     pResultValue->lValue = (TMdbMemValue::CompareExprValue(pLeftValue,pRightValue,false) == 0)?1:0;

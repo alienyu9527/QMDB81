@@ -153,6 +153,11 @@ protected:
 	int CheckSetList(ST_SET_LIST & stSetList);//检测update的set列表
 	int RemoveTableAlias();//去除表别名
 	int SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
+	
+	int SetNtcPortsAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
+	int SetNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
+	int SetNoNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
+	
 	int SetDsnRepAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
 	int SetDsnOtherAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue);
 	int SetCfgProAttribute(TMdbCfgProAttr *pProAttr,char *sAttrName,char *sAttrValue);
@@ -166,7 +171,8 @@ protected:
 	//int CalcSequenceValue(ST_EXPR * & pstExpr,int iSeqType);
 	
 	int FillHintInfo();
-        
+	int CheckLPM(ST_EXPR * pstExpr);
+	
 public:
 	ST_MEM_VALUE_LIST m_listInputVariable;   //获取绑定变量值
 	ST_MEM_VALUE_LIST m_listInputWhere;  //where条件需要输入的值

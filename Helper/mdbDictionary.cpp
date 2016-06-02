@@ -533,6 +533,7 @@
 
         m_bShardBack = false;
         m_cStorageType = MDB_DS_TYPE_NO;
+		iVersion = 0;
     }
 
     TMdbColumn* TMdbTable::GetColumnByName(const char * sColumnName)
@@ -1076,6 +1077,7 @@
         iLowPriority = 0;
         iSQLPos   = -1;
         memset(sProcessName,0,sizeof(sProcessName));
+        iProtocol = -1;
     }    
 
     void TMdbRemoteLink::Show(bool bIfMore)
@@ -1450,7 +1452,9 @@
         iRepLinkAddr= 0;
         iJobAddr  = 0;//
         iVarcharAddr = 0;
-        
+
+		//cs link
+		iPortLinkAddr = 0;
         
         
 
@@ -1478,6 +1482,8 @@
 		for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			iAgentPort[i]     = -1;
+			iNtcPort[i] 	  = -1;
+			iNoNtcPort[i] 	  = -1;
 		}
 
         iLogLevel       = 0;
@@ -1536,6 +1542,8 @@
 			for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 			{
 	    		printf("|    iAgentPort[%d]    = %-20d \n", i, iAgentPort[i]);
+				printf("|    iNtcPort[%d]    = %-20d \n", i, iNtcPort[i]);
+				printf("|    iNoNtcPort[%d]    = %-20d \n", i, iNoNtcPort[i]);
 			}
             //printf("|    iAgentPort    = %-20d \n",iAgentPort);
             printf("|    m_iLSN       = %-20lld | m_iTimeDifferent=%d \n",m_iLSN,m_iTimeDifferent);
@@ -1711,6 +1719,7 @@
         m_iIndexType = HT_Unknown;
         m_iAlgoType = INDEX_HASH;
         iMaxLayer = 1;
+		bBuilding = false;
     }
 
     const char* TMdbIndex::GetAlgoType()
@@ -1977,16 +1986,20 @@
                 std::vector<TLCRColm>::iterator itor = m_vColms.begin();
                 for (; itor != m_vColms.end(); ++itor)
                 {
-                    sprintf(sColm+strlen(sColm)," %s,",itor->m_sColmName.c_str());
+                    //sprintf(sColm+strlen(sColm)," %s,",itor->m_sColmName.c_str());
+                    snprintf(sColm+strlen(sColm),sizeof(sColm)-strlen(sColm)," %s,",itor->m_sColmName.c_str());
                     pColumn = pTable->GetColumnByName(itor->m_sColmName.c_str());
                     CHECK_OBJ(pColumn);
                     if(DT_DateStamp == pColumn->iDataType)
                     {
-                        sprintf(sValue+strlen(sValue)," to_date(:%s, 'YYYYMMDDHH24MISS'),",pColumn->sName);
+                        //sprintf(sValue+strlen(sValue)," to_date(:%s, 'YYYYMMDDHH24MISS'),",pColumn->sName);
+                        snprintf(sValue+strlen(sValue),sizeof(sValue)-strlen(sValue)," to_date(:%s, 'YYYYMMDDHH24MISS'),",pColumn->sName);
                     }
                     else
                     {
-                        sprintf(sValue+strlen(sValue)," :%s,",pColumn->sName);
+                        //sprintf(sValue+strlen(sValue)," :%s,",pColumn->sName);
+                        snprintf(sValue+strlen(sValue),sizeof(sValue)-strlen(sValue)," :%s,",pColumn->sName);
+                        
                     }
                     itor->m_iType = pColumn->iDataType;
                 }
@@ -2008,11 +2021,13 @@
                     CHECK_OBJ(pColumn);
                     if(DT_DateStamp == pColumn->iDataType)
                     {
-                        sprintf(sSet+strlen(sSet),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS'),",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
+                        //sprintf(sSet+strlen(sSet),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS'),",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
+                        snprintf(sSet+strlen(sSet),sizeof(sSet)-strlen(sSet),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS'),",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
                     }
                     else
                     {
-                         sprintf(sSet+strlen(sSet),"  %s=:%s,",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
+                         //sprintf(sSet+strlen(sSet),"  %s=:%s,",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
+						 snprintf(sSet+strlen(sSet),sizeof(sSet)-strlen(sSet),"  %s=:%s,",itor->m_sColmName.c_str(),itor->m_sColmName.c_str());
                     }
                     itor->m_iType = pColumn->iDataType;
                 }
@@ -2024,11 +2039,13 @@
                     CHECK_OBJ(pColumn);
                     if(DT_DateStamp == pColumn->iDataType)
                     {
-                        sprintf(sWhere+strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                        //sprintf(sWhere+strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                        snprintf(sWhere+strlen(sWhere),sizeof(sWhere)-strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
                     }
                     else
                     {
-                        sprintf(sWhere+strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                        //sprintf(sWhere+strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                        snprintf(sWhere+strlen(sWhere),sizeof(sWhere)-strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
                     }
                     itor_where->m_iType = pColumn->iDataType;
                 }
@@ -2049,11 +2066,13 @@
                     CHECK_OBJ(pColumn);
                     if(DT_DateStamp == pColumn->iDataType)
                     {
-                        sprintf(sWhere+strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                       // sprintf(sWhere+strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                        snprintf(sWhere+strlen(sWhere),sizeof(sWhere)-strlen(sWhere),"  %s=to_date(:%s, 'YYYYMMDDHH24MISS') and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
                     }
                     else
                     {
-                        sprintf(sWhere+strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                       // sprintf(sWhere+strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
+                       snprintf(sWhere+strlen(sWhere),sizeof(sWhere)-strlen(sWhere),"  %s=:%s and",itor_where->m_sColmName.c_str(),itor_where->m_sColmName.c_str());
                     }
                     itor_where->m_iType = pColumn->iDataType;
                 }

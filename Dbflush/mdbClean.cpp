@@ -105,6 +105,10 @@ void ClearOracleLink()
 //重新连接数据库
 int ReConnectDB()
 {
+	if(gDBLink->IsConnect())
+	{
+		return 0;
+	}
     int iWaitSec = 60;//60秒重连一次
     ClearOracleLink();
     while(ConnectOracle() != 0)
@@ -610,6 +614,9 @@ int   main(int   argc,   char*   argv[])
         //clean data
         while(CleanShadowData() != 0)
         {
+        	int iWaitSec = 30;
+			TADD_NORMAL("CleanShadowData failed ....wait(%d) ",iWaitSec);
+			TMdbDateTime::Sleep(iWaitSec);
             ReConnectDB();//重新链接数据库
         }
     }
@@ -618,6 +625,9 @@ int   main(int   argc,   char*   argv[])
         //clean data
         while(CleanData() != 0)
         {
+        	int iWaitSec = 30;
+			TADD_NORMAL("CleanData failed ....wait(%d) ",iWaitSec);
+			TMdbDateTime::Sleep(iWaitSec);
             ReConnectDB();//重新链接数据库
         }
     }

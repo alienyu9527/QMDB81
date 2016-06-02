@@ -180,7 +180,8 @@ protected:
 	int DeleteDBARecord(const char* psTableName);
     int ExecuteRenameTable(const char *pNewTableName,const bool bIsGenXML);//rename table
     int ChangePageTableInfo(TMdbTable * pTable,const char *sNewTableName);//Ò³ÐÅÏ¢ÐÞ¸Ä
-    
+	int BuildTableSingleIndex(TMdbTable * pTable,int iIndexPos);
+	    
 private:
         
 	char sTableSpaceName[MAX_NAME_LEN];

@@ -1849,7 +1849,22 @@ int TMdbRichSQL::ShowClientSelectResult()
             }
             else
             {
-                printf("%-*s", iLen, m_pCSQuery->Field(i).AsString());
+                if(MDB_CS_USE_OCP == m_tCSDB.GetUseOcpFlag())
+                {
+                    printf("%-*s", iLen, m_pCSQuery->Field(i).AsString());
+                }
+                else
+                {
+                    if(m_pCSQuery->Field(i).DataType() == DT_Int)
+                    {
+                        printf("%-*lld", iLen, m_pCSQuery->Field(i).AsInteger());
+                    }
+                    else
+                    {
+                        printf("%-*s", iLen, m_pCSQuery->Field(i).AsString());
+                    
+                    }
+                }
             }
         }
         printf("\n");

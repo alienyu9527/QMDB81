@@ -77,13 +77,15 @@
         memset(sHeadName,0,sizeof(sHeadName));
         strncpy(sHeadName,"<QMDB>",6);
         memset(sKeyValue,0,sizeof(sKeyValue)); //初始化key
-        iVersion  = 0x1;        //Version(1个字节)
+        iVersion  = MDB_CS_USE_OCP;        //Version(1个字节)
         iLen      = 0x0;        //Message Length(4个字节整数表示)
         isequence = 0;
         iCmdCode  = CSP_APP_ERROR;//Command-Code(2个字节)
         iSessionId = 0x0;       //sessionId (4个字节)
         memset(sSendTime,0,6);  //date-time(6字节字符串表示时分秒)
         iCurrentAvpFlag = 0;
+        iAnsCodePos = 0;
+        //iIsBigEndian = 0;
     }
 
     /******************************************************************************
@@ -169,6 +171,7 @@
         iSessionId = 0;
         sSendTime[6] = '\0';
         isequence = 0;
+        iAnsCodePos = 0;
     }
 
     /******************************************************************************
@@ -192,7 +195,10 @@
         //sHeadName[6] = '\0';
         //sKeyValue[16] = '\0';
         //version
+        //pszMsg[21] = iIsBigEndian&0xff;
         pszMsg[22] = iVersion &0xff;
+        //pszMsg[22] = iIsBigEndian &0xff;
+        
         //Length
         pszMsg[23] = (iLen>>24) & 0xff;
         pszMsg[24] = (iLen>>16) & 0xff;
@@ -221,6 +227,38 @@
         pszMsg[42] = isequence & 0xff;
     }
 
+    void TMdbAvpHead::CnvtToBinPlus(unsigned char* pszMsg,unsigned int SessionId)
+    {
+        pszMsg[0]='<';
+        pszMsg[1]='Q';
+        pszMsg[2]='M';
+        pszMsg[3]='D';
+        pszMsg[4]='B';
+        pszMsg[5]='>';
+        //version
+        //pszMsg[21] = iIsBigEndian&0xff;
+        pszMsg[22] = iVersion &0xff;
+        //pszMsg[22] = iIsBigEndian &0xff;
+        
+        //Length
+        memcpy(&pszMsg[23],&iLen,sizeof(iLen));
+        //command-Code
+        
+        memcpy(&pszMsg[27],&iCmdCode,sizeof(iCmdCode));
+        //sessionId
+        iSessionId = SessionId;
+        memcpy(&pszMsg[29],&iSessionId,sizeof(iSessionId));
+        //时间
+        pszMsg[33] = '0';
+        pszMsg[34] = '0';
+        pszMsg[35] = '0';
+        pszMsg[36] = '0';
+        pszMsg[37] = '0';
+        pszMsg[38] = '0';
+        //isequence
+        memcpy(&pszMsg[39],&isequence,sizeof(isequence));
+    }
+
     /******************************************************************************
     * 函数名称	:  BinToCnvt
     * 函数描述	:  二进制包转成文本数据
@@ -235,9 +273,13 @@
         FastMemcpy(sHeadName,&pszMsg[0],6);
         sHeadName[6] = '\0';
         sKeyValue[16] = '\0';
+        iAnsCodePos = pszMsg[10]*NUM1 + pszMsg[11]*NUM2 + pszMsg[12]*256 + pszMsg[13];;
         //version
+        //iIsBigEndian = pszMsg[21];
         iVersion = pszMsg[22];
         //Length
+        //iIsBigEndian = pszMsg[22];
+        
         iLen     = pszMsg[23]*NUM1 + pszMsg[24]*NUM2 + pszMsg[25]*256 + pszMsg[26];
         //commandcode
         iCmdCode = pszMsg[27]*256 + pszMsg[28];
@@ -246,6 +288,44 @@
         //date-time
         sSendTime[6] = '\0';
         isequence = pszMsg[39]*NUM1 + pszMsg[40]*NUM2 + pszMsg[41]*256 + pszMsg[42];
+    }
+
+    void TMdbAvpHead::BinToCnvtPlus(unsigned char* pszMsg)
+    {
+        //获取报文头部标记<QMDB>
+        //FastMemcpy(sHeadName,&pszMsg[0],6);
+        //cpp check modify
+        int iCpyLen = 0;
+		iCpyLen =  6;
+        memcpy(sHeadName,&pszMsg[0],iCpyLen);
+        sHeadName[6] = '\0';
+        sKeyValue[16] = '\0';
+        
+        memcpy(&iAnsCodePos,&pszMsg[10],sizeof(iAnsCodePos));
+        //version
+        
+        //iIsBigEndian = pszMsg[22];
+        iVersion = pszMsg[22];
+        //Length
+        memcpy(&iLen,&pszMsg[23],sizeof(iLen));
+        //iLen     = pszMsg[23]*NUM1 + pszMsg[24]*NUM2 + pszMsg[25]*256 + pszMsg[26];
+        
+        //iLen     = pszMsg[26]*NUM1 + pszMsg[25]*NUM2 + pszMsg[24]*256 + pszMsg[23];
+        //commandcode
+        
+        memcpy(&iCmdCode,&pszMsg[27],sizeof(iCmdCode));
+        //iCmdCode = pszMsg[27]*256 + pszMsg[28];
+        
+        //iCmdCode = pszMsg[28]*256 + pszMsg[27];
+        //sessionId
+        memcpy(&iSessionId,&pszMsg[29],sizeof(iSessionId));
+        //iSessionId = pszMsg[29]*NUM1 + pszMsg[30]*NUM2 + pszMsg[31]*256 + pszMsg[32];
+        //iSessionId = pszMsg[32]*NUM1 + pszMsg[31]*NUM2 + pszMsg[30]*256 + pszMsg[29];
+        //date-time
+        sSendTime[6] = '\0';
+        memcpy(&isequence,&pszMsg[39],sizeof(isequence));
+        //isequence = pszMsg[39]*NUM1 + pszMsg[40]*NUM2 + pszMsg[41]*256 + pszMsg[42];
+        //isequence = pszMsg[42]*NUM1 + pszMsg[41]*NUM2 + pszMsg[40]*256 + pszMsg[39];
     }
 
 

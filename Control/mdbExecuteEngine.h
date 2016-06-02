@@ -25,6 +25,7 @@
 //namespace QuickMDB{
 
     class TMdbRollback;
+    class NoOcpParse;
     //mdb 执行引擎
     class TMdbExecuteEngine
     {
@@ -45,7 +46,9 @@
         long long GetRowTimeStamp();
         int CheckRowDataStruct(int* Column);//校验结构长度信息
         int ReBuildTableFromPage(const char * sDSN,TMdbTable * pMdbTable);//从内存页重新构建表
-        void ClearLastExecute();
+		int BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos);
+		void ClearLastExecute();
+        int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);
         protected:
         int ExecuteInsert();//执行插入
         int ExecuteUpdate();//执行更新

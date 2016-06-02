@@ -206,6 +206,8 @@ struct _ST_EXPR_LIST
 #define MEM_Ephem     0x1000   /* Mem.z points to an ephemeral string */
 #define MEM_Agg       0x2000   /* Mem.z points to an agg function context */
 #define MEM_Zero      0x4000   /* Mem.i contains count of 0s appended to blob */
+#define MEM_LPM		  0x8000   /* Longest Prefix Match */
+
 /*
 ** These macros can be used to test, set, or clear bits in the 
 ** MEM.iFlags field.
@@ -257,6 +259,13 @@ struct _ST_MEM_VALUE
        {
             return MemValueHasAnyProperty(this,MEM_Null);
        }
+
+		// == 使用最长前缀匹配方法
+	   bool IsLPM()
+       {
+            return MemValueHasAnyProperty(this,MEM_LPM) && MemValueHasAnyProperty(this,MEM_Str);
+       }
+		
         //清理值
         void ClearValue()
         {

@@ -557,6 +557,21 @@ char * TMdbField::GetName()
     }
 }
 
+int TMdbField::GetDataType()
+{
+    if(NULL == m_pMemValue)
+    {
+        return -1;
+    }
+    else if(MemValueHasProperty(m_pMemValue,MEM_Int))
+    {
+        return DT_Int;
+    }
+    else
+    {
+        return DT_Char;
+    }
+}
 void TMdbQuery::CheckError(const char* sSql) throw (TMdbException)
 {
 
@@ -618,6 +633,9 @@ TMdbQuery::TMdbQuery(TMdbDatabase *pTMdbDatabase,int iSQLFlag)
     m_fLastRecordFlag = false;
     m_iQueryFlag = 0;
     m_iRowsAff = 0;
+    m_iParamComparePos = -1;
+    m_iParamPoolCurPos = -1;
+    m_pParamPool = NULL;
     //m_bIsDDLSQL = false;
     TADD_FUNC("Finish.");
 }
@@ -696,11 +714,14 @@ void TMdbQuery::CloseSQL()
     CleanRBUnit();//清理回滚单元
     SAFE_DELETE_ARRAY(m_bSetList);
     SAFE_DELETE_ARRAY(m_pParamArray);
+    SAFE_DELETE_ARRAY(m_pParamPool);
     m_iSetParamType = SET_PARAM_NONE;
     m_bFinishSet = false;
     m_bOpen      = false;
     m_fLastRecordFlag = false;
     m_iRowsAff   = 0;
+    m_iParamPoolCurPos = -1;
+    m_iParamComparePos = -1;
     //m_bIsDDLSQL = false;
     
     TADD_FUNC("Finish.");
@@ -810,6 +831,47 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,int iPreFetchRows) throw (TMdbE
     SetSQL(sSqlStatement,0,iPreFetchRows);
 }
 
+
+/******************************************************************************
+* 函数名称	:  DealTableVersion
+* 函数描述	:  处理表的版本号信息，并且返回是否一致
+* 输入		:  
+* 输入		:	true -- 版本一致   false --版本不一致
+* 输出		:
+* 返回值	:
+* 作者		:  yu.lianxiang
+*******************************************************************************/
+bool TMdbQuery::DealTableVersion()
+{
+	std::string sTableName =  m_pMdbSqlParser->m_stSqlStruct.pMdbTable->sTableName;
+	int iTableVersion = m_pMdbSqlParser->m_stSqlStruct.pMdbTable->iVersion;
+
+	//找不到就加一个
+	if(m_mapTableNameToVersion.find(sTableName) == m_mapTableNameToVersion.end())
+	{
+		m_mapTableNameToVersion[sTableName] = iTableVersion;
+		TADD_NORMAL("table:[%s],Add version[%d] .",m_pMdbSqlParser->m_stSqlStruct.pMdbTable->sTableName,iTableVersion);
+		return false;
+	}
+
+	//判断是否一致
+	int iTableVersionInQuery = m_mapTableNameToVersion[sTableName];
+	if( iTableVersionInQuery == iTableVersion) 
+	{
+		return true;
+	}
+	else
+	{
+		TADD_NORMAL("table:[%s],version[%d] to [%d].",m_pMdbSqlParser->m_stSqlStruct.pMdbTable->sTableName,iTableVersionInQuery,iTableVersion);
+
+		//同步
+		m_mapTableNameToVersion[sTableName] = iTableVersion;
+		
+		return false;
+	}
+}
+
+
 /******************************************************************************
 * 函数名称	: SetSQL
 * 函数描述	:  设置要执行的SQL
@@ -836,10 +898,10 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
 	
 	bool bFirstSet = false;
 	InitSqlBuff(bFirstSet);
-	
-    if(false == m_pMdbSqlParser->IsDDLSQL() && true == m_bSetSQL && !bFirstSet && iFlag == m_iQueryFlag)
+
+	//判断是否有必要进行sql的是否重复的校验
+    if(true == IsNeedToCheckSQLRepeat(bFirstSet,iFlag))
     {
-    	//判断是否重复SetSQL,若有重复就不重复解析，直接清空上次执行结果
     	char * sTempSQL = NULL;
 	    sTempSQL = new char[m_iSQLBuffLen];
 		memset(sTempSQL, 0, m_iSQLBuffLen);
@@ -847,7 +909,9 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
 		
         m_pszSQL[0] = 0;		
         CheckAndSetSql(sSqlStatement);//做一些简单处理和校验
-        
+
+		
+    	//判断是否重复SetSQL,若有重复就不重复解析，直接清空上次执行结果
         if(TMdbNtcStrFunc::StrNoCaseCmp(m_pszSQL,sTempSQL) == 0)
         {
             m_pExecuteEngine->ClearLastExecute();
@@ -927,6 +991,12 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
     PrepareParam();
     m_bSetSQL = true;
     TADD_FUNC("Finish.");
+}
+
+bool TMdbQuery::IsNeedToCheckSQLRepeat(bool bFirstSet, int iFlag)
+{	
+	bool bFlag=((false == m_pMdbSqlParser->IsDDLSQL()) && (true == m_bSetSQL) && (!bFirstSet )&& (iFlag == m_iQueryFlag));	
+	return bFlag && DealTableVersion();
 }
 
 /*
@@ -1134,13 +1204,37 @@ int TMdbQuery::GetParamIndexByName(const char *sParamName)
     TADD_DETAIL("sParamName = %s.",sParamName);
     ST_MEM_VALUE * pstMemValue = NULL;
     int i = 0;
+    if(m_iParamComparePos > -1 && m_iParamComparePos < m_pMdbSqlParser->m_listInputVariable.iItemNum)
+    {
+        i = m_pParamPool[m_iParamComparePos];
+        pstMemValue = m_pMdbSqlParser->m_listInputVariable.pValueArray[i];
+        if(TMdbNtcStrFunc::StrNoCaseCmp(pstMemValue->sAlias,sParamName) == 0)
+        {   
+            TADD_FLOW("i=%d\n",i);
+            m_iParamComparePos++;
+            return i;
+        }
+    }
+    bool bFind = false;
     for(i = 0; i < m_pMdbSqlParser->m_listInputVariable.iItemNum; ++i)
     {
         pstMemValue = m_pMdbSqlParser->m_listInputVariable.pValueArray[i];
         if(TMdbNtcStrFunc::StrNoCaseCmp(pstMemValue->sAlias,sParamName) == 0)
         {
-            return i;
+            bFind = true;
+            break;
         }
+    }
+    if(bFind)
+    {
+        TADD_FLOW("%d,i=%d\n",m_iParamPoolCurPos,i);
+        
+        m_iParamPoolCurPos++;
+        if(m_iParamPoolCurPos < m_pMdbSqlParser->m_listInputVariable.iItemNum)
+        {
+            m_pParamPool[m_iParamPoolCurPos] = i;
+        }
+        return i;
     }
     return -1;
 }
@@ -1515,6 +1609,8 @@ bool TMdbQuery::ExecuteOne()throw (TMdbException)
     }
     AddSuccess();
     m_iRowsAff += m_pExecuteEngine->GetRowsAffected();
+    m_iParamComparePos = 0;
+    m_iParamPoolCurPos = -1;
     return true;
 }
 
@@ -1713,6 +1809,10 @@ int  TMdbQuery::PrepareParam()
     {
         SAFE_DELETE_ARRAY(m_bSetList);
         SAFE_DELETE_ARRAY(m_pParamArray);
+        SAFE_DELETE_ARRAY(m_pParamPool);
+        m_iParamPoolCurPos = -1;
+        m_pParamPool = new(std::nothrow) char[m_pMdbSqlParser->m_listInputVariable.iItemNum];
+        memset(m_pParamPool,0x0,m_pMdbSqlParser->m_listInputVariable.iItemNum);
         m_bSetList = new bool[m_pMdbSqlParser->m_listInputVariable.iItemNum];//设置"是否已设置的list"
         memset(m_bSetList,0x00,m_pMdbSqlParser->m_listInputVariable.iItemNum * sizeof(bool));
         m_pParamArray = new TMdbParamArray[m_pMdbSqlParser->m_listInputVariable.iItemNum];
@@ -2438,7 +2538,10 @@ void TMdbQuery::SetBlobParamArray(int iParamIndex,char *sParamValue,int iBufferL
     ERROR_TO_THROW(ERR_SQL_BLOB_PARAM_NOT_SUPPORT_BIND,m_pszSQL,"Can't support the function(Blob).");
 }
 
-
+int TMdbQuery::FillFieldForCSBin(NoOcpParse & tParseData,bool bFirst)
+{
+    return m_pExecuteEngine->FillFieldForCSBin(tParseData,bFirst);
+}
 
 int TMdbDatabase::m_iSQLFlag = 1;
 
@@ -3085,11 +3188,15 @@ int  TMdbDatabase::GetCaptureRouter(char * sRouterRet)
 *******************************************************************************/
 TMdbParam::TMdbParam()
 {
+    m_iCount = 0;
+    m_pParamPool = NULL;
+    m_iParamComparePos = -1;
+    m_iParamPoolCurPos = -1;
 
 }
 TMdbParam::~TMdbParam()
 {
-
+    SAFE_DELETE_ARRAY(m_pParamPool);
 }
 /******************************************************************************
 * 函数名称	:  Clear
@@ -3103,6 +3210,9 @@ TMdbParam::~TMdbParam()
 int TMdbParam::Clear()
 {
     m_vParamName.clear();
+    SAFE_DELETE_ARRAY(m_pParamPool);
+    m_iParamComparePos = -1;
+    m_iParamPoolCurPos = -1;
     return 0;
 }
 
@@ -3163,13 +3273,38 @@ int TMdbParam::GetParamIndexByName(const char * sParamName)
 {
     std::vector<std::string>::iterator itor = m_vParamName.begin();
     int iCount = 0;
+    if(m_iParamComparePos > -1 && m_iParamComparePos < m_iCount)
+    {//查找缓存区
+        iCount = m_pParamPool[m_iParamComparePos];
+        if(TMdbNtcStrFunc::StrNoCaseCmp(m_vParamName[iCount].c_str(),sParamName) == 0)
+        {   
+            //printf("iCount=%d\n",iCount);
+            m_iParamComparePos++;
+            return iCount;
+        }
+    }
+    //没有缓存，按原来的查找
+    bool bFind = false;
+    
     for(;itor != m_vParamName.end();++itor)
     {
         if(TMdbNtcStrFunc::StrNoCaseCmp(itor->c_str(),sParamName) == 0)
         {//find
-            return iCount;
+            bFind = true;
+            break;
         }
-        iCount ++;
+        iCount++;
+    }
+    if(bFind)
+    {//写入缓存
+        //printf("%d,iCount=%d\n",m_iParamPoolCurPos,iCount);
+    
+        m_iParamPoolCurPos++;
+        if(m_iParamPoolCurPos < m_iCount)
+        {
+            m_pParamPool[m_iParamPoolCurPos] = iCount;
+        }
+        return iCount;
     }
     return -1;
 }
@@ -3188,6 +3323,19 @@ int TMdbParam::GetCount()
     return m_vParamName.size();
 }
 
+void TMdbParam::NewParamPool()
+{
+    m_iCount = GetCount();
+    SAFE_DELETE_ARRAY(m_pParamPool);
+    m_iParamComparePos = -1;
+    m_iParamPoolCurPos = -1;
+    m_pParamPool = new(std::nothrow) char[m_iCount];
+}
+void TMdbParam::InitParamPool()
+{
+    m_iParamComparePos = 0;
+    m_iParamPoolCurPos = -1;
+}
 
 TMdbSequenceMgr::TMdbSequenceMgr()
 {

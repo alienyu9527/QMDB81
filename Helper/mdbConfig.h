@@ -229,7 +229,12 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         int  iStandbyPort;             //容灾standby端口
 		char sAgentPortStr[64]; 	 //代理端口列表字符串
 		int  iAgentPort[MAX_AGENT_PORT_COUNTS]; 			//代理端口列表
-
+		
+		char sNtcPortStr[64];		 //使用ntc的端口列表字符串
+		char sNoNtcPortStr[64];      //不使用ntc端口列表字符串
+		int  iNtcPort[MAX_AGENT_PORT_COUNTS];               //使用ntc的端口列表
+		int  iNoNtcPort[MAX_AGENT_PORT_COUNTS];             //不使用ntc的端口列表
+		
         int  iLogLevel;              //日志级别
         bool bIsReadOnlyAttr;        //DSN的访问属性
         bool bIsOraRep;              //是否开启Oracle的同步
@@ -279,6 +284,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         bool m_bSingleDisaster;  //是否单机容灾部署
         bool m_bNull;//设置null处理规则:true 表示与nil四则运算还为nil;false 表示nil运算时当0值处理(兼容老版本)。        
         bool m_bIsShardBackup;		 //是否开启分片备份
+        bool m_bUseNTC;//CS是否使用NTC
 
         // 分片备份相关配置项
         char sRepSvrIp[MAX_IP_LEN];
@@ -333,6 +339,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         int Init();
 
 		int ParseAgentPort();
+		int ParseNtcAgentPort(char * sPortStr,int * iPortArray);
 
         /******************************************************************************
         * 函数名称	:  SetFlag()
@@ -771,6 +778,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         * 返回值	:  加载成功返回0,否则返回-1
         * 作者		:  li.shugang
         *******************************************************************************/
+        int LoadNtcPortsInfo(MDBXMLAttribute* pAttr,MDBXMLAttribute* pAttrValue);
         int LoadSysInfoFromXML(MDBXMLElement* pESys);
         int LoadSysInfo(MDBXMLElement* pEle,const bool bCheck);
 

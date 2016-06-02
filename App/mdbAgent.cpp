@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     //signal(SIGSEGV, &dump);
     //#endif
 	
-    if(argc != 3)
+    if(argc != 4)
     {   
     	printf("Invalid parameters.\n Exit!\n\n");            
         return 0;
@@ -89,28 +89,49 @@ int main(int argc, char* argv[])
         char sName[64];
         memset(sName, 0, sizeof(sName));
 
-        snprintf(sName,sizeof(sName),"%s %s %s", argv[0], argv[1], argv[2]);
+        snprintf(sName,sizeof(sName),"%s %s %s %s", argv[0], argv[1], argv[2],argv[3]);
         TADD_START(argv[1],sName, 0, false ,true);
         
         int iAgentPort = TMdbNtcStrFunc::StrToInt(argv[2]);
+		int iuseNtc = TMdbNtcStrFunc::StrToInt(argv[3]);
 		if(iAgentPort <= 0) 
 		{
 			TADD_ERROR(ERROR_UNKNOWN, "Invalid agent-port[%d]!", iAgentPort);
 			return -1;
 		}
-		
-        TMdbAgentServer Agent;
-        if(Agent.Init(argv[1]) != 0)
-            return -1;
+		if(iuseNtc == 1)
+        {
+        	//NTC
+        	TADD_NORMAL("agent port %d use ntc",iAgentPort);
+	        TMdbAgentServer Agent;
+	        if(Agent.Init(argv[1]) != 0)
+	            return -1;
 
-        if(Agent.PreSocket(iAgentPort) < 0)
-            return 0;
+	        if(Agent.PreSocket(iAgentPort) < 0)
+	            return 0;
 
-        iRet = Agent.StartServer(sName);
+	        iRet = Agent.StartServer(sName);
+		}
+		else
+		{
+			//not ntc
+			TADD_NORMAL("agent port%d not use ntc",iAgentPort);
+            TMdbNoNtcAgentServer Agent;
+    		if(Agent.Init(argv[1],iAgentPort) != 0)
+               return -1;
+               
+            if(Agent.PreSocket(iAgentPort) < 0)
+            	return 0;
+            
+            iRet = Agent.Start(sName);
+			
+
+		}
         if(iRet != 0)
         {
             TADD_ERROR(ERROR_UNKNOWN,"mdbagent run faild");  
         }
+		
     }
     catch(TMdbException& e)
     {

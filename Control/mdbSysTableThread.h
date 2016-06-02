@@ -90,6 +90,14 @@
         int SyncConflictIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
         int SyncVarcharAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
 
+		int SyncMhashBaseIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+		int SyncMhashConflictIdxMgrAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+		int SyncMhashConflictIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+		int SyncMhashLayerIdxMgrAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+		int SyncMhashLayerIdxAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+		int SyncMhashMutexAreaResource(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
+
+	
         int SyncSAResouce(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);//同步[同步区]信息
     private:
         int SyncLocalLink(TMdbQuery * pQuery[]);//同步本地链接

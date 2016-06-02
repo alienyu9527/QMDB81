@@ -291,6 +291,138 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
     return NULL;
 }
 
+
+int TMdbIndexCtrl::ReAttachSingleIndex(int iIndexPos)
+{
+	int iRet = 0;
+	CHECK_OBJ(m_pAttachTable);		
+	TADD_DETAIL("ReAttachSingleIndex:tIndex[%d].sName=[%s].", iIndexPos, m_pAttachTable->tIndex[iIndexPos].sName); 
+
+	int iAlgoType = m_pAttachTable->tIndex[iIndexPos].m_iAlgoType;
+
+	switch(iAlgoType)
+	{
+		case INDEX_HASH:
+			CHECK_RET(ReAttachSingleHashIndex(iIndexPos),"ReAttachSingleHashIndex failed.");
+			break;
+		case INDEX_M_HASH:
+			CHECK_RET(ReAttachSingleMHashIndex(iIndexPos),"ReAttachSingleMHashIndex failed.");
+			break;
+		default:
+			TADD_ERROR(-1,"ReAttachSingleIndex invalid AlgoType %d.",iAlgoType);
+			break;
+	}
+	return iRet;
+}
+
+
+int TMdbIndexCtrl::ReAttachSingleHashIndex(int iIndexPos)
+{
+	int iRet = 0;
+	CHECK_OBJ(m_pMdbShmDsn);
+	for(int n=0; n<MAX_SHM_ID; ++n)
+    {
+        TADD_DETAIL("Attach (%s) hash Index : Shm-ID no.[%d].", m_pAttachTable->sTableName, n);
+        char * pBaseIndexAddr = m_pMdbShmDsn->GetBaseIndex(n);
+        if(pBaseIndexAddr == NULL)
+            continue;
+
+        TMdbBaseIndexMgrInfo *pBIndexMgr = (TMdbBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
+
+		int i = iIndexPos;
+        TADD_DETAIL("HASH:tIndex[%d].sName=[%s].", i, m_pAttachTable->tIndex[i].sName);
+        for(int j=0; j<MAX_BASE_INDEX_COUNTS; ++j)
+        {
+            //比较索引名称,如果相同，则把锁地址和索引地址记录下来
+            if((0 == TMdbNtcStrFunc::StrNoCaseCmp( m_pAttachTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
+                &&(TMdbNtcStrFunc::StrNoCaseCmp(m_pAttachTable->tIndex[i].sName, pBIndexMgr->tIndex[j].sName) == 0))
+            {
+                TADD_DETAIL("Find index[%s]",m_pAttachTable->tIndex[i].sName);
+                //找到索引
+                char * pConflictIndexAddr = m_pMdbShmDsn->GetConflictIndex(pBIndexMgr->tIndex[j].iConflictMgrPos);
+                TMdbConflictIndexMgrInfo *pCIndexMgr  = (TMdbConflictIndexMgrInfo *)pConflictIndexAddr;
+                CHECK_OBJ(pCIndexMgr);
+
+                m_arrTableIndex[i].bInit  = true;
+                m_arrTableIndex[i].iIndexPos  = i;
+                m_arrTableIndex[i].pIndexInfo = &(m_pAttachTable->tIndex[i]);//保存index的信息
+                
+                m_arrTableIndex[i].m_HashIndexInfo.pBIndexMgr = pBIndexMgr;
+                m_arrTableIndex[i].m_HashIndexInfo.pCIndexMgr = pCIndexMgr;
+                m_arrTableIndex[i].m_HashIndexInfo.iBaseIndexPos = j;
+                m_arrTableIndex[i].m_HashIndexInfo.iConflictIndexPos = pBIndexMgr->tIndex[j].iConflictIndexPos;
+                m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex = &(pBIndexMgr->tIndex[j]);
+                m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex = &(pCIndexMgr->tIndex[pBIndexMgr->tIndex[j].iConflictIndexPos]);
+                m_arrTableIndex[i].m_HashIndexInfo.pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->iPosAdd);
+                m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
+                
+                break;
+            }
+        }
+		
+    }
+
+	return iRet;
+}
+
+int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
+{
+	int iRet = 0;
+	CHECK_OBJ(m_pMdbShmDsn);
+	for(int n=0; n<MAX_SHM_ID; ++n)
+	{
+		TADD_DETAIL("Attach (%s) m-hash Index : Shm-ID no.[%d].", m_pAttachTable->sTableName, n);
+		char * pBaseIndexAddr = m_pMdbShmDsn->GetMHashBaseIndex(n);
+		if(pBaseIndexAddr == NULL)
+			continue;
+
+		TMdbMHashBaseIndexMgrInfo *pMHashBIndexMgr = (TMdbMHashBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
+		TMdbMHashConflictIndexMgrInfo* pMHashConfMgr = m_pMdbShmDsn->GetMHashConfMgr();
+		CHECK_OBJ(pMHashConfMgr);
+		TMdbMHashLayerIndexMgrInfo* pMHashLayerMgr = m_pMdbShmDsn->GetMHashLayerMgr();
+		CHECK_OBJ(pMHashLayerMgr);
+		
+		int i = iIndexPos;
+		TADD_DETAIL("MHASH , tIndex[%d].sName=[%s].", i, m_pAttachTable->tIndex[i].sName);
+		for(int j=0; j<MAX_MHASH_INDEX_COUNT; ++j)
+		{
+			//比较索引名称,如果相同，则把锁地址和索引地址记录下来
+			if((0 == TMdbNtcStrFunc::StrNoCaseCmp(m_pAttachTable->sTableName,pMHashBIndexMgr->tIndex[j].sTabName))
+				&&(TMdbNtcStrFunc::StrNoCaseCmp(m_pAttachTable->tIndex[i].sName, pMHashBIndexMgr->tIndex[j].sName) == 0))
+			{
+				TADD_DETAIL("Find index[%s]",m_pAttachTable->tIndex[i].sName);
+				//找到索引
+
+				char* pMutexAddr = m_pMdbShmDsn->GetMHashMutex(pMHashBIndexMgr->tIndex[j].iMutexMgrPos);
+				TMdbMHashMutexMgrInfo*pMutexMgr  = (TMdbMHashMutexMgrInfo *)pMutexAddr;
+				CHECK_OBJ(pMutexMgr);
+
+				m_arrTableIndex[i].bInit  = true;
+				m_arrTableIndex[i].iIndexPos  = i;
+				m_arrTableIndex[i].pIndexInfo = &(m_pAttachTable->tIndex[i]);//保存index的信息
+
+				m_arrTableIndex[i].m_MHashIndexInfo.pBIndexMgr = pMHashBIndexMgr;
+				m_arrTableIndex[i].m_MHashIndexInfo.pMutexMgr = pMutexMgr;
+				
+				m_arrTableIndex[i].m_MHashIndexInfo.iBaseIndexPos = j;
+				m_arrTableIndex[i].m_MHashIndexInfo.iMutexPos = pMHashBIndexMgr->tIndex[j].iMutexPos;
+				
+				m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndex = &(pMHashBIndexMgr->tIndex[j]);
+				
+				m_arrTableIndex[i].m_MHashIndexInfo.pConflictIndex = &(pMHashConfMgr->tIndex[pMHashBIndexMgr->tIndex[j].iConflictIndexPos]);
+				m_arrTableIndex[i].m_MHashIndexInfo.pLayerIndex = &(pMHashLayerMgr->tIndex[pMHashBIndexMgr->tIndex[j].iLayerIndexPos]);  
+				m_arrTableIndex[i].m_MHashIndexInfo.pMutex = &(pMutexMgr->aBaseMutex[pMHashBIndexMgr->tIndex[j].iMutexPos]);
+				
+				m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndexNode = (TMdbMHashBaseIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndex->iPosAdd);
+				m_arrTableIndex[i].m_MHashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_MHashIndexInfo.pMutex->iPosAdd);
+				
+				break;
+			}
+		}
+	}	
+	return iRet;
+}
+
     int  TMdbIndexCtrl::AttachHashIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs)
     {
         for(int n=0; n<MAX_SHM_ID; ++n)
@@ -715,8 +847,13 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
         ST_TABLE_INDEX_INFO & stTableIndex = m_arrTableIndex[iIndexPos];
         if(false == stTableIndex.bInit)
         {
-            TADD_ERROR(-1,"stTableIndex is not init....");
-            return -1;
+            //如果有动态创建的索引，此时需要重新attch
+        	ReAttachSingleIndex(iIndexPos);
+			if(false == stTableIndex.bInit)
+			{
+	            TADD_ERROR(-1,"stTableIndex is not init....");
+	            return -1;
+			}
         }
         int iError = 0;
         if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_HASH)
@@ -761,8 +898,13 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
         ST_TABLE_INDEX_INFO & stTableIndex = m_arrTableIndex[iIndexPos];
         if(false == stTableIndex.bInit)
         {
-            TADD_ERROR(-1,"stTableIndex is not init....");
-            return -1;
+        	//如果有动态创建的索引，此时需要重新attch
+        	ReAttachSingleIndex(iIndexPos);
+			if(false == stTableIndex.bInit)
+			{
+	            TADD_ERROR(-1,"stTableIndex is not init....");
+	            return -1;
+			}
         }
 
         int iError = 0;
@@ -796,7 +938,14 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
 			CHECK_RET(GetTrieWord(tRowCtrl, pAddr, stTableIndex.pIndexInfo, sTrieWord),"GetTrieWord failed.");
 			iRet = m_tTrieIndex.DeleteIndexNode(sTrieWord,stTableIndex.m_TrieIndexInfo, rowID);
 		}
-        
+
+        //对于处于building状态的索引，找不到索引节点为合理的,不抛出错误
+		if(iRet!=0  && stTableIndex.pIndexInfo->bBuilding==true)
+		{
+			TADD_DETAIL("DeleteIndexNode failed,Maybe it's in building.Table[%s],Index[%s].",
+				m_pAttachTable->sTableName,stTableIndex.pIndexInfo->sName);
+			iRet = 0;
+		}
         return iRet;
     }
 
@@ -807,8 +956,13 @@ ST_TABLE_INDEX_INFO * TMdbIndexCtrl::GetAllIndexByColumnPos(int iColumnPos,int &
         ST_TABLE_INDEX_INFO & stTableIndex = m_arrTableIndex[iIndexPos];
         if(false == stTableIndex.bInit)
         {
-            TADD_ERROR(-1,"stTableIndex is not init....");
-            return -1;
+            //如果有动态创建的索引，此时需要重新attch
+        	ReAttachSingleIndex(iIndexPos);
+			if(false == stTableIndex.bInit)
+			{
+	            TADD_ERROR(-1,"stTableIndex is not init....");
+	            return -1;
+			}
         }
 
          int iError = 0;

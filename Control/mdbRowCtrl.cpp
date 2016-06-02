@@ -124,7 +124,7 @@
         m_pShmDsn = TMdbShmMgr::GetShmDSN(sDsn);
         CHECK_OBJ(m_pShmDsn);
         CHECK_OBJ(pTable);
-        m_pMdbTable = pTable;		
+        m_pMdbTable = pTable;
         CHECK_RET(m_tVarcharCtrl.Init(sDsn),"varchar Init faild.");
         //计算null flag
         SAFE_DELETE_ARRAY(m_arrColNullFlag);
@@ -143,7 +143,6 @@
         ClearColValueBlock();
         return iRet;
     }
-
     /******************************************************************************
     * 函数名称	:  ClearColValueBlock
     * 函数描述	:  清理临时区

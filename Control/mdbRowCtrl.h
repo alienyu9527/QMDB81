@@ -44,13 +44,13 @@
                                                                        char * & sValue,int iValueSize,int & iResultType);//获取某列值
         int SetTimeStamp(char* const & pDataAddr, int iOffSet,long long iTimeStamp);              
         int GetTimeStamp(char* pDataAddr, int iOffSet,long long & iTimeStamp);
-
     private:
         int ClearColValueBlock();   //清理临时区
         char * GetColValueBlockByPos(int iPos);//根据column -pos 获取记录临时区
     private:
         TMdbTable * m_pMdbTable;
         TMdbShmDSN * m_pShmDsn;
+        //TMdbVarcharMgr m_tVarcharMgr;
 		TMdbVarCharCtrl m_tVarcharCtrl;
         char *  m_pArrColValueBlock[MAX_COLUMN_COUNTS];//临时记录区
         TMdbColumnNullFlag * m_arrColNullFlag;//列的null标识

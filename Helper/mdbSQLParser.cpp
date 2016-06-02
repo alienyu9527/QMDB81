@@ -1045,7 +1045,8 @@ int TMdbSqlParser::CollectWhereIndex()
     {
         CHECK_RET_FILL(OptimizeWhereClause(m_stSqlStruct.pWhere,m_stSqlStruct.tWhereOrClause),ERR_SQL_INVALID, "Optimize Where failed.");//优化where 条件
         CHECK_RET_FILL(GetWhereIndex(m_stSqlStruct.vIndexUsed,m_stSqlStruct.tWhereOrClause),ERR_SQL_INVALID,"Get Where Index failed.");//搜集索引
-    }
+        CHECK_RET_FILL(CheckLPM(m_stSqlStruct.pWhere),ERR_SQL_INVALID, "CheckLPM failed.");//检测where语句中最长匹配索引
+	}
     TADD_FUNC("Finish.vIndexUsed[%d].",m_stSqlStruct.vIndexUsed.size());
     return iRet;
 }
@@ -1209,6 +1210,25 @@ int TMdbSqlParser::GetWhereIndex(std::vector< ST_INDEX_VALUE > & vIndexValue,ST_
     TADD_FUNC("Finish.vIndex.size=[%d],vIndexColumn.size=[%d]",vIndexValue.size(),vIndexColumn.size());
     return iRet;
 }
+
+int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr)
+{
+	TADD_FUNC("Start.");
+    int iRet = 0;
+    if(NULL == pstExpr){return 0;}
+	CheckLPM(pstExpr->pLeft);
+	CheckLPM(pstExpr->pRight);
+	if(pstExpr->pExprValue->pColumn)
+	{
+		ST_TABLE_INDEX_INFO * pTableIndex = m_MdbIndexCtrl.GetIndexByName(pstExpr->pExprValue->pColumn->sName);
+		if(pTableIndex && pTableIndex->pIndexInfo->m_iAlgoType==INDEX_TRIE)
+		{
+			MemValueSetProperty(pstExpr->pExprValue, MEM_LPM);
+			printf("Where %s set LPM\n",pstExpr->pExprValue->pColumn->sName);
+		}
+	}
+}
+
 /******************************************************************************
 * 函数名称	:  GetSubWhereIndex
 * 函数描述	:  获取子where条件中的index
@@ -4067,6 +4087,115 @@ bool TMdbSqlParser::IsTableAlias(Token * pToken)
     return false;
 }
 
+int TMdbSqlParser::SetNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue)
+{
+	SAFESTRCPY(pDsn->sNtcPortStr,sizeof(pDsn->sNtcPortStr),sAttrValue);
+	if(pDsn->sNtcPortStr[0] == 0) 
+	{
+		
+	}
+	else
+	{
+		char sNtcPortStr[64] = {0};
+		SAFESTRCPY(sNtcPortStr, 64, pDsn->sNtcPortStr);
+		TMdbNtcSplit tSplit;
+		tSplit.SplitString(sNtcPortStr, ',');
+		if(tSplit.GetFieldCount() <= 0)
+		{
+			TADD_ERROR(ERR_NET_IP_INVALID,"Too few  use ntc agent port value!");
+			return ERR_NET_IP_INVALID;
+		}
+		else if(tSplit.GetFieldCount() > MAX_AGENT_PORT_COUNTS)
+		{
+			TADD_ERROR(ERR_NET_IP_INVALID,"Too many use ntc agent port value!");
+			return ERR_NET_IP_INVALID;
+		}
+		else
+		{
+			char sTempPort[16] = {0};
+			for(int i = 0; i<tSplit.GetFieldCount(); i++)
+			{
+				memset(sTempPort, 0, sizeof(sTempPort));
+				SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
+				TMdbNtcStrFunc::Trim(sTempPort, ' ');
+				pDsn->iNtcPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+				if(pDsn->iNtcPort[i] <= 0)
+				{
+					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid use ntc agent port value!");
+					return ERR_NET_IP_INVALID;
+				}
+				TADD_DETAIL("m_tDsn.iNtcPort[%d] = [%d]", i, pDsn->iNtcPort[i]);
+			}
+		}
+	}
+    
+	return 0;
+}
+
+int TMdbSqlParser::SetNoNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue)
+{
+	SAFESTRCPY(pDsn->sNoNtcPortStr,sizeof(pDsn->sNoNtcPortStr),sAttrValue);
+	if(pDsn->sNoNtcPortStr[0] == 0) 
+	{
+		
+	}
+	else
+	{
+		char sNoNtcPortStr[64] = {0};
+		SAFESTRCPY(sNoNtcPortStr, 64, pDsn->sNoNtcPortStr);
+		TMdbNtcSplit tSplit;
+		tSplit.SplitString(sNoNtcPortStr, ',');
+		if(tSplit.GetFieldCount() <= 0)
+		{
+			TADD_ERROR(ERR_NET_IP_INVALID,"Too few not use agent port value!");
+			return ERR_NET_IP_INVALID;
+		}
+		else if(tSplit.GetFieldCount() > MAX_AGENT_PORT_COUNTS)
+		{
+			TADD_ERROR(ERR_NET_IP_INVALID,"Too many not  use ntc agent port value!");
+			return ERR_NET_IP_INVALID;
+		}
+		else
+		{
+			char sTempPort[16] = {0};
+			for(int i = 0; i<tSplit.GetFieldCount(); i++)
+			{
+				memset(sTempPort, 0, sizeof(sTempPort));
+				SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
+				TMdbNtcStrFunc::Trim(sTempPort, ' ');
+				pDsn->iNoNtcPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+				if(pDsn->iNoNtcPort[i] <= 0)
+				{
+					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid not use ntc agent port value!");
+					return ERR_NET_IP_INVALID;
+				}
+				TADD_DETAIL("m_tDsn.iNoNtcPort[%d] = [%d]", i, pDsn->iNoNtcPort[i]);
+			}
+		}
+	}
+
+	return 0;
+}
+
+int TMdbSqlParser::SetNtcPortsAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue)
+{
+	int iRet = 0;
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"use_ntc_agent_port") == 0)
+	{
+		CHECK_RET(SetNtcAgentPortAttribute(pDsn,sAttrName,sAttrValue),"get use_ntc_agent_port failed");
+
+	}
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"notuse_ntc_agent_port") == 0)
+	{
+		CHECK_RET(SetNoNtcAgentPortAttribute(pDsn,sAttrName,sAttrValue),"get not use_ntc_agent_port failed");
+
+	}
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_use_ntc") == 0)
+		CONVERT_Y_N(sAttrValue,pDsn->m_bUseNTC);
+
+	return iRet;
+}
+
 int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sAttrValue)
 {
     TADD_FUNC("Start.");
@@ -4188,6 +4317,8 @@ int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *s
 			}
 		}
     }
+	CHECK_RET(SetNtcPortsAttribute(pDsn,sAttrName,sAttrValue),"SetNtcPortsAttribute failed");
+	
     TADD_FUNC("Finish.");
     return iRet;
 }
@@ -4447,6 +4578,11 @@ void TMdbSqlParser::InitDsnAttrName()
     m_mapDsnAttrName["local_ip"] = "Local-Ip";
 	m_mapDsnAttrName["local_active_ip"] = "local-active-ip";
     m_mapDsnAttrName["agent_port"] = "agent-port";
+	
+	m_mapDsnAttrName["use_ntc_agent_port"] = "use-ntc-agent-port";
+	m_mapDsnAttrName["notuse_ntc_agent_port"] = "notuse-ntc-agent-port";
+
+	
     m_mapDsnAttrName["manager_size"] = "manager-size";
     m_mapDsnAttrName["data_size"] = "data-size";
     m_mapDsnAttrName["client_timeout"] = "client-timeout";

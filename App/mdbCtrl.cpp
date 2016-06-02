@@ -1008,6 +1008,37 @@ int TMdbCtrl::CheckSystem()
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
+int TMdbCtrl::GetCSMethod(int iAgentPort)
+{
+	int j = 0,k = 0;
+	int iuseNtc = 0;
+	for(j=0; j<MAX_AGENT_PORT_COUNTS; j++)
+	{
+		TADD_NORMAL("iNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNtcPort[j],iAgentPort);
+		if(iAgentPort ==  m_pConfig->GetDSN()->iNtcPort[j])
+				break;
+	}
+	for(k=0; k<MAX_AGENT_PORT_COUNTS; k++)
+	{
+		TADD_NORMAL("iNoNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNoNtcPort[k],iAgentPort);
+		if(iAgentPort ==  m_pConfig->GetDSN()->iNoNtcPort[k])
+				break;
+	}
+	if(j<MAX_AGENT_PORT_COUNTS && k<MAX_AGENT_PORT_COUNTS)
+	{
+		TADD_ERROR(ERR_NET_IP_INVALID,"the ntc method set in xml is conflict,the agent with this port %d can't start",iAgentPort);
+		iuseNtc = -1;
+	}
+	else if(j<MAX_AGENT_PORT_COUNTS)
+		iuseNtc = 1;
+	else if(k<MAX_AGENT_PORT_COUNTS)
+		iuseNtc = 0;
+	else
+		iuseNtc = m_pConfig->GetDSN()->m_bUseNTC?1:0;
+	return iuseNtc;
+		
+}
+
 int TMdbCtrl::GetProcToStart(std::vector<std::string > & vProcToStart)
 {
     int iRet = 0;
@@ -1077,9 +1108,13 @@ int TMdbCtrl::GetProcToStart(std::vector<std::string > & vProcToStart)
     //启动mdbAgent => cs代理进程
 	for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 	{
+		
 		if(m_pConfig->GetDSN()->iAgentPort[i] > 0)
 		{
-			sprintf(sProcFullName, "mdbAgent %s %d", m_sDsn, m_pConfig->GetDSN()->iAgentPort[i]);
+			int iuseNtc=  GetCSMethod(m_pConfig->GetDSN()->iAgentPort[i]);
+			if(iuseNtc == -1)
+				continue;
+			sprintf(sProcFullName, "mdbAgent %s %d %d", m_sDsn, m_pConfig->GetDSN()->iAgentPort[i],iuseNtc);
     		vProcToStart.push_back(sProcFullName);
 		}
 		else

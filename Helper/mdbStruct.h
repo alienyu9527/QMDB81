@@ -33,7 +33,7 @@ V1.2.14：是指内核版本号，这个只有在内核发生重大变更的时候才会修改。（需要重建qmd
 QMDB只维护主版本，只有当出现紧急bug，才会在现场分支版本上修改。这时候，现场分支的代码版本里就会多一个“path”(和主版本区分出来),相应的日期版本也会修改。
 QuickMDB V1.2.14.20131226.patch
 */
-#define MDB_VERSION  "QuickMDB V1.4.1.20160428"
+#define MDB_VERSION  "QuickMDB V1.4.1.20160523"
 
 
 /**
@@ -163,8 +163,13 @@ typedef key_t		SMKey;
 
 //agent最大端口数
 #define MAX_AGENT_PORT_COUNTS 5
+#define CONNECT_DIFF 5
 
-
+//cs使用不同的协议标示
+#define MDB_CS_USE_OCP (0x01)
+#define MDB_CS_USE_BIN (0x80)
+#define MDB_CS_BIG_ED  (0x84)//大小头
+#define MDB_CS_LIT_ED  (0x85)//大小头
 //最大job个数
 #define MAX_JOB_COUNT 100
 
@@ -265,6 +270,7 @@ inline void SAFESTRCPY_IN(char* dst, int diz, const char* src,const char * sFile
     #define Table_repping '3'   //正在同步数据，指程序启动时的同步数据---此时的数据写入落地文件
     #define Table_watingRep '4' //待同步---此时数据并不做主备机的同步
     #define Table_temp_watingRep '5' //临时待同步，如同链接临时断开
+    #define Table_creatingIndex '6' //动态创建索引
 
     #define ROUTER_ID_COL_NAME "routing_id" //路由ID的列名
 

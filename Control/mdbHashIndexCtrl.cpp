@@ -68,7 +68,7 @@
         TADD_FUNC("rowID[%d|%d]",rowID.GetPageID(),rowID.GetDataOffset());
         int iRet = 0;
         CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
-        FindRowIndexCValue(tHashIndexInfo, tRowIndex,rowID);//查找冲突索引值
+        CHECK_RET(FindRowIndexCValue(tHashIndexInfo, tRowIndex,rowID),"FindRowIndexCValue Failed");//查找冲突索引值
         TMdbIndexNode * pBaseNode = &(tHashIndexInfo.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
         TMdbIndexNode * pDataNode = NULL;
         if(false == tRowIndex.IsCurNodeInConflict())

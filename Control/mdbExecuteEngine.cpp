@@ -823,6 +823,7 @@
                 m_iCurIndex ++;
                 pTableIndex = (*m_pVIndex)[m_iCurIndex].pstTableIndex;
                 CalcMemValueHash((*m_pVIndex)[m_iCurIndex],llValue);
+				CHECK_RET(SetTrieWord(),"SetTrieWord Failed.");
             }
         }
         if(NULL != pTableIndex)
@@ -841,6 +842,7 @@
     int TMdbExecuteEngine::SetTrieWord()
    	{
    		int  iRet = 0;
+		m_MdbTableWalker.m_sTrieWord[0] = 0;
 		if((int)m_pVIndex->size() <= 0 || m_iCurIndex < -1)
         {
         	return iRet;
@@ -1052,7 +1054,91 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
-
+    
+    int TMdbExecuteEngine::FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+        /*
+        ST_MEM_VALUE_LIST & stMemValueList = m_pMdbSqlParser->m_listInputCollist;
+        //m_pMdbSqlParser->ClearMemValue(stMemValueList);//清理
+        int iSize = stMemValueList.iItemNum;
+        int iValueLen = 0;
+        char cDataType = 0;
+        TMdbColumn * pColumn = NULL;
+        ST_MEM_VALUE * pMemValue = NULL;
+        for(int i = 0; i<iSize; i++)
+        {
+            if(NULL == m_pDataAddr){continue;}
+            pMemValue = stMemValueList.pValueArray[i];
+            pColumn = pMemValue->pColumn;
+            if(bFirst)
+            {
+                int iLen = strlen(pMemValue->sAlias)+1;
+                cDataType = pColumn->iDataType;
+                tParseData.SetData(&cDataType,sizeof(cDataType));//name len
+                tParseData.SetData(&iLen,sizeof(int));//name len
+                tParseData.SetData(pMemValue->sAlias,iLen);//name value
+                
+            }
+            if(m_tRowCtrl.IsColumnNull(pColumn,m_pDataAddr))
+            {//空值
+                iValueLen = 0;
+                tParseData.SetData(&iValueLen,sizeof(int));
+                continue;
+            }
+            switch(pColumn->iDataType)
+            {
+            case DT_Int:  //Integer
+            case DT_Char://Char
+            case DT_DateStamp: //时间用string保存
+            {
+                
+                tParseData.SetData(&pColumn->iColumnLen,sizeof(int));
+                tParseData.SetData(&m_pDataAddr[pColumn->iOffSet],pColumn->iColumnLen);
+                break;
+            }
+            case DT_VarChar:  //VarChar
+            {
+                char *pAddr = NULL;
+                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(m_pDataAddr+pColumn->iOffSet,iValueLen,pAddr),
+                               ERR_SQL_GET_MEMORY_VALUE_ERROR,"GetVarcharValue ERROR");
+                tParseData.SetData(&iValueLen,sizeof(int));
+                tParseData.SetData(pAddr,iValueLen);
+                               
+                //TADD_FLOW("Column[%d] value=[%s],col_pos=[%d]",i,(char *)(pStructAddr+Column[i]),Column[i]);
+                break;
+            }
+            
+            case DT_Blob:
+            {
+                //#if 0
+                char *pAddr = NULL;
+                CHECK_RET_FILL_CODE(m_tVarcharCtrl.GetVarcharValue(m_pDataAddr+pColumn->iOffSet,iValueLen,pAddr),
+                               ERR_SQL_GET_MEMORY_VALUE_ERROR,"GetVarcharValue ERROR");
+                //TADD_FLOW("Column[%d] value=[%s],col_pos=[%d]",i,(char *)(pStructAddr+Column[i]),Column[i]);
+                //Base64解码
+                std::string encoded = pAddr;
+                std::string decoded = Base::base64_decode(encoded);
+                iValueLen = decoded.length();
+                tParseData.SetData(&iValueLen,sizeof(int));
+                tParseData.SetData(decoded.c_str(),decoded.length());
+                //#endif
+                break;
+            }
+            
+            
+            default:
+                CHECK_RET_FILL(ERR_SQL_TYPE_INVALID,"column[%s]DataType=%d invalid.", pColumn->sName,pColumn->iDataType);
+                break;
+                
+            }
+            TADD_DETAIL("Column[%s],type[%d],offset[%d].",pColumn->sName,pColumn->iDataType,pColumn->iOffSet);
+        }
+        TADD_FUNC("Finish.");
+        */
+        return iRet;
+    }
     //删除变长数据
     int TMdbExecuteEngine::DeleteVarCharValue( char*  const &pAddr)
     {
@@ -1952,6 +2038,45 @@
             TADD_DETAIL("page_id=[%d],offset=[%d],rowid=[%d].",m_tCurRowIDData.GetPageID(),m_tCurRowIDData.GetDataOffset(),m_tCurRowIDData.m_iRowID);
             CHECK_RET(ChangeInsertIndex(m_pDataAddr,m_tCurRowIDData),"ChangeInsertIndex failed.");//插入索引
             m_pTable->iCounts ++;
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+
+	int TMdbExecuteEngine::BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+        ClearLastExecute();
+        CHECK_OBJ(pMdbTable);
+        m_pTable = pMdbTable;
+        CHECK_OBJ(pShmDSN);
+        m_pDsn = pShmDSN->GetInfo();
+        m_mdbIndexCtrl.AttachTable(pShmDSN,pMdbTable);
+        CHECK_RET(m_MdbTableWalker.AttachTable(pShmDSN,m_pTable),"AttachTable failed.");
+        CHECK_RET_FILL_CODE(m_tRowCtrl.Init(m_pDsn->sName,m_pTable->sTableName),ERR_OS_ATTACH_SHM,"m_tRowCtrl.AttachTable failed.");//记录管理
+        //遍历free 链
+        m_MdbTableWalker.WalkByPage(m_pTable->iFreePageID);
+        while(m_MdbTableWalker.NextByPage())
+        {
+            m_pDataAddr     = m_MdbTableWalker.GetDataAddr();
+            m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
+            m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
+            m_iPagePos      = m_MdbTableWalker.GetPagePos();
+			CHECK_RET_FILL(m_mdbIndexCtrl.InsertIndexNode(iIndexPos,m_pDataAddr,m_tRowCtrl,m_tCurRowIDData),
+						   "InsertIndexNode failed.index=[%s]",m_pTable->tIndex[iIndexPos].sName);
+        }
+		//遍历full 链
+        m_MdbTableWalker.WalkByPage(m_pTable->iFullPageID);
+        while(m_MdbTableWalker.NextByPage())
+        {
+            m_pDataAddr     = m_MdbTableWalker.GetDataAddr();
+            m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
+            m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
+            m_iPagePos      = m_MdbTableWalker.GetPagePos();
+            CHECK_RET_FILL(m_mdbIndexCtrl.InsertIndexNode(iIndexPos,m_pDataAddr,m_tRowCtrl,m_tCurRowIDData),
+                "InsertIndexNode failed.index=[%s]",m_pTable->tIndex[iIndexPos].sName);
         }
         TADD_FUNC("Finish.");
         return iRet;

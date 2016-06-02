@@ -50,6 +50,7 @@ private:
     int LoadSequence();
     bool CheckVersion(TMdbDSN *pTMdbDSN);//校验内核版本和发布版本，来确定是否要重新创建共享内存
     int CheckSystem();//校验配置项
+    int GetCSMethod(int iAgentPort);
     int GetProcToStart(std::vector<std::string > & vProcToStart);//获取要启动的进程信息
     bool NeedRemoveFile();
     int LoadFromDisk();//从磁盘加载

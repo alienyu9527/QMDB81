@@ -67,6 +67,9 @@
 		int AttachMHashIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs);
 		int AttachTrieIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs);
         
+		int ReAttachSingleIndex(int iIndexPos);
+		int ReAttachSingleHashIndex(int iIndexPos);
+		int ReAttachSingleMHashIndex(int iIndexPos);
         ST_TABLE_INDEX_INFO * GetIndexByColumnPos(int iColumnPos,int &iColNoPos);
 	 	ST_TABLE_INDEX_INFO * GetAllIndexByColumnPos(int iColumnPos,int &iColNoPos,int &iCurIndexPos);//根据columnpos获取indexnode
 		ST_TABLE_INDEX_INFO * GetIndexByName(const char* sName);

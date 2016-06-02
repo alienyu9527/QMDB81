@@ -8,6 +8,10 @@
 #define AVP_ANSWER_CODE  	2
 //应答消息
 #define AVP_ANSWER_MSG      3
+
+//如果要换个端口号重连，消息码
+#define AVP_ANSWER_PORT     4
+
 //登陆请求
 #define AVP_USER_NAME 		263
 #define AVP_USER_PWD  		264
@@ -17,6 +21,8 @@
 #define AVP_LOW_PRIORITY    269
 #define AVP_ORIGIN_REALM    270
 #define AVP_OS_USER_NAME    271
+//第几次连接请求
+#define AVP_CON_NUM         272
 #define AVP_TERMINAL_NAME   400
 
 //剔除链接请求

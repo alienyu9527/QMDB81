@@ -52,17 +52,18 @@
         int AddNewProc(TMdbProc * & pNewProc);//新增一个进程信息
         int AddNewLocalLink(TMdbLocalLink *& pNewLink);//新增一个链接
         int AddNewRemoteLink(TMdbRemoteLink *& pNewLink);//新增一个链接
+        int AddNewPortLink(TMdbPortLink *& pNewLink);
         int AddNewRepLink(TMdbRepLink *& pNewLink);//新增一个链接
         int AddNewMemSeq(TMemSeq *& pNewMemSeq);//新增一个memseq
         int AddNewJob(TMdbJob *& pNewJob);// 新增一个新job
         int AddNewVarChar(TMdbVarchar *&pNewVarChar); //新增一个varchar段
         int AddNewMhashConflict(TMdbMhashBlock *&pNewBlock);
         int AddNewMhashLayer(TMdbMhashBlock *&pNewBlock);
-		
+        TMdbJob * GetJobByName(const char * sName);//根据名字获取job
 		int AddNewTrieConflict(TMdbTrieBlock *&pNewBlock);
 		int AddNewTrieBranch(TMdbTrieBlock*& pNewBlock);
 
-		TMdbJob * GetJobByName(const char * sName);//根据名字获取job
+
         char * GetAddrByOffset(size_t iOffset){return m_tMgrShmAlloc.GetStartAddr() + iOffset;}
         
         int CreateSyncAreaShm();//创建同步区
@@ -193,6 +194,8 @@
         TShmList<TMdbJob>            m_JobList;//job列表
         TShmList<TMdbVarchar>        m_VarCharList; //Varchar段
         
+		TShmList<TMdbPortLink> 		m_PortLinkList; 
+
         TShmList<TMdbMhashBlock> m_MhashConfList; // 阶梯式索引冲突索引块链表
         TShmList<TMdbMhashBlock> m_MhashLayerList; // 阶梯式索引阶梯索引块链表
 

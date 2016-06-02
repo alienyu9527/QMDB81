@@ -264,8 +264,8 @@
         SAFESTRCPY(sTemp,sizeof(sTemp),sFileNameFormat);
         TMdbNtcStrFunc::Trim(sTemp);
         const char * sSubStr[]={"{table_name}","{pid}","{tid}"};
-        int iSubStrCount = 4;
-        char sSubStrReplaced[4][MAX_NAME_LEN] = {{0}};
+        int iSubStrCount = 3;
+        char sSubStrReplaced[3][MAX_NAME_LEN] = {{0}};
         //设置替换值
         if(NULL != m_pSqlParser )
         {
@@ -281,10 +281,7 @@
         int i = 0;
         for(i = 0;i< iSubStrCount;++i)
         {
-            //std::string sResult = TMdbNtcStrFunc::Replace(sTemp,sSubStr[i],sSubStrReplaced[i]);
-            //SAFESTRCPY(sTemp,sizeof(sTemp),sResult.c_str());
-            std::string sResult = TMdbNtcStrFunc::Replace(sTemp,sSubStr[i],sSubStrReplaced[i], sTemp);
-            
+            std::string sResult = TMdbNtcStrFunc::Replace(sTemp,sSubStr[i],sSubStrReplaced[i], sTemp);            
         }
         //设置日志文件
        sprintf(m_sLogFile,"%s/log/",getenv("QuickMDB_HOME"));

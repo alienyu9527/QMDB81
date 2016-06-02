@@ -630,7 +630,7 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    TADD_DETAIL("pData=[%s],iWhichPos=[%d],iRowId=[%ud].",pData,iWhichPos,iRowId);
 	    if(iWhichPos < VC_16 || iWhichPos > VC_8192)
 	    {
-	        TADD_ERROR(ERROR_UNKNOWN,"iWhichFlag=[%d],iWhichFlag IN [0,9],pData=[%s]",iWhichPos,pData);
+	        TADD_WARNING("iWhichFlag=[%d],iWhichFlag IN [0,9],pData=[%s]",iWhichPos,pData);
 	        pResultValue[0] = 0;
 	        return iRet;
 	    }

@@ -114,7 +114,7 @@ int TMdbLinkCtrl::UnRegLocalLink(TMdbLocalLink *& pLocalLink)
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
-int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink)
+int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort)
 {
     TADD_FUNC("Start");
     int iRet = 0;
@@ -124,7 +124,14 @@ int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink)
     CHECK_RET(m_pShmDsn->LockDSN(),"lock failed.");
     do{
         CHECK_RET_BREAK(m_pShmDsn->AddNewRemoteLink(pRemoteLink),"AddNewRemoteLink failed.");
-        SAFESTRCPY(pRemoteLink->sIP, MAX_IP_LEN,tCSLink.m_sClientIP);
+        if(0 == tCSLink.m_sClientIP[0])
+        {
+            SAFESTRCPY(pRemoteLink->sIP, MAX_IP_LEN,inet_ntoa(tCSLink.tAddr.sin_addr));
+        }
+        else
+        {
+            SAFESTRCPY(pRemoteLink->sIP, MAX_IP_LEN,tCSLink.m_sClientIP);
+        }
         pRemoteLink->iHandle = tCSLink.iFD;            //链接句柄
         pRemoteLink->cState = Link_use;        //链接状态
         SAFESTRCPY(pRemoteLink->sStartTime,MAX_TIME_LEN,m_pShmDsn->GetInfo()->sCurTime);
@@ -138,7 +145,11 @@ int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink)
         pRemoteLink->iLowPriority = tCSLink.m_iLowPriority;
         pRemoteLink->iPID = (tCSLink.m_iClientPID);  //客户端PID
         pRemoteLink->iTID = (tCSLink.m_iClientTID);  //客户端线程ID
+        pRemoteLink->iProtocol = tCSLink.m_iUseOcp;
         tCSLink.m_pRemoteLink =pRemoteLink;
+
+		if(iAgentPort != -1)
+			AddConNumForPort(iAgentPort);
 
     }while(0);
     CHECK_RET(m_pShmDsn->UnLockDSN(),"unlock failed.");
@@ -154,7 +165,7 @@ int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink)
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
-int TMdbLinkCtrl::UnRegRemoteLink(TMdbCSLink &tCSLink)
+int TMdbLinkCtrl::UnRegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort)
 {
     TADD_FUNC("Start.");
      //找出远程链接信息
@@ -166,6 +177,9 @@ int TMdbLinkCtrl::UnRegRemoteLink(TMdbCSLink &tCSLink)
     {
         pRemoteLink->Clear();
     }
+
+	if(iAgentPort != -1)
+		MinusConNumForPort(iAgentPort);
     CHECK_RET(m_pShmDsn->UnLockDSN(),"unlock failed.");
     TADD_FUNC("Finish.");
     return iRet;
@@ -323,10 +337,156 @@ int TMdbLinkCtrl::ClearAllLink()
             itorRemote->Clear();
         }
     }
+
+	//清除cs连接的统计信息
+	
+	/*
+	for(int i=0; i<MAX_AGENT_PORT_COUNTS; i++)
+	{
+		m_pShmDsn->iConnectNum[i] = 0;
+		m_pShmDsn->iNoNtcAgentPorts[i] = -1;
+	}
+	*/
+
+	TShmList<TMdbPortLink>::iterator itorPort = m_pShmDsn->m_PortLinkList.begin();
+    for(;itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+    {
+        if(itorPort->iAgentPort != -1)
+        {
+            itorPort->Clear();
+        }
+    }
+	
+	
     CHECK_RET(m_pDsn->tMutex.UnLock(true),"unlock failed.");//加锁
     //解锁
     TADD_FUNC("Finish.");	
     return iRet;
+}
+
+int   TMdbLinkCtrl::ClearCntNumForPort(int iAgentPort)
+{
+	int iRet = 0;
+    TADD_FUNC(" Start.");
+    CHECK_OBJ(m_pShmDsn);
+   	CHECK_RET(m_pShmDsn->LockDSN(),"lock failed.");
+	//int i;
+	TADD_NORMAL("ClearCntNumForPort() : Start_mjx.");
+	TADD_NORMAL("iAgentPort %d",iAgentPort);
+	/*
+	for(i=0; i<MAX_AGENT_PORT_COUNTS; i++)
+	 if(-1 ==  m_pShmDsn->iNoNtcAgentPorts[i])
+		{
+			m_pShmDsn->iNoNtcAgentPorts[i] = iAgentPort;
+			m_pShmDsn->iConnectNum[i] = 0;
+			//TADD_NORMAL("iNoNtcAgentPorts %d, i:%d",m_pShmDsn->iNoNtcAgentPorts[i],i);
+			break;
+	 	}
+	
+	*/
+	 TMdbPortLink * pPortLink = NULL;
+	 CHECK_RET(m_pShmDsn->AddNewPortLink(pPortLink),"AddNewPortLink failed.");
+	 pPortLink->iAgentPort = iAgentPort;
+	 pPortLink->iConNum = 0;
+	
+	
+	CHECK_RET(m_pShmDsn->UnLockDSN(),"unlock failed.");
+    //解锁
+    TADD_FUNC("Finish.");	
+    return iRet;
+
+}
+
+int   TMdbLinkCtrl::GetCsAgentPort(int iClientPort)
+{
+	
+    int iRet = 0;
+	int iRetPort = 0;
+    TADD_FUNC(" Start.");
+    CHECK_OBJ(m_pShmDsn);
+   	CHECK_RET(m_pShmDsn->LockDSN(),"lock failed.");
+	//最大连接数的端口号，最小连接数的端口号 ，二者相差不超过5即可
+	int iMax = -1,iMin = 65536;
+	int iMaxPort = -1,iMinPort = -1;
+	TShmList<TMdbPortLink>::iterator itorPort = m_pShmDsn->m_PortLinkList.begin();
+    for(;itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+	{
+		if(itorPort->iAgentPort != -1 && itorPort->iConNum > iMax)
+		{
+			iMax = itorPort->iConNum;
+			iMaxPort = itorPort->iAgentPort;
+			
+		}
+
+		if(itorPort->iAgentPort != -1 && itorPort->iConNum < iMin)
+		{
+			iMin = itorPort->iConNum;
+			iMinPort = itorPort->iAgentPort;
+			
+		}
+
+		//TADD_NORMAL(" no ntc port numm %d, con num %d",itorPort->iAgentPort,itorPort->iConNum);
+
+	}
+
+	//TADD_NORMAL("GetCsAgentPort:iMax%d,iMaxPort %d,iMin%d,iMinPort%d",iMax,iMaxPort,iMin,iMinPort);
+	
+	if(iMaxPort>-1 && iMinPort> -1 && iMax-iMin>= CONNECT_DIFF)
+		iRetPort = iMinPort;
+	else
+		iRetPort = iClientPort;
+
+	
+
+	//TADD_NORMAL("GetCsAgentPort:iRet%d,iClientPort%d",iRetPort,iClientPort);
+	
+	CHECK_RET(m_pShmDsn->UnLockDSN(),"unlock failed.");
+    //解锁
+    TADD_FUNC("Finish.");	
+
+	iRet = iRetPort;
+	//TADD_NORMAL(" return :GetCsAgentPort:iRet%d,iClientPort%d",iRetPort,iClientPort);
+    return iRet;
+	
+	
+
+}
+
+int	  TMdbLinkCtrl::AddConNumForPort(int iAgentPort)
+{
+	
+	 //int i;
+	 //for(i=0; i<MAX_AGENT_PORT_COUNTS; i++)
+	 //	if(iAgentPort ==  m_pShmDsn->iNoNtcAgentPorts[i])
+	 TShmList<TMdbPortLink>::iterator itorPort = m_pShmDsn->m_PortLinkList.begin();
+     for(;itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+	{
+		if(itorPort->iAgentPort ==  iAgentPort)
+		{
+			itorPort->iConNum++;
+			break;
+		}
+	 }
+	 return 0;
+
+}
+int	  TMdbLinkCtrl::MinusConNumForPort(int iAgentPort)
+{
+	//int i;
+	// for(i=0; i<MAX_AGENT_PORT_COUNTS; i++)
+	// 	if(iAgentPort ==  m_pShmDsn->iNoNtcAgentPorts[i])
+	TShmList<TMdbPortLink>::iterator itorPort = m_pShmDsn->m_PortLinkList.begin();
+    for(;itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+	{
+		if(itorPort->iAgentPort ==  iAgentPort)
+		{
+			if(itorPort->iConNum > 0 )
+				itorPort->iConNum--;
+			break;
+		}
+			
+	}
+	return 0;
 }
 
 

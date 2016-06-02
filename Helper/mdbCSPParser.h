@@ -85,11 +85,13 @@ static char  CSP_AVP_STRING[]=
 "{Thread-Id}                                    1                    268       M           Unsigned32\n"
 "{Low-Priority}                                 1                    269       C           Unsigned32\n"
 "{OS-User-Name}                                 1                    271       M           OctetString\n"
+"{CON-NUM}                                      1                    272       M           Integer32\n"
 "{Terminal-Name}                                1                    400       M           OctetString\n"
 "{Origin-Realm}                                 1                    270       M           OctetString\n"
 "\n"
 "##CSP_APP_LOGON_RESULT\n"
-"AVP_NAME                                     AVP-LEVLE            AVP_CODE  M-FLAG        DATA_TYPE\n" 
+"AVP_NAME                                     AVP-LEVLE            AVP_CODE  M-FLAG        DATA_TYPE\n"
+"{Answer-Port}                                 1                    4       M               Integer32\n"                          
 "{Answer-Code}                                 1                    2       M               Integer32\n"
 "[Answer-Msg]                                  1                    3       C               OctetString	\n"
 "\n"
@@ -374,7 +376,12 @@ public:
     TMdbAvpHead();
     void CnvtToBin(unsigned char* pszMsg,int SessionId); 
     void BinToCnvt(unsigned char* pszMsg); 
+    void CnvtToBinPlus(unsigned char* pszMsg,unsigned int SessionId); 
+    void BinToCnvtPlus(unsigned char* pszMsg); 
+    
     void Clear();
+    void SetVersion(int iVer){iVersion = iVer;};
+    //void SetBigEndian(int iBig){iIsBigEndian = iBig;};
     void SetCmdCode(int ComId);
     unsigned int GetSequence();
     void SetSequence(unsigned int iseq);
@@ -382,9 +389,11 @@ public:
     char sHeadName[7]; //<QMDB>
     char sKeyValue[17]; //key 数字字符串加密表示 ,ZSMART_QMDB
     int iVersion;
+    //int iIsBigEndian;
     unsigned int iLen;
-    unsigned int iCmdCode;
+    unsigned short int iCmdCode;
     unsigned int iSessionId;
+    unsigned int iAnsCodePos;
     char sSendTime[7]; //表示时分秒
     unsigned int isequence; //序列
     unsigned int iCurrentAvpFlag;//当前avp的标识
@@ -444,6 +453,8 @@ class TMdbCspParser
 		*******************************************************************************/
 		int Init(int iType,bool bRequest);//初始化包结构
 		void Print();//打印
+		void SetVersion(int iVer){m_tHead.SetVersion(iVer);};
+        //void SetBigEndian(int iBig){m_tHead.SetBigEndian(iBig);};
 		int Serialize(unsigned char* pszDCC,int SessionId,int iSequence) throw (TMdbCSPException);    //序列化成二进制串
 		int DeSerialize(unsigned char* pszDCC,int iLen) throw (TMdbCSPException);//解析二进制串
 		//设置item的值

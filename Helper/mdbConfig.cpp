@@ -66,6 +66,8 @@
 		for(int i = 1; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			iAgentPort[i] = 0;
+			iNtcPort[i] = 0;
+			iNoNtcPort[i] = 0;
 		}
 		memset(sAgentPortStr, 0, sizeof(sAgentPortStr));
 		SAFESTRCPY(sAgentPortStr, sizeof(sAgentPortStr), "19804");
@@ -88,6 +90,7 @@
         m_bNull = false;
         m_iLoadPriority = LOAD_FILE_FIRST;
 
+		m_bUseNTC =  true;
         m_iCSPumpInitCount = 1;
         m_iCSPumpMaxCount = 100;
         m_iCSPeerCountPerPump = 50;
@@ -123,8 +126,12 @@
 		for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			iAgentPort[i] = 0;
+			iNtcPort[i] = 0;
+			iNoNtcPort[i] = 0;
 		}
 		memset(sAgentPortStr, 0, sizeof(sAgentPortStr));
+		memset(sNtcPortStr, 0, sizeof(sNtcPortStr));
+		memset(sNoNtcPortStr, 0, sizeof(sNoNtcPortStr));
 
         iLogBuffSize = 128;
         if(NULL == getenv("QuickMDB_HOME"))
@@ -204,6 +211,7 @@
         m_bNull = false;
         m_iLoadPriority = LOAD_FILE_FIRST;
 
+		m_bUseNTC =  true;
         m_iCSPumpInitCount = 1;
         m_iCSPumpMaxCount = 100;
         m_iCSPeerCountPerPump = 50;
@@ -428,6 +436,49 @@
 		return iRet;
 	}
 
+	int TMdbConfig::ParseNtcAgentPort(char * sPortStr,int * iPortArray)
+	{
+		int iRet = 0;
+		if(sPortStr[0] == 0) 
+		{
+			
+		}
+		else
+		{
+		    char sAgentPort[64] = {0};
+			SAFESTRCPY(sAgentPort, 64, sPortStr);
+			TMdbNtcSplit tSplit;
+			tSplit.SplitString(sAgentPort, ',');
+			if(tSplit.GetFieldCount() <= 0)
+			{
+				TADD_ERROR(ERR_NET_IP_INVALID,"Too few agent port value!");
+				return ERR_NET_IP_INVALID;
+			}
+			else if(tSplit.GetFieldCount() > MAX_AGENT_PORT_COUNTS)
+			{
+				TADD_ERROR(ERR_NET_IP_INVALID,"Too many agent port value!");
+				return ERR_NET_IP_INVALID;
+			}
+			else
+			{
+				char sTempPort[16] = {0};
+				for(int i = 0; i<tSplit.GetFieldCount(); i++)
+				{
+					memset(sTempPort, 0, sizeof(sTempPort));
+					SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
+					TMdbNtcStrFunc::Trim(sTempPort, ' ');
+					iPortArray[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+					if(iPortArray[i] <= 0)
+					{
+						TADD_ERROR(ERR_NET_IP_INVALID,"Invalid agent port value!");
+						return ERR_NET_IP_INVALID;
+					}
+					TADD_DETAIL("iPortArray[%d] = [%d]", i, iPortArray[i]);
+				}
+			}
+		}
+		return iRet;
+	}
     /******************************************************************************
     * 函数名称	:  SetFlag()
     * 函数描述	:  设置动作标识，是否需要检测记录数。仅供mdbCtrl调用
@@ -992,6 +1043,64 @@
 	    return 0;
 	}
 
+	
+	int TMdbConfig::LoadNtcPortsInfo(MDBXMLAttribute* pAttr,MDBXMLAttribute* pAttrValue)
+	{
+		int iRet = 0;
+		if(TMdbNtcStrFunc::StrNoCaseCmp("use-ntc-agent-port",pAttr->Value()) == 0)
+		{
+			if (0 == TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Value(),""))
+			{
+				memset(m_tDsn.sNtcPortStr,0,sizeof(m_tDsn.sNtcPortStr));
+			}
+			else
+			{
+				strncpy(m_tDsn.sNtcPortStr,pAttrValue->Value(),sizeof(m_tDsn.sNtcPortStr)-1);
+			}
+			CHECK_RET(ParseNtcAgentPort(m_tDsn.sNtcPortStr,m_tDsn.iNtcPort),"Invalid use ntc agent port value");
+			
+		}
+	
+		if(TMdbNtcStrFunc::StrNoCaseCmp("notuse-ntc-agent-port",pAttr->Value()) == 0)
+		{
+			if (0 == TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Value(),""))
+			{
+				memset(m_tDsn.sNoNtcPortStr,0,sizeof(m_tDsn.sNoNtcPortStr));
+			}
+			else
+			{
+				strncpy(m_tDsn.sNoNtcPortStr,pAttrValue->Value(),sizeof(m_tDsn.sNoNtcPortStr)-1);
+			}
+			CHECK_RET(ParseNtcAgentPort(m_tDsn.sNoNtcPortStr,m_tDsn.iNoNtcPort),"Invalid not use ntc agent port value");
+			
+		}
+
+		if(TMdbNtcStrFunc::StrNoCaseCmp("is-use-ntc",pAttr->Value()) == 0)
+		{
+			if (0 == TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Value(),""))
+			{
+				m_tDsn.m_bUseNTC = false;
+			}
+			else if(0 == TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Value(),"Y"))
+			{
+				m_tDsn.m_bUseNTC = true;
+			}
+			else if(0 == TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Value(),"N"))
+			{
+				m_tDsn.m_bUseNTC = false;
+			}
+			else
+            {
+                TADD_ERROR(ERR_APP_INVALID_PARAM,"Invalid element=[%s=%s].",pAttr->Value(),pAttrValue->Value());
+                return ERR_APP_INVALID_PARAM;
+            }
+				
+			
+		}
+	
+		return iRet;
+					
+	}
 	int TMdbConfig::LoadSysInfoFromXML(MDBXMLElement* pESys)
 	{
 		MDBXMLAttribute* pAttr		= NULL;
@@ -1041,6 +1150,7 @@
 						CHECK_RET(ParseAgentPort(),"Invalid agent port value");
 						continue;
 					}
+					
 					if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(), "buf-size") == 0)
 					{
 						m_tDsn.iLogBuffSize = atoi(pAttrValue->Value());
@@ -1143,7 +1253,7 @@
 					SET_SYS_PARAM_CHAR_VALUE(m_tDsn.m_sReloadDbType,sizeof(m_tDsn.m_sReloadDbType),pAttr->Value(),"Reload-Db-Type",pAttrValue->Value());
 					SET_PARAM_BOOL_VALUE(m_tDsn.m_bReloadEncrypt,pAttr->Value(),"Is-Reload-Encrypt",pAttrValue->Value());
 		
-		
+					CHECK_RET(LoadNtcPortsInfo(pAttr,pAttrValue),"Load use-ntc-agent-port or notuse-ntc-agent-port failed");
 						  
 				}
 				else

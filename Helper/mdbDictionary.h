@@ -294,6 +294,7 @@
             int iPriority;       //索引优先级,1…10，数值越小优先级越高
             //TMutex tMutex;       //索引的共享锁
             int iMaxLayer;
+			bool bBuilding;
         };
 
 
@@ -684,6 +685,19 @@ public:
 	size_t  iRBAddrOffset;
 };
 
+class TMdbPortLink
+{
+	public:
+    void Clear(){iAgentPort = -1; iConNum = 0;}
+    void Print(){printf("agent port:%d,connect link num:%d\n",iAgentPort,iConNum); }
+	void AddConNum(){iConNum++;}
+	void SubConNum(){iConNum--; if(iConNum<0)iConNum = 0;}
+	public:
+	int iAgentPort;
+	int iConNum;
+
+};
+
 //数据库远程链接信息
 class TMdbRemoteLink
 {
@@ -708,6 +722,7 @@ public:
     int iPID;                      //进程的PID
     unsigned long iTID; 			//远程链接的线程ID
     int iSQLPos;                    //远程链接上sql位置
+    int iProtocol;                  //协议
     char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
 };
 
@@ -730,11 +745,12 @@ public:
         m_iClientTID  = -1;
 		m_iLowPriority = 0;
         m_sClientIP[0]= '\0';
-        //memset(&tAddr,0,sizeof(tAddr));
+        m_iUseOcp = MDB_CS_USE_OCP;
+        memset(&tAddr,0,sizeof(tAddr));
     }
 public:
     int iFD; //客户端socket链接ID
-    //struct sockaddr_in tAddr;
+    struct sockaddr_in tAddr;
     TMdbRemoteLink * m_pRemoteLink;
     char *m_sUser;
     char *m_sPass;
@@ -743,6 +759,7 @@ public:
     int m_iClientPID;//客户端PID
     int m_iClientTID;//客户端线程ID
     int m_iLowPriority;//优先级
+    int m_iUseOcp;//协议    
 };
 
 class TMdbRepLink
@@ -966,6 +983,8 @@ public:
     int  iLocalPort;             //本地端口
     int  iPeerPort;              //对端端口
     int  iAgentPort[MAX_AGENT_PORT_COUNTS];             //本地代理端口
+    int  iNtcPort[MAX_AGENT_PORT_COUNTS]; 
+	int  iNoNtcPort[MAX_AGENT_PORT_COUNTS];
     size_t m_iDataSize;
     TMutex tMutex;            //管理区共享锁
 
@@ -1006,6 +1025,7 @@ private:
 	size_t iTrieConfAddr; //  树形索引冲突索引管理区地址
     size_t iTrieBranchAddr; // 树形索引索引分支节点索引管理区地址
     
+    size_t iPortLinkAddr;            //链接管理区偏移量
     long long m_iLSN;// 日志序列号,每个操作【增删改】递增
     
 private:
@@ -1082,6 +1102,7 @@ public:
     char sUpdateTime[MAX_TIME_LEN];  //表结构变更
     char m_sTableSpace[MAX_NAME_LEN]; // 所属表空间名称
 
+	int iVersion;
     int iTableLevel;
     int iTabLevelCnts;  // 表的级别对应的记录数
     int  iRecordCounts;              //表中的记录数-一个准确的估算值可以大幅度提高系统性能，默认为1万

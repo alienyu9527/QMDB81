@@ -853,6 +853,7 @@
         try
         {
             pNode->m_pQuery->CloseSQL();
+			pNode->m_pQuery->SetSQL(pNode->m_sSQL,QUERY_NO_ORAFLUSH |QUERY_NO_REDOFLUSH|QUERY_NO_SHARDFLUSH|QUERY_NO_ROLLBACK,0);
         }
         catch(TMdbException& e)
         {

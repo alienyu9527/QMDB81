@@ -603,6 +603,13 @@ bool TMdbTableWalker::NextByPage()
 				iChildPos = pCur->m_iChildrenPos[iChrIndex];
 			}
 
+			//没有数据
+			if( (pCur == pRoot)&&(-1==iChildPos) )
+			{
+				StopWalk();
+				return false;
+			}
+
 			//没有孩子节点了
 			if( ((-1 == iChildPos) || (m_sTrieWord[cPos]==0)) && (pCur != pRoot))
 			{

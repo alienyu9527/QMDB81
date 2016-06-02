@@ -16,6 +16,7 @@
 //#include "OracleFlush/mdbLoadFromPeer.h"
 #include "Control/mdbJobCtrl.h"
 #include "Control/mdbStorageEngine.h"
+#include "Control/mdbExecuteEngine.h"
 
 //namespace QuickMDB{
 
@@ -730,41 +731,25 @@ int TMdbDDLExecuteEngine::ExecuteAddIndex(const char * pTableName)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
-    char sSQL[MAX_SQL_LEN] = {0};
     TMdbIndexCtrl tIndexCtrl;
     CHECK_OBJ(pTableName);
     CHECK_OBJ(m_pTable);
     TMdbTable * pTable = m_pShmDSN->GetTableByName(pTableName);
     CHECK_OBJ(pTable);
-    snprintf(sSQL,sizeof(sSQL),"select * from %s",pTable->sTableName);
-    //首先判断操作的表是否有记录，如果有记录是不允许用户在添加索引的
-    /*
-    if(!m_tMDB.IsConnect())
-    {
-        CHECK_RET(ConnectMDB(),"connect QMDB Faild.");
-    }
-    TMdbQuery *pQuery = m_tMDB.CreateDBQuery();
-    CHECK_OBJ(pQuery);
-    pQuery->SetSQL(sSQL,QUERY_NO_ORAFLUSH|QUERY_NO_SHARDFLUSH,0);
-    pQuery->Open();
-    if(pQuery->Next())
-    {
-        TADD_ERROR(ERROR_UNKNOWN,"The index table[%s] has data exist, not allowed to add.",pTable->sTableName);
-        SAFE_DELETE(pQuery);
-        return ERR_SQL_INDEX_COLUMN_ERROR;
-    }
-    SAFE_DELETE(pQuery);
-    */
+    
     //增加索引
     CHECK_RET(pTable->tTableMutex.Lock(true,&(m_pDsn->tCurTime)),"lock failed.");
-    memcpy(&(pTable->tIndex[pTable->iIndexCounts]),\
-        &(m_pTable->tIndex[m_pTable->iIndexCounts-1]),sizeof(TMdbIndex));
+	TMdbIndex* pNewIndex = &(pTable->tIndex[pTable->iIndexCounts]);
+	int iNewPos = pTable->iIndexCounts;
+    memcpy(pNewIndex, &(m_pTable->tIndex[m_pTable->iIndexCounts-1]),sizeof(TMdbIndex));
     tIndexCtrl.AttachDsn(m_pShmDSN);
     TADD_DETAIL("SHM:index = %s,new index = %s.",pTable->tIndex[pTable->iIndexCounts].sName,\
         m_pTable->tIndex[m_pTable->iIndexCounts-1].sName);
     CHECK_RET(tIndexCtrl.AddTableSingleIndex(pTable,m_pConfig->GetDSN()->iDataSize),\
         "Can't InitIndexMem table=%s.",pTable->sTableName);
     pTable->iIndexCounts++;
+	//表版本修改
+	pTable->iVersion++;
     //重新计算一条记录的长度
     CHECK_RET(m_pConfig->CalcOneRecordSize(pTable),"CalcOneRecordSize failed.");
     CHECK_RET(pTable->tTableMutex.UnLock(true),"unlock failed.");
@@ -778,9 +763,26 @@ int TMdbDDLExecuteEngine::ExecuteAddIndex(const char * pTableName)
     
     //生成对应的xml文件
     m_pScript->AddIndex(true);
+
+	//内存重建单个索引
+	pNewIndex->bBuilding = true;
+	CHECK_RET(BuildTableSingleIndex(pTable,iNewPos),"BuildTableSingleIndex failed");
+	//重建完毕
+	pNewIndex->bBuilding = false;
+	
     TADD_FUNC("Finish.");
     return iRet;
 }
+
+int TMdbDDLExecuteEngine::BuildTableSingleIndex(TMdbTable * pTable,int iIndexPos)
+{
+	int iRet = 0;
+	TMdbExecuteEngine tExecuteEngine; 
+	iRet = tExecuteEngine.BuildSingleIndexFromPage(m_pShmDSN,pTable,iIndexPos);
+	CHECK_RET(iRet,"BuildSingleIndexFromPage failed,Table:%s,IndexPos:%d",pTable->sTableName,iIndexPos);
+	return iRet;
+}
+
 
 /******************************************************************************
 * 函数名称	:  ExecuteDropIndex
@@ -829,6 +831,10 @@ int TMdbDDLExecuteEngine::ExecuteDropIndex(const char * pTableName,const char *p
         }
         pTable->iIndexCounts--;
     }while(0);
+	
+	//表版本修改
+	pTable->iVersion++;
+	
     CHECK_RET(pTable->tTableMutex.UnLock(true),"unlock failed.");
     
     //生成对应的xml文件
@@ -1292,6 +1298,9 @@ int TMdbDDLExecuteEngine::ExecuteModifyTable()
         m_pScript->ModifyColumn(true);
     }
 
+	//表版本修改
+	m_pTable->iVersion++;
+	
     // if file storage table space , do checkpoint
     //miaojx add
     CHECK_RET(m_mdbTSCtrl.Init(m_pDsn->sName,m_pTable->m_sTableSpace),"m_mdbTSCtrl.Init failed");

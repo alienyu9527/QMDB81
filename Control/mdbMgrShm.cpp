@@ -63,6 +63,13 @@
         m_bTryAttach = false;
         m_arrSyncAreaShm = NULL;
 
+		/*TADD_NORMAL("TMdbShmDSN::TMdbShmDSN clear connect port");
+		for(int i=0; i<MAX_AGENT_PORT_COUNTS; i++)
+		{
+			iNoNtcAgentPorts[i] = -1;
+			iConnectNum[i] = 0;
+		}
+		*/
          
     }
 
@@ -145,7 +152,9 @@
 		CHECK_RET(m_TrieBranchList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iTrieBranchAddr),"m_TrieBranchList attach failed.");
         CHECK_RET(m_TrieConfList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iTrieConfAddr),"m_TrieConfList attach failed.");
         
-
+		//cs link
+		CHECK_RET(m_PortLinkList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iPortLinkAddr),"m_PortLinkList Attach failed.");
+		
 		
         TADD_DETAIL("m_iMgrKey=%lld, pMgrAddr=%p.", m_iMgrKey, pMgrAddr);
         TADD_DETAIL("iBaseIndexShmCounts=%d.", m_pTMdbDSN->iBaseIndexShmCounts);
@@ -858,6 +867,9 @@
         for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			m_pTMdbDSN->iAgentPort[i] = config.GetDSN()->iAgentPort[i];
+			m_pTMdbDSN->iNtcPort[i] = config.GetDSN()->iNtcPort[i];
+			m_pTMdbDSN->iNoNtcPort[i] = config.GetDSN()->iNoNtcPort[i];
+			
 		}
         m_pTMdbDSN->m_iDataSize = config.GetDSN()->iDataSize;
         //m_pTMdbDSN->iMonitorPort = config.GetDSN()->iMonitorPort; //本地监听端口
@@ -1449,7 +1461,6 @@
 		}
 	}
 
-
     /******************************************************************************
     * 函数名称	: CreateSyncAreaShm 
     * 函数描述	:  创建同步区
@@ -1917,6 +1928,44 @@
         TADD_FUNC("Finish.");
         return iRet; 
     }
+
+	int TMdbShmDSN::AddNewPortLink(TMdbPortLink *& pNewLink)
+    {
+        int iRet = 0;
+        TADD_FUNC("Start.");
+        TShmList<TMdbPortLink>::iterator itor = m_PortLinkList.begin();
+        pNewLink = NULL;
+        
+        //先搜寻空闲的
+        for(;itor != m_PortLinkList.end();++itor)
+        {
+            if(-1 == itor->iAgentPort)
+            {//free
+                pNewLink = &(*itor);
+                pNewLink->Clear();
+                break;
+            }
+         
+        }
+        
+        if(NULL == pNewLink)
+        {//申请新节点
+            TShmList<TMdbPortLink >::iterator itorNew =  m_PortLinkList.insert(m_PortLinkList.end());
+            if(itorNew != m_PortLinkList.end())
+            {//分配成功
+                pNewLink = &(*itorNew);
+                pNewLink->Clear();
+				//TADD_NORMAL("new a portlink ok to agent");
+            }
+            else
+            {//分配失败
+                CHECK_RET(ERR_OS_NO_MEMROY,"no mem space for RemoteLink");
+            } 
+        }
+        TADD_FUNC("Finish.");
+        return iRet; 
+    }
+	
     /******************************************************************************
     * 函数名称	:  AddNewRepLink
     * 函数描述	:  新增一个链接

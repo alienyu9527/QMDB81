@@ -54,6 +54,7 @@ typedef struct _ST_MEM_VALUE_LIST ST_MEM_VALUE_LIST;
 
 
 
+class NoOcpParse;
 
 /******************************************************************************
 * 类名称	:  TMdbException
@@ -128,8 +129,14 @@ public:
     const char * GetParamNameByIndex(int iIndex);//根据参数index获取参数名
     int GetParamIndexByName(const char * sParamName);//根据参数名获取参数index
     int GetCount();
+    void NewParamPool();
+    void InitParamPool();
 private:
     std::vector<std::string> m_vParamName;//参数名
+    char *m_pParamPool;
+    int m_iParamPoolCurPos;
+    int m_iParamComparePos;
+    int m_iCount;
 };
 
 /******************************************************************************
@@ -151,6 +158,7 @@ public:
     void  AsDateTime(int &iYear,int &iMonth,int &iDay,int &iHour,int &iMinute,int &iSecond) throw (TMdbException);//返回日期的各个部分
     char* AsDateTimeString() throw (TMdbException); //YYYYMMDDHHMISS
     void ClearDataBuf();
+    int GetDataType();//
     //char  m_sValue[8192];  //存储字符串
     char  m_sValue[32];
     ST_MEM_VALUE * m_pMemValue;      //内存值
@@ -297,12 +305,13 @@ public:
     const char * GetParamNameByIndex(int iIndex);//根据pos获取绑定参数名
     void SetTimeStamp(long long iTimeStamp);
     long long GetTimeStamp();    
+    ST_MEM_VALUE * GetParamByIndex(int iIndex);//通过名字获取参数值
+    int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);
 private:
     bool ExecuteOne()throw (TMdbException);//单条执行
     bool ExecuteArray(int iExecuteRows)throw (TMdbException);//批量执行
     bool OpenArray()throw(TMdbException);//批量打开
     ST_MEM_VALUE * GetParamByName(const char *sParamName);//通过名字获取参数值
-    ST_MEM_VALUE * GetParamByIndex(int iIndex);//通过名字获取参数值
 
     int FillOutputToField();//填充field值
     void AddError();    //错误统计
@@ -315,6 +324,9 @@ private:
     bool IsAllSet();//是否都已经全部设置
     bool CheckAndSetParamType(int iType)throw (TMdbException);//检查并设置paramtype
     bool IsCanRollback();//是否可以回滚
+	bool DealTableVersion();
+	bool IsNeedToCheckSQLRepeat(bool bFirstSet, int iFlag);
+	
 public:
     TMdbSqlParser * m_pMdbSqlParser;//new mdb sql parser
 private:
@@ -337,7 +349,11 @@ private:
     bool m_fLastRecordFlag;
     int m_iRowsAff;//影响行数
     TMdbDDLExecuteEngine * m_pDDLExecuteEngine;//SQL执行引擎
-    //bool m_bIsDDLSQL;//是否是DDL
+    std::map<std::string,int> m_mapTableNameToVersion;
+    char *m_pParamPool;
+    int m_iParamPoolCurPos;
+    int m_iParamComparePos;
+     //bool m_bIsDDLSQL;//是否是DDL
 
 };
 
@@ -436,15 +452,56 @@ public:
     void       AsDateTime(int &iYear,int &iMonth,int &iDay,int &iHour,int &iMinute,int &iSecond) throw (TMdbException);
     char*      AsDateTimeString() throw (TMdbException); //YYYYMMDDHHMISS
     void       ClearDataBuf();
+    void       ClearDataBufPlus();
     int        DataType(void);
     const char* GetName();
+    void SetUseOcp(bool bUseOcp){m_bUseOcp = bUseOcp;}
 private:
     long long 	m_iValue;                //存储长整形
     char*  	m_sValue;
     char*	m_sName;                 //存储列名称
-    int   	m_iDataType;             //数据类型：1-DT_Int, 2-DT_Char,3-DT_VarChar 4-DT_DateStamp 9-DT_Blob
+    char m_iDataType;             //数据类型：1-DT_Int, 2-DT_Char,3-DT_VarChar 4-DT_DateStamp 9-DT_Blob
     bool  	m_bIsNULL;                //是否为空
     char m_sNullValue[1];//NULL值
+    bool m_bUseOcp;
+};
+//bin parse
+class NoOcpParse
+{
+public:
+    NoOcpParse();
+    ~NoOcpParse();
+    /******************************************************************************
+    * 函数名称	:  SetData
+    * 函数描述	:  设置数据
+    * 输入		:  bAnsCode表示是否为应答码
+    *******************************************************************************/
+    void    SetData(char* pData,int iLen,bool bAnsCode = false);
+    void    SetData(int * pData,int iLen,bool bAnsCode = false);
+    void    SetData(long long * pData,int iLen,bool bAnsCode = false);
+    void    SetData(unsigned short int * pData,int iLen,bool bAnsCode = false);
+    void    SetData(char *pData,int iPos,int iLen);
+    
+    void    SetData(int *pData,int iPos,int iLen);
+    void    SetData(int *pData,int iPos,size_t iLen);
+    void    SetSize();
+
+    void    GetData(char* pData,int iPos,int iLen);
+    void    GetData(int * pData,int iPos,int iLen);
+    void    GetData(long long * pData,int iPos,int iLen);
+    void    GetData(unsigned short int * pData,int iPos,int iLen);
+    
+    void    InitDataSrc(char *pSrc);
+    void    SerializeHead(char* pSrc,int iCmdCode,int SessionId,int iSequence);
+    void    ResetParamFlag(bool bFlag){m_bSetParam = bFlag;}
+    char*   GetDataPtr(){return m_pData;}; 
+    bool    GetSetParamFlag(){return m_bSetParam;}
+    int     GetSize(){return m_iSize;}
+private:
+    char*   m_pData;//源数据地址
+    int     m_iSize;
+    bool    m_bSetParam;
+    TMdbAvpHead *m_pHead;  //avp head 解析
 };
 /******************************************************************************
 * 类名称	:  TMdbClientQuery
@@ -531,14 +588,31 @@ public:
     int ParamCount();//获取绑定参数个数
      const char * GetParamNameByIndex(int iIndex);//根据idx获取绑定参数名
     int GetParamIndexByName(const char * sName);//根据name来获取绑定参数index
+
+    void    SetSQLBin(const char *sSqlStatement,int iSqlFlag,int iPreFetchRows) throw (TMdbException); //设置要执行的SQL
+    void    OpenBin(int prefetchRows=0) throw (TMdbException);  //参数为了兼容接口而添加
+    bool    NextBin()throw (TMdbException); //移动到下一个记录
+    int     SendParamBin() throw (TMdbException);//发送参数数据
+    void    SetParameterBin(int iParamIndex,const char* sParamValue) throw (TMdbException);
+    void    SetParameterBin(int iParamIndex, const char cParamValue) throw (TMdbException); 
+    void    SetParameterBin(int iParamIndex,int iParamValue) throw (TMdbException);
+    void    SetParameterBin(int iParamIndex,long lParamValue) throw (TMdbException);
+    void    SetParameterBin(int iParamIndex,double dParamValue) throw (TMdbException);
+    void    SetParameterBin(int iParamIndex,long long llParamValue) throw (TMdbException);
+    void    SetParameterBin(int iParamIndex,const char* sParamValue,int iBufferLen) throw (TMdbException);//用于传入BLOB/BINARY类型字段
+    void    SetParameterNULLBin(int iParamIndex) throw (TMdbException);     //设置参数为空
+    long long GetSequenceByNameBin(const char * sName)throw (TMdbException);//获取序列值
+    int     NewMemory(char * &pData,int iSize);
 private:
     int FillFieldValue()throw (TMdbException);//填充filed的值
+    int FillFieldValueBin()throw (TMdbException);//填充filed的值
     bool IsDynamicSQL(const char * sSQL);//判断是否是动态SQL
     TMdbAvpItem * m_pCurRowGroup;//当前RowGroup 用于记录当前的row group
 private:
     int 					m_iFiledCounts;  //filed个数
     int 					m_iSQLType;    //sql类型
     int   					m_iRowsAff;        //select ,update delete 等影响的行数
+    int                     m_iRowsCurNext;//当前批次的记录数
     int 					m_iIsNeedNextOper;   //返回的数据量大,是否需要next指令继续查询
     int 					m_iSQLLabel;     //sql编号标签
     int 					m_iNextStep;
@@ -566,6 +640,13 @@ private:
     bool m_bIsParamArray;//是否是参数数组
     TMdbParamArray * m_pParamArray;//参数数组    
     bool                                m_bCanOpenAgain;//是否可以再次被open
+    bool m_bFirstNext;//
+
+    int m_iSetParamCount;
+    int m_iCurPos;
+    int m_iUseOcp;// 1 ocp
+    NoOcpParse m_tRecvDataParse;
+    NoOcpParse m_tSendDataParse;
 };
 
 class TMdbClientDatabase
@@ -594,13 +675,20 @@ public:
     int GetSQLFlag();
     void SetTimeout(int iTimeout);//设置超时时间
     void RecvPackage(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead,TMdbCspParser * pCspErrorParser)throw (TMdbException);
+    void RecvPackage(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead)throw (TMdbException);
     void CheckAnsCode(TMdbCspParser * pParser)throw (TMdbException);
+    void CheckAnsCode(NoOcpParse &tRecvData,int iAnsCodePos)throw (TMdbException);
+    void MultCmdBin(const char * sCmd);
+    int GetQmdbInfoBin(const char * sCmd,std::string & sAnswer);//获取qmdb信息
     int GetSendSequence();//获取发送序号
     int GetQmdbInfo(const char * sCmd,std::string & sAnswer);//获取qmdb信息
-
+    int GetUseOcpFlag(){return m_iUseOcp;}
+    void SetUseOcpFlag(int iFlag){m_iIsBigEndian=iFlag;}
+    void UseOcp();
 private:
     //链接到服务端,创建Socket
     int 	LinkServer();
+	int 	LinkServerWithOtherPort();
     int 	GetIP(char* sIP);
     void    GetPortAndIP();//$QuickMDB_HOME/qmdb_inst_list.ini  获取CS  ip 、port
 
@@ -616,6 +704,8 @@ private:
     long 	m_iSocketID;
     int 	m_iTimeout;//超时时间
     int 			m_iSQLFlag; //sql标签
+    int    m_iIsBigEndian;// 1 big
+    int    m_iUseOcp;// 1 ocp
     unsigned long 		m_lSessionId;  //会话ID
     unsigned char 		m_sRecvPackage[65536];
     unsigned char 		m_sSendPackage[65536];
@@ -634,6 +724,9 @@ private:
     int m_iSendSequence;//发送序号
     TMdbMultiProtector * m_pMultiProtector;//并发保护
     TMdbClientEngine * m_pMdbClientEngine;//billingNTC 封装
+    NoOcpParse m_tRecvDataParse;
+    NoOcpParse m_tSendDataParse;
+    
 };
 
 
