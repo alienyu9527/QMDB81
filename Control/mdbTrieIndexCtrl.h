@@ -45,25 +45,6 @@
 			memset(m_iChildrenPos,-1,sizeof(m_iChildrenPos));
 			m_iNextPos = -1;
         }
-
-		bool IsHaveChild()
-		{
-			for(int i = 0; i++; i<SET_SIZE)
-			{
-				if(m_iChildrenPos[i]>0) return true;
-			}	
-			return false;
-		}
-
-		int FindNextChild(int iCurChildIdx)
-		{
-			for(int i=iCurChildIdx;i++;i<SET_SIZE)
-			{
-				if(m_iChildrenPos[i]>0) return i;
-			}
-
-			return -1;
-		}
 		
     public:
 		char m_ch;
