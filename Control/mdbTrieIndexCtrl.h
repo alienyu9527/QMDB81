@@ -276,7 +276,8 @@
         // print index info
         int PrintIndexInfo(ST_TRIE_INDEX_INFO& tIndexInfo,int iDetialLevel,bool bConsole);
 		
-		int PrintIndexInfoDetail(int iDetialLevel,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo);
+		int PrintIndexInfoDetail(int iMaxDep,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo);
+		int RecursiveShowTrie(TMdbTrieIndexNode* pChild,int iCurDep, int iMaxDep,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo);
 
 	private:
 

@@ -737,19 +737,20 @@
 		{
 			pCur->m_NodeInfo.m_tRowId.Clear();
 		}
-        else
+        else if(pCur->m_NodeInfo.m_iNextConfPos>0)
         {
         	bool bFound = false;
 			DeleteIndexNodeOnConfList(tTrieIndex,&(pCur->m_NodeInfo),rowID,bFound);
+			if(bFound == false)
+			{
+				TADD_WARNING("rowID %d On TrieConflictList  cannot be found.",rowID);
+			}
 		}
         TADD_FUNC("Finish.");
         return iRet;
     }
 
-    
-
-    int TMdbTrieIndexCtrl::DeleteIndexNodeOnConfList
-        (ST_TRIE_INDEX_INFO& tTrieIndex,TMdbTrieIndexNodeInfo* pNodeInfo, TMdbRowID& tRowId,bool & bFound)
+    int TMdbTrieIndexCtrl::DeleteIndexNodeOnConfList(ST_TRIE_INDEX_INFO& tTrieIndex,TMdbTrieIndexNodeInfo* pNodeInfo, TMdbRowID& tRowId,bool & bFound)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -761,32 +762,21 @@
         TMdbTrieConfIndexNode* pConfNode = (TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pConflictIndex->iHeadBlockId, pNodeInfo->m_iNextConfPos, iNodeSize, true);
         CHECK_OBJ(pConfNode);
         iCurPos = pNodeInfo->m_iNextConfPos;
-        TADD_DETAIL("---[%s][%s][%d]",tTrieIndex.pRootIndex->sTabName,tTrieIndex.pRootIndex->sName,iCurPos);
         do
         {
-            
-            if(NULL == pConfNode)
-            {
-                TADD_DETAIL("node is null ,break.no node deleted.");
-                break;
-            }
-
-            TADD_DETAIL("------[%s][%s][%d],row[%d]",tTrieIndex.pRootIndex->sTabName,tTrieIndex.pRootIndex->sName,iCurPos,pConfNode->m_NodeInfo.m_tRowId.m_iRowID);
-            
             if(pConfNode->m_NodeInfo.m_tRowId == tRowId)
             {
-                TADD_DETAIL("delete on conflict.[%s][%s][%d]",tTrieIndex.pRootIndex->sTabName,tTrieIndex.pRootIndex->sName,iCurPos);
                 bFound = true;
                 if(pPre == NULL)
                 {
-                    pNodeInfo->m_iNextConfPos = pConfNode->m_iNextPos;
+                    pNodeInfo->m_iNextConfPos = pConfNode->m_NodeInfo.m_iNextConfPos;
                 }
                 else
                 {
-                    pPre->m_iNextPos = pConfNode->m_iNextPos;
+                    pPre->m_NodeInfo.m_iNextConfPos = pConfNode->m_NodeInfo.m_iNextConfPos;
                 }
                 
-                // add top to free list
+                //回收节点到空闲链表
                 pConfNode->m_iNextPos = tTrieIndex.pConflictIndex->iFreeHeadPos;
                 tTrieIndex.pConflictIndex->iFreeHeadPos = iCurPos;
                 tTrieIndex.pConflictIndex->iFreeNodeCounts++;
@@ -796,17 +786,19 @@
                 break;
             }
 
-            if(pConfNode->m_iNextPos < 0)
-            {// 冲突链结束
+			// 冲突链结束
+            if(pConfNode->m_NodeInfo.m_iNextConfPos < 0)
+            {
                 TADD_DETAIL("not found on conflict list.");
                 break;
             }
+			// 查找下一个
             else
-            {// 查找下一个
+            {
                 TADD_DETAIL("continue to check next conflict node on list.");
                 pPre = pConfNode;
-                iCurPos= pPre->m_iNextPos;
-                pConfNode =(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pConflictIndex->iHeadBlockId, pConfNode->m_iNextPos, iNodeSize, true);
+                iCurPos= pConfNode->m_NodeInfo.m_iNextConfPos;
+                pConfNode =(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pConflictIndex->iHeadBlockId, pConfNode->m_NodeInfo.m_iNextConfPos, iNodeSize, true);
             }
             
         }while(1);
@@ -975,42 +967,115 @@
      int TMdbTrieIndexCtrl::PrintIndexInfo(ST_TRIE_INDEX_INFO& stIndexInfo,int iDetialLevel,bool bConsole)
     {
         int iRet = 0;
-        int iBICounts = stIndexInfo.pRootIndex->iSize/sizeof(TMdbTrieIndexNode);//基础索引个数
+        int iBICounts = stIndexInfo.pBranchIndex->GetTotalCount();//树枝节点
         int iCICounts = stIndexInfo.pConflictIndex->GetTotalCount();//冲突索引个数
         OutPutInfo(bConsole,"\n\n============[%s]===========\n",stIndexInfo.pRootIndex->sName);
-        OutPutInfo(bConsole,"[BaseIndex] 	 counts=[%d]\n",iBICounts);
-        OutPutInfo(bConsole,"[ConfilictIndex] counts=[%d],FreeHeadPos=[%d],FreeNodes=[%d]\n",
-                   iCICounts,
-                   stIndexInfo.pConflictIndex->iFreeHeadPos,
-                   stIndexInfo.pConflictIndex->iFreeNodeCounts);
+        OutPutInfo(bConsole,"[BranchIndex] 	 counts=[%d],FreeHeadPos=[%d],FreeNodes=[%d]\n",
+			iBICounts,stIndexInfo.pBranchIndex->iFreeHeadPos,stIndexInfo.pBranchIndex->iFreeNodeCounts);
+        OutPutInfo(bConsole,"[ConfilictIndex] counts=[%d]，FreeHeadPos=[%d],FreeNodes=[%d]\n",
+			iCICounts,stIndexInfo.pConflictIndex->iFreeHeadPos,stIndexInfo.pConflictIndex->iFreeNodeCounts);
 		
-
-		
-        if(iDetialLevel >0 )
+		int iMaxDep = iDetialLevel;
+        if(iMaxDep >0 )
         {//详细信息
-           PrintIndexInfoDetail(iDetialLevel,bConsole,stIndexInfo);
+           PrintIndexInfoDetail(iMaxDep,bConsole,stIndexInfo);
         }
         
         return iRet;
     }
 
-	 int TMdbTrieIndexCtrl::PrintIndexInfoDetail(int iDetialLevel,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo)
-	 {			 
-		 int iBICounts = stIndexInfo.pRootIndex->iSize/sizeof(TMdbTrieIndexNode);//基础索引个数
-		 int iTotalDepth = 0;
-		 int iTotalConflict = 0;
-		 int iMaxDepth = 0;
+	 int TMdbTrieIndexCtrl::PrintIndexInfoDetail(int iMaxDep,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo)
+	 {	
+		OutPutInfo(bConsole,"TrieIndex(@ - data ; O - empty)\n");
+		int iCurDep = 0;
+		TMdbTrieIndexNode*  pRoot = stIndexInfo.pRootNode;
+		for(int i=0; i<10; i++)
+		{
+			 TMdbTrieIndexNode*  pChild =(TMdbTrieIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pBranchIndex->iHeadBlockId, pRoot->m_iChildrenPos[i] ,sizeof(TMdbTrieIndexNode),false);
+			 if(NULL == pChild) continue;
 
-		 int i = 0;
-		 iDetialLevel =  iBICounts>iDetialLevel?iDetialLevel:iBICounts;
-		 
-		 OutPutInfo(true,"MaxDepth=[%d],TotalConflictOnLayer=[%d]\n",iMaxDepth,iTotalConflict);
+			 
+			 OutPutInfo(bConsole,"Dep:%d",iCurDep);
+			 OutPutInfo(bConsole,"[%c]",pChild->m_ch);
 
-		 return 0;
+			 if(!pChild->m_NodeInfo.m_tRowId.IsEmpty())
+			 {
+				 OutPutInfo(bConsole,"-@");
+			 }
+			 else
+			 {
+				 OutPutInfo(bConsole,"-O");
+			 }
+
+			 TMdbTrieConfIndexNode* pNextConf=(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pConflictIndex->iHeadBlockId,pChild->m_NodeInfo.m_iNextConfPos,sizeof(TMdbTrieConfIndexNode),true);
+			 while(pNextConf)
+			 {
+				 if(!pNextConf->m_NodeInfo.m_tRowId.IsEmpty())
+				 {
+					 OutPutInfo(bConsole,"-@");
+				 }
+				 else
+				 {
+					 OutPutInfo(bConsole,"-O");
+				 }
+				 pNextConf=(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pConflictIndex->iHeadBlockId,pNextConf->m_NodeInfo.m_iNextConfPos,sizeof(TMdbTrieConfIndexNode),true);
+			 }
+			 
+			 OutPutInfo(bConsole,"\n");
+			 
+			 RecursiveShowTrie(pChild, iCurDep ,iMaxDep, bConsole, stIndexInfo);
+		}
+		return 0;
 	 }
 	 
 	
+	int TMdbTrieIndexCtrl::RecursiveShowTrie(TMdbTrieIndexNode* pChild,int iCurDep, int iMaxDep,bool bConsole, ST_TRIE_INDEX_INFO & stIndexInfo)
+	{
+		iCurDep++;
+		if(iMaxDep<iCurDep){return 0;}
 
+		TMdbTrieIndexNode* pRoot = pChild;
+		
+		for(int i=0; i<10; i++)
+		{
+			 TMdbTrieIndexNode*  pTemp =(TMdbTrieIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pBranchIndex->iHeadBlockId, pRoot->m_iChildrenPos[i] ,sizeof(TMdbTrieIndexNode),false);
+			 if(NULL == pTemp) continue;
+			 pChild = pTemp; 
+
+			
+			 OutPutInfo(bConsole,"Dep:%d",iCurDep);
+			 for(int j=0;j<iCurDep;j++)
+			 	OutPutInfo(bConsole,"-");			 
+			 OutPutInfo(bConsole,"[%c]",pChild->m_ch);
+
+			 if(!pChild->m_NodeInfo.m_tRowId.IsEmpty())
+			 {
+				 OutPutInfo(bConsole,"-@");
+			 }
+			 else
+			 {
+				 OutPutInfo(bConsole,"-O");
+			 }
+
+			 TMdbTrieConfIndexNode* pNextConf=(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pConflictIndex->iHeadBlockId,pChild->m_NodeInfo.m_iNextConfPos,sizeof(TMdbTrieConfIndexNode),true);
+			 while(pNextConf)
+			 {
+				 if(!pNextConf->m_NodeInfo.m_tRowId.IsEmpty())
+				 {
+					 OutPutInfo(bConsole,"-@");
+				 }
+				 else
+				 {
+					 OutPutInfo(bConsole,"-O");
+				 }
+				 pNextConf=(TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(stIndexInfo.pConflictIndex->iHeadBlockId,pNextConf->m_NodeInfo.m_iNextConfPos,sizeof(TMdbTrieConfIndexNode),true);
+			 }
+			 OutPutInfo(bConsole,"\n");
+			 
+			 RecursiveShowTrie(pChild, iCurDep ,iMaxDep, bConsole, stIndexInfo);
+		}
+		return 0;
+	}
      int TMdbTrieIndexCtrl::RecycleIndexSpace(TMDBIndexFreeSpace tFreeSpace[],size_t iPosAdd,size_t iSize)
     {
         TADD_FUNC("Start.tFreeSpace=[%p],iPosAdd=[%d],iSize=[%d].",tFreeSpace,iPosAdd,iSize);
@@ -1040,6 +1105,8 @@
             ,iHeadBlock,iIndexNodeId, iNodeSize, bConf?"TRUE":"FALSE");
         
         char* pAddr = NULL;
+
+		if(iHeadBlock<0) return NULL;
 
         TMdbTrieBlock* pHeadBlock = GetBlockById(iHeadBlock, bConf);
         if(pHeadBlock == NULL)
