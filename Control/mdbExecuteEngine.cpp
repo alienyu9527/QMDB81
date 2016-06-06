@@ -1830,7 +1830,7 @@
 		        }
                 int iWhichPos = 0;
 				unsigned int iRowId = 0;
-				int iEnCodeLen = 0;
+				size_t iEnCodeLen = 0;
 				m_tVarcharCtrl.GetStoragePos(m_pDataAddr+pMdbColumn->iOffSet,iWhichPos,iRowId);
 				TMdbRowID tRowId;
 			    tRowId.SetRowId(iRowId);
@@ -1838,7 +1838,7 @@
 				std::string decoded = Base::base64_decode(encoded);
 				iEnCodeLen =  decoded.length();
 				
-				pTColumnAddr->m_iDataLen[i] = iEnCodeLen;
+				pTColumnAddr->m_iDataLen[i] = (int)iEnCodeLen;
 				SAFE_DELETE(pTColumnAddr->m_ppBlob[i]);
 				pTColumnAddr->m_ppBlob[i] = new char[iEnCodeLen];
 				memcpy(pTColumnAddr->m_ppBlob[i],decoded.c_str(),iEnCodeLen);
