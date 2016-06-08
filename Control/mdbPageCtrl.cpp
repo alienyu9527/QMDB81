@@ -170,8 +170,6 @@
             rowID.SetPageID(m_pPage->m_iPageID);
             pMemData = m_pAddr + iDataOffset;
 			TMdbPageNode * pPageNode = (TMdbPageNode *)pMemData -1;
-			pPageNode->iFlag = DATA_VIRTUAL;
-			pPageNode->iSessionID = rowID.m_iSessionID;
             memcpy(pMemData, pData, iSize);
             //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
             SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);

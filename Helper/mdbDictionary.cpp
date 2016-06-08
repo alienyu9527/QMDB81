@@ -238,6 +238,8 @@
 	                m_iFullPageNode = iNewDataOffset - sizeof(TMdbPageNode);
 				}
 				pFreePageNode->tMutex.Create();
+				pFreePageNode->iFlag = 0;
+				
             }
             else if(m_iFreeOffSet + m_iRecordSize + (int)sizeof(TMdbPageNode) < m_iPageSize)
             {//获取新位置
@@ -261,6 +263,8 @@
 	                m_iFreeOffSet += m_iRecordSize + sizeof(TMdbPageNode);
             	}
 				pFreePageNode->tMutex.Create();
+				pFreePageNode->iFlag = 0;
+				
             }
             else 
             {
@@ -1082,9 +1086,29 @@
 		pPageNode->iFlag = DATA_REAL;		
 	}
 	int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
-	{return 0;}
+	{
+		
+
+		return 0;
+	}
 	int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
-	{return 0;}	
+	{
+		int iRet=0;
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		TMdbRowID rowID;
+		rowID.SetRowId(iRealRowID);
+		int iDataSize = 0;
+		char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		char* pPage = tWalker.GetPageAddr();	
+		CHECK_OBJ(pPage);
+		
+		TMdbExecuteEngine tEngine;
+		//删除索引->删除varchar->删除内存
+		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
+		return iRet;
+	}	
 
 	int TRBRowUnit::RollBack(TMdbShmDSN * pShmDSN)
 	{

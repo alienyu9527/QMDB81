@@ -110,8 +110,9 @@
 
 	enum DATA_FLAG
 	{
-		DATA_VIRTUAL,
-		DATA_REAL
+		DATA_REAL = 0,
+		DATA_VIRTUAL = 0x0001,
+		DATA_DELETE = 0x0010
 	};
 	/**
 	 * @brief Ò³½Úµã

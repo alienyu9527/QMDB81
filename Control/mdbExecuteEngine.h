@@ -89,6 +89,8 @@
         int GetUpdateDiff();//获取增量更新值
         int SetRowDataTimeStamp(char* pAddr, int iOffset,long long iTimeStamp = 0);
         int UpdateRowDataTimeStamp(char* const & pAddr, int iOffset, long long iTimeStamp = 0);
+		void SetDataFlagInsert(char* pAddr);
+		void SetDataFlagDelete(char* pAddr);
     private:
 
         TMdbSqlParser * m_pMdbSqlParser;//语法树结构

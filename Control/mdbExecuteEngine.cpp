@@ -406,39 +406,54 @@
             CHECK_RET_FILL_BREAK(PushRollbackData(m_pDataAddr,NULL),"PushRollbackData failed...");//压入回滚数据
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputPriKey),"FillSqlParserValue failed.");//填充主键信息
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue failed.");//填充其他需要填充的信心
-            //TMdbRowIndex * arrRowIndex = GetRowIndexArray(m_pDataAddr);
-            //删除索引
-            for(i=0; i<m_pTable->iIndexCounts; ++i)
-            {
-                CHECK_RET_FILL_BREAK(m_mdbIndexCtrl.DeleteIndexNode(i,m_pDataAddr,m_tRowCtrl,m_tCurRowIDData),
-                    "DeleteIndexNode[%d] failed.",i);
-            }
-            CHECK_RET_FILL_BREAK(iRet,"CalcIndexValue failed.");
-            //删除varchar数据
-            do
-            {
-                CHECK_RET_FILL_CODE_BREAK(DeleteVarCharValue(m_pDataAddr),ERR_SQL_INDEX_COLUMN_ERROR,"DeleteVarCharValue error.");
-            }
-            while(0);
-            CHECK_RET_FILL_BREAK(iRet,"iRet = [%d].",iRet);
-            //删除内存中的数据
-            TADD_DETAIL("Delete From Page[%d]",m_iPagePos);
-            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.Attach(m_pPageAddr, m_pTable->bReadLock, m_pTable->bWriteLock),
-                            "m_mdbPageCtrl.Attach faild");
-            CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
-            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(m_iPagePos),"m_mdbPageCtrl.DeleteData");
-            m_mdbTSCtrl.SetPageDirtyFlag(((TMdbPage*)m_pPageAddr)->m_iPageID);//设置脏页
-            m_mdbPageCtrl.UnWLock();//解页锁
-            //调节表中的页面链
-            TMdbPage *pPage = (TMdbPage*)m_pPageAddr;
-            if(pPage->bNeedToMoveToFreeList() && TMdbNtcStrFunc::StrNoCaseCmp(pPage->m_sState, "full") == 0)
-            {
-                //如果数据删除之后,空间足够大(可用空间>=页面大小的25%)，则进入Free-Page链表
-                CHECK_RET_FILL_BREAK(m_mdbTSCtrl.TablePageFullToFree(m_pTable,pPage),"TablePageFullToFree error");
-            }
-            m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &m_pDsn->tCurTime);
-            --m_pTable->iCounts; //减少一条记录
-            m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+			//在使用事务的情况下，只设置标志位，不删除数据
+			if(IsUseTrans())
+            {				
+				SetDataFlagDelete(m_pDataAddr);
+				
+				TRBRowUnit tRBRowUnit;
+				tRBRowUnit.pTable = m_pTable;
+				tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
+				tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
+				tRBRowUnit.iVirtualRowID = 0;
+				CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
+
+			}
+			else
+			{
+	            //删除索引
+	            for(i=0; i<m_pTable->iIndexCounts; ++i)
+	            {
+	                CHECK_RET_FILL_BREAK(m_mdbIndexCtrl.DeleteIndexNode(i,m_pDataAddr,m_tRowCtrl,m_tCurRowIDData),
+	                    "DeleteIndexNode[%d] failed.",i);
+	            }
+	            CHECK_RET_FILL_BREAK(iRet,"CalcIndexValue failed.");
+	            //删除varchar数据
+	            do
+	            {
+	                CHECK_RET_FILL_CODE_BREAK(DeleteVarCharValue(m_pDataAddr),ERR_SQL_INDEX_COLUMN_ERROR,"DeleteVarCharValue error.");
+	            }
+	            while(0);
+	            CHECK_RET_FILL_BREAK(iRet,"iRet = [%d].",iRet);
+	            //删除内存中的数据
+	            TADD_DETAIL("Delete From Page[%d]",m_iPagePos);
+	            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.Attach(m_pPageAddr, m_pTable->bReadLock, m_pTable->bWriteLock),
+	                            "m_mdbPageCtrl.Attach faild");
+	            CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
+	            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(m_iPagePos),"m_mdbPageCtrl.DeleteData");
+	            m_mdbTSCtrl.SetPageDirtyFlag(((TMdbPage*)m_pPageAddr)->m_iPageID);//设置脏页
+	            m_mdbPageCtrl.UnWLock();//解页锁
+	            //调节表中的页面链
+	            TMdbPage *pPage = (TMdbPage*)m_pPageAddr;
+	            if(pPage->bNeedToMoveToFreeList() && TMdbNtcStrFunc::StrNoCaseCmp(pPage->m_sState, "full") == 0)
+	            {
+	                //如果数据删除之后,空间足够大(可用空间>=页面大小的25%)，则进入Free-Page链表
+	                CHECK_RET_FILL_BREAK(m_mdbTSCtrl.TablePageFullToFree(m_pTable,pPage),"TablePageFullToFree error");
+	            }
+	            m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &m_pDsn->tCurTime);
+	            --m_pTable->iCounts; //减少一条记录
+	            m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+			}
             m_iRowsAffected ++;
             CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
             CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
@@ -517,6 +532,7 @@
             {
                 m_mdbTSCtrl.SetPageDirtyFlag(pFreePage->m_iPageID);
             }
+			SetDataFlagInsert(m_pDataAddr);
             m_mdbPageCtrl.UnWLock();//解页锁
             TADD_DETAIL("Get one record:DataAddr[%p],CurRowData[%d|%d],PageAddr[%p],PagePos[%d].",
             m_pDataAddr,rowID.GetPageID(),rowID.GetDataOffset(),
@@ -1097,12 +1113,27 @@
 		}
 		else if(pNode->iSessionID == m_pLocalLink->iSessionID)
 		{
-			bVisible = true;
+			//自己看不到自己删除的数据
+			if( pNode->iFlag & DATA_DELETE)
+			{
+				bVisible = false;
+			}
+			else
+			{
+				bVisible = true;
+			}	
 		}
 		else
 		{
-			TADD_NORMAL("dataSessionID %u != LinkSessionID %u,data skipped.",pNode->iSessionID,m_pLocalLink->iSessionID);
-			bVisible = false;
+			//其他链接的数据看不到
+			if( pNode->iFlag & DATA_VIRTUAL)
+			{
+				bVisible = false;
+			}	
+			else
+			{
+				bVisible = true;
+			}
 		}
 		return iRet;
 	}
@@ -2229,5 +2260,26 @@
         TADD_FUNC("Finish.llValue = %lld.m_sTempValue=[%s].",llValue,m_sTempValue);
         return iRet;
     }
+
+	
+	void TMdbExecuteEngine::SetDataFlagInsert(char* pAddr)
+	{
+		if(IsUseTrans())
+		{
+			TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
+			pNode->iSessionID = m_pLocalLink->iSessionID;
+			pNode->iFlag |= DATA_VIRTUAL;
+		}
+	}
+
+	void TMdbExecuteEngine::SetDataFlagDelete(char* pAddr)
+	{
+		if(IsUseTrans())
+		{
+			TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
+			pNode->iSessionID = m_pLocalLink->iSessionID;
+			pNode->iFlag |= DATA_DELETE;
+		}
+	}
 //}
 
