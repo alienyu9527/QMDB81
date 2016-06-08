@@ -16,6 +16,7 @@
 #include "Helper/mdbMemValue.h"
 #include "Helper/mdbBase.h"
 #include "Helper/mdbMalloc.h"
+#include "Interface/mdbQuery.h"
 //#include "BillingSDK.h"
 
 
@@ -108,6 +109,8 @@
         m_tVarcharCtrl.Init(m_pDsn->sName);
         CHECK_RET_FILL_CODE(m_mdbTSCtrl.Init(m_pDsn->sName,m_pTable->m_sTableSpace),
                        ERR_OS_ATTACH_SHM,"m_mdbTSCtrl.Init error");
+		 CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(m_pMdbSqlParser->m_stSqlStruct.pShmDSN),
+                       ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn failed.");
         CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable failed.");
         CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
@@ -122,7 +125,11 @@
         return iRet;
     }
 
-
+	bool TMdbExecuteEngine::IsUseTrans()
+	{
+		return NULL != m_pRollback && m_pTable->bRollBack;
+	}
+	
 	int TMdbExecuteEngine::CheckDiskFree()
 	{
 		int iRet = 0;
@@ -333,7 +340,43 @@
         return iRet;
     }
 
+	//删除某一条记录,外部调用,非sql调用
+    int TMdbExecuteEngine::ExecuteDelete(char* pPage,char* pDataAddr,TMdbRowID rowID,TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
+    {		
+        TADD_FUNC("Start.");
+		int iRet = 0;
+		CHECK_OBJ(pTable);
+		m_pTable = pTable;
+		do
+		{
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
+			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetDSN()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
+			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetDSN()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
+			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetDSN()->sName);
+			for(int i=0; i<m_pTable->iIndexCounts; ++i)
+	        {
+	            CHECK_RET_FILL_BREAK(m_mdbIndexCtrl.DeleteIndexNode(i,pDataAddr,m_tRowCtrl,rowID),"DeleteIndexNode[%d] failed.",i);
+	        }
+			 CHECK_RET_FILL_BREAK(iRet,"CalcIndexValue failed.");
+	        //删除varchar数据
+	        do
+	        {
+	            CHECK_RET_FILL_CODE_BREAK(DeleteVarCharValue(pDataAddr),ERR_SQL_INDEX_COLUMN_ERROR,"DeleteVarCharValue error.");
+	        }
+	        while(0);
+	        CHECK_RET_FILL_BREAK(iRet,"iRet = [%d].",iRet);
+			CHECK_RET_FILL_BREAK(m_mdbPageCtrl.Attach(pPage, m_pTable->bReadLock, m_pTable->bWriteLock),
+										"m_mdbPageCtrl.Attach faild");
+			CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
+			CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(rowID.GetDataOffset()),"m_mdbPageCtrl.DeleteData");
+			m_mdbPageCtrl.UnWLock();//解页锁
+		}
+		while(0);
+		return iRet;
+	}
 
+	
     /******************************************************************************
     * 函数名称	:  ExecuteDelete
     * 函数描述	:  执行删除
@@ -445,7 +488,17 @@
     int TMdbExecuteEngine::InsertData(char* pAddr, int iSize)
     {
         TADD_FUNC("(iSize=%d) : Start.", iSize);
+
         TMdbRowID rowID;
+		if(IsUseTrans())
+		{
+			rowID.SetSessionID(m_pLocalLink->iSessionID);
+		}
+		else
+		{
+			rowID.SetSessionID(0);
+		}
+		
         int iRet = 0;
         while(true)
         {
@@ -482,6 +535,17 @@
         }
         TADD_DETAIL("InsertData(%s) : Data insert OK,rowID=%p .",m_pTable->sTableName,&rowID);
         CHECK_RET_FILL(ChangeInsertIndex(pAddr, rowID),"ChangeInsertIndex failed...");
+
+		if(IsUseTrans())
+		{
+			TRBRowUnit tRBRowUnit;
+			tRBRowUnit.pTable = m_pTable;
+			tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
+			tRBRowUnit.iRealRowID = 0;
+			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
+			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
+		}
+		
         m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
         ++m_pTable->iCounts;//表记录数增加1
         m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
@@ -1006,12 +1070,42 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
+
+		bool bVisible = true;
+		CHECK_RET(CheckVisible(bVisible),"CheckVisible failed");
+		if(bVisible==false) return iRet;
+		
         CHECK_RET(FillSqlParserValue(m_pMdbSqlParser->m_listInputWhere),"FillSqlParserValue where failed.");
         CHECK_RET(m_pMdbSqlParser->ExecuteWhere(bResult),"ExecuteWhere failed.");
         TADD_FUNC("Finish(%s).", bResult?"TRUE":"FALSE");
         return iRet;
     }
 
+    int TMdbExecuteEngine::CheckVisible(bool &bVisible)
+    {
+    	int iRet = 0;
+
+    	if(!m_pDataAddr)
+    	{
+			return false;
+		}
+		TMdbPageNode* pNode = (TMdbPageNode*)m_pDataAddr - 1;
+
+		if(0 == pNode->iSessionID)
+		{
+			bVisible = true;	
+		}
+		else if(pNode->iSessionID == m_pLocalLink->iSessionID)
+		{
+			bVisible = true;
+		}
+		else
+		{
+			TADD_NORMAL("dataSessionID %u != LinkSessionID %u,data skipped.",pNode->iSessionID,m_pLocalLink->iSessionID);
+			bVisible = false;
+		}
+		return iRet;
+	}
     /******************************************************************************
     * 函数名称	:  FillSqlParserValue
     * 函数描述	:  填充值sql解析器中需要填充的值
@@ -1513,16 +1607,6 @@
         {
             //只有在事务中的时候，才需要采集回滚数据
             iRet = m_pRollback->PushData(m_iRBUnitPos,pDataAddr,m_iRowsAffected,pExtraDataAddr,&m_tRowCtrl);
-
-			//test
-			/*
-			TRBRowUnit tRBRowUnit;
-			tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
-			tRBRowUnit.iRealRowID = 10085;
-			tRBRowUnit.iVirtualRowID = 32123;
-			m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit);
-				*/
-
 		}
 		
         return iRet;
@@ -1555,6 +1639,10 @@
             m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
             m_iPagePos      = m_MdbTableWalker.GetPagePos();
 
+			bool bVisible = true;
+			CHECK_RET_FILL(CheckVisible(bVisible),"CheckVisible failed");
+			if(false == bVisible) continue;
+			
             CHECK_RET_FILL(FillSqlParserValue(m_pMdbSqlParser->m_listInputPriKey),"FillSqlParserValue error.");
             if(TMdbMemValue::CompareMemValueList(m_pMdbSqlParser->m_listInputPriKey,
                                                  m_pMdbSqlParser->m_listOutputPriKey) == 0)
@@ -2142,3 +2230,4 @@
         return iRet;
     }
 //}
+

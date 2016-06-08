@@ -11,6 +11,8 @@
 #include "Helper/mdbDictionary.h"
 #include "Helper/mdbDateTime.h"
 #include "Helper/mdbOS.h"
+#include "Control/mdbTableWalker.h"
+#include "Control/mdbExecuteEngine.h"
 
 //using namespace ZSmart::BillingSDK;
 //namespace QuickMDB{
@@ -991,9 +993,28 @@
         TADD_NORMAL("==============Local-Link=================");
     }
 	
+	int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)
+	{
+		int iRet = 0;
+		TADD_NORMAL("TMdbLocalLink::AddNewRBRowUnit\n");
+		TShmList<TRBRowUnit>::iterator itorNew =  m_RBList.insert(m_RBList.end());
+        if(itorNew != m_RBList.end())
+        {//分配成功
+            TRBRowUnit* pNewRBRowUnit = &(*itorNew);
+			pNewRBRowUnit->pTable = pRBRowUnit->pTable;
+            pNewRBRowUnit->SQLType = pRBRowUnit->SQLType;
+            pNewRBRowUnit->iRealRowID = pRBRowUnit->iRealRowID;
+            pNewRBRowUnit->iVirtualRowID = pRBRowUnit->iVirtualRowID;
+        }
+        else
+        {//分配失败
+            CHECK_RET(ERR_OS_NO_MEMROY,"no mem space for RBRowUnit");
+        }
+		return iRet;
+	}
+	
 
-
-	void TMdbLocalLink::Commit()
+	void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
 	{
 		if(m_RBList.empty()) return;
 		
@@ -1003,23 +1024,15 @@
 		TShmList<TRBRowUnit>::iterator itorB = m_RBList.begin();
 		while(!m_RBList.empty())
 		{		
-			if(itorB->Commit()!=0)break;	
+			if(itorB->Commit(pShmDSN)!=0)break;	
 			itorB= m_RBList.erase(itorB);
 		}
 		
 	}
-
-	int gdb_shut()
-	{		
-		while(getchar()!='\n');
-		return 1;
-	}
 	
-	
-	void  TMdbLocalLink::RollBack()
+	void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 	{
 	
-	//gdb_shut();
 		if(m_RBList.empty()) return;
 		
 		TADD_NORMAL("TMdbLocalLink::RollBack\n");
@@ -1031,29 +1044,90 @@
 		{
 			--itor;	
 			itor->Show();
-			if(itor->RollBack()!=0)break;	
+			if(itor->RollBack(pShmDSN)!=0)break;	
 			itor = m_RBList.erase(itor);
 		}
 	}
 
-	int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)
+	int TRBRowUnit::Commit(TMdbShmDSN * pShmDSN)
 	{
 		int iRet = 0;
-		TADD_NORMAL("TMdbLocalLink::AddNewRBRowUnit\n");
-		TShmList<TRBRowUnit>::iterator itorNew =  m_RBList.insert(m_RBList.end());
-        if(itorNew != m_RBList.end())
-        {//分配成功
-            TRBRowUnit* pNewRBRowUnit = &(*itorNew);
-            pNewRBRowUnit->SQLType = pRBRowUnit->SQLType;
-            pNewRBRowUnit->iRealRowID = pRBRowUnit->iRealRowID;
-            pNewRBRowUnit->iVirtualRowID = pRBRowUnit->iVirtualRowID;
-        }
-        else
-        {//分配失败
-            CHECK_RET(ERR_OS_NO_MEMROY,"no mem space for RBRowUnit");
-        }
+		switch(SQLType)
+		{
+			case TK_INSERT:
+				CHECK_RET(CommitInsert(pShmDSN),"CommitInsert failed");
+				break;
+			case TK_UPDATE:
+				CHECK_RET(CommitUpdate(pShmDSN),"CommitUpdate failed");
+				break;
+			case TK_DELETE:
+				CHECK_RET(CommitDelete(pShmDSN),"CommitDelete failed");
+				break;
+			default:
+				break;
+		}	
 		return iRet;
-}
+	}
+	int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
+	{
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		TMdbRowID rowID;
+		rowID.SetRowId(iVirtualRowID);
+		int iDataSize = 0;
+		char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
+		pPageNode->iSessionID = 0;
+		pPageNode->iFlag = DATA_REAL;		
+	}
+	int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
+	{return 0;}
+	int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
+	{return 0;}	
+
+	int TRBRowUnit::RollBack(TMdbShmDSN * pShmDSN)
+	{
+		int iRet = 0;
+		switch(SQLType)
+		{
+			case TK_INSERT:
+				CHECK_RET(RollBackInsert(pShmDSN),"RollBackInsert failed");
+				break;
+			case TK_UPDATE:
+				CHECK_RET(RollBackUpdate(pShmDSN),"RollBackUpdate failed");
+				break;
+			case TK_DELETE:
+				CHECK_RET(RollBackDelete( pShmDSN),"RollBackDelete failed");
+				break;
+			default:
+				break;
+		}	
+		return iRet;
+	}
+	int TRBRowUnit::RollBackInsert(TMdbShmDSN * pShmDSN)
+	{
+		int iRet=0;
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		TMdbRowID rowID;
+		rowID.SetRowId(iVirtualRowID);
+		int iDataSize = 0;
+		char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		char* pPage = tWalker.GetPageAddr();	
+		CHECK_OBJ(pPage);
+		
+		TMdbExecuteEngine tEngine;
+		//删除索引->删除varchar->删除内存
+		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
+		return iRet;
+	}
+	int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
+	{return 0;}
+	int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
+	{return 0;}
+	
     bool TMdbRemoteLink::IsCurrentThreadLink()
     {
 
@@ -1580,13 +1654,10 @@
         }
     }
 
-	int TMdbDSN::GetSessionID()
+	unsigned int TMdbDSN::GetSessionID()
 	{
 		m_SessionMutex.Lock(true);
-		if(m_iSessionID < 0)
-			m_iSessionID=0;
-
-		int iTmp = m_iSessionID;
+		unsigned int iTmp = m_iSessionID;
 		m_iSessionID++;
 		m_SessionMutex.UnLock(true);
 		

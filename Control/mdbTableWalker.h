@@ -114,8 +114,9 @@
     	int StopWalk();//停止遍历
     	int WalkByPage(int iStartPageID);//根据页来遍历数据
     	bool NextByPage();//
-    protected:
     	char* GetAddressRowID(TMdbRowID* pRowID, int &iDataSize, bool bGetPageAddr = false);
+		
+    protected:
         // hash 索引遍历
         int WalkByHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue);
         bool NextByHash();

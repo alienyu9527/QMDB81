@@ -68,7 +68,7 @@ int TMdbLinkCtrl::RegLocalLink(TMdbLocalLink *& pLocalLink)
         pLocalLink->cState = Link_use;
         pLocalLink->iLogLevel = m_pDsn->iLogLevel;//日志级别暂时没用
         
-        //链接回滚链表到共享内存
+        //链接 回滚链表到共享内存
         int iRet = pLocalLink->m_RBList.Attach(m_tMgrShmAlloc,pLocalLink->iRBAddrOffset);
 		CHECK_RET(iRet,"Attach RBList of LoaclLink Failed.");
 		//申请事务ID
@@ -97,7 +97,7 @@ int TMdbLinkCtrl::UnRegLocalLink(TMdbLocalLink *& pLocalLink)
     int iRet = 0;
     CHECK_OBJ(pLocalLink);
     CHECK_RET(m_pDsn->tMutex.Lock(true,&(m_pDsn->tCurTime)), "lock failed.");//加锁
-    pLocalLink->RollBack();
+    pLocalLink->RollBack(m_pShmDsn);
     pLocalLink->Clear();
     pLocalLink = NULL;
     CHECK_RET(m_pDsn->tMutex.UnLock(true),"unlock failed.");//加锁
@@ -242,7 +242,7 @@ int TMdbLinkCtrl::ClearInvalidLink()
             false == TMdbOS::IsProcExistByPopen(itor->iPID))
         {        
             TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itor->iPID,itor->iTID); 
-			itor->RollBack();
+			itor->RollBack(m_pShmDsn);
             itor->Clear();
         }
     }

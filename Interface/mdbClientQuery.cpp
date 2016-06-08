@@ -1605,6 +1605,7 @@
     {
         TADD_FUNC("SQL=[%s],Flag=[%d],fetchRows=[%d].",sSqlStatement,iSqlFlag,iPreFetchRows);
         int iRet = 0;
+        m_tSendDataParse.ResetParamFlag(false);
         m_iSetParamCount = 0;
         if(m_sSQL == NULL)
         {
@@ -3127,7 +3128,7 @@
     
     void NoOcpParse::InitDataSrc(char *pSrc)
     {
-        if(!m_pData && pSrc)
+        if(pSrc)
         {
            m_pData = pSrc; 
            m_iSize = 0;

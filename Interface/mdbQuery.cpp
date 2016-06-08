@@ -2834,7 +2834,7 @@ void TMdbDatabase::Commit()
         m_pRollback->Commit();
     }
 
-	m_pLocalLink->Commit();
+	m_pLocalLink->Commit(m_pShmDSN);
 	
     m_iTransactionState = TRANS_IN;
     return;
@@ -2867,11 +2867,11 @@ void TMdbDatabase::Rollback()
     if(m_pRollback != NULL)
     {
         m_iTransactionState = TRANS_ROLLBACK;
-        m_pRollback->RollbackAll();
+       // m_pRollback->RollbackAll();
        // m_pRollback->Rollback(false);
     }	
 	
-	m_pLocalLink->RollBack();
+	m_pLocalLink->RollBack(m_pShmDSN);
 	
     m_iTransactionState = TRANS_IN;
     return;

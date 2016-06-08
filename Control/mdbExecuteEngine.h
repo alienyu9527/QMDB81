@@ -49,13 +49,16 @@
 		int BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos);
 		void ClearLastExecute();
         int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);
-        protected:
+		int ExecuteDelete(char* pPage,char* pDataAddr,TMdbRowID rowID,TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);
+     protected:
         int ExecuteInsert();//执行插入
         int ExecuteUpdate();//执行更新
         int ExecuteDelete();//执行删除
         int FillSqlParserValue(ST_MEM_VALUE_LIST & stMemValueList);//向解析器填充值
         int CheckWhere(bool &bResult);//检测where条件是否满足
+		int CheckVisible(bool &bResult);
 		int CheckDiskFree();
+		bool IsUseTrans();
         
         int InsertDataFill(char* const &sTmp);//填充要插入的数据
         int InsertData(char* pAddr, int iSize);//将数据插入到内存中

@@ -84,6 +84,7 @@
             void Clear()
             {
                 m_iRowID = 0;
+				m_iSessionID = 0;
             }
             //获取页号
             int GetPageID();
@@ -93,12 +94,13 @@
             int SetPageID(int iPageID);
             int SetDataOffset(int iDataOffset);
 			int SetRowId(unsigned int iRowId){m_iRowID = iRowId;return 0;}
+			int SetSessionID(unsigned int iSessionID){m_iSessionID=iSessionID;return 0;}
             bool IsEmpty(){return 0==m_iRowID;}
             bool operator==(const TMdbRowID &t1)const{
                  return (this->m_iRowID == t1.m_iRowID);
              }  
 			unsigned int m_iRowID;
-			int iSessionID;
+			unsigned int m_iSessionID;
         private:
             
            // int iPageID;  //所属页号
@@ -106,6 +108,11 @@
         };
 
 
+	enum DATA_FLAG
+	{
+		DATA_VIRTUAL,
+		DATA_REAL
+	};
 	/**
 	 * @brief 页节点
 	 * 
@@ -117,7 +124,8 @@
 		int    iNextNode; //下一个节点，用来做连表，可以存放未使用的节点 <0 表示该节点正在使用，>=0 表示该节点空闲
 		int    iPreNode; //前一个节点
 		TMutex tMutex;
-		int iSessionID;
+		unsigned int iSessionID;
+		int iFlag;
 	};
 
 
@@ -129,14 +137,14 @@
         {
         public:
             void Init(int iPageID, int iPageSize);
-		void Init(int iPageID, int iPageSize, int iVarcharID);//初始化varchar页
+			void Init(int iPageID, int iPageSize, int iVarcharID);//初始化varchar页
             int GetFreeRecord(int & iNewDataOffset,int iDataSize);//获取一个空闲的记录空间
             int PushBack(int iDataOffset);//归还一个记录空间
             std::string ToString();//输出
             //是否是合法的dataOffset
             bool IsValidDataOffset(int iDataOffset)
             {
-                return false == (iDataOffset >= m_iFreeOffSet || iDataOffset < (int)sizeof(TMdbPage) + (int)sizeof(TMdbPageNode));
+                return true == (iDataOffset < m_iFreeOffSet && iDataOffset >= (int)sizeof(TMdbPage) + (int)sizeof(TMdbPageNode));
             }
             bool bNeedToMoveToFreeList(){return (m_iFreeSize * 4 >= m_iPageSize)?true:false;};//是否空闲
             char * GetNextDataAddr(char * &pCurDataAddr,int & iDataOffset,char *&pNextDataAddr);//获取下一个数据地址
@@ -617,32 +625,9 @@ public:
     int Serialize(MDB_JSON_WRITER_DEF & writer);//序列化
 };
 
-//回滚单元
-class TRBRowUnit 
-{	
-	public:
-		TRBRowUnit(){}
-		~TRBRowUnit(){}
-		void Show(){printf("[SQLType:%d][iRealRowID:%d][iVirtualRowID:%d]\n",SQLType,iRealRowID,iVirtualRowID);}
-		int Commit(){return 0;}
-		int RollBack(){return 0;}
-	public:
-		char	SQLType;		//Insert or  delete or update
-	 	int 	iRealRowID;		//代表共享内存中原始数据记录位置
-	 	int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
-
-	private:
-		int CommitInsert(){return 0;}
-		int CommitUpdate(){return 0;}
-		int CommitDelete(){return 0;}
-		int RollBackInsert(){return 0;}
-		int RollBackUpdate(){return 0;}
-		int RollBackDelete(){return 0;}
-};
-
-
 
 //数据库本地链接信息
+class TRBRowUnit;
 class TMdbLocalLink
 {
 public:
@@ -651,8 +636,8 @@ public:
     void Show(bool bIfMore=false);
     bool IsValid(){return (iPID > 0 && 0 != sStartTime[0]);};//是否是合法的
     bool IsCurrentThreadLink();//是否是当前线程的链接
-    void Commit();
-	void RollBack();
+    void Commit(TMdbShmDSN * pShmDSN);
+	void RollBack(TMdbShmDSN * pShmDSN);
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();
 public:
@@ -680,7 +665,7 @@ public:
 
     char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
 	
-    int iSessionID; //事务id
+    unsigned int iSessionID; //事务id
     TShmList<TRBRowUnit>  m_RBList; //回滚链表
 	size_t  iRBAddrOffset;
 };
@@ -1030,10 +1015,10 @@ private:
     
 private:
 	TMutex m_SessionMutex;
-	int m_iSessionID;
+	unsigned short m_iSessionID;
 	
 public:
-	int GetSessionID();
+	unsigned int GetSessionID();
 		
 
 };
@@ -1314,6 +1299,33 @@ public:
         TMdbTrieBlock(){Clear();}
         ~TMdbTrieBlock(){}
     };
+
+//回滚单元
+class TRBRowUnit 
+{	
+	public:
+		TRBRowUnit(){}
+		~TRBRowUnit(){}
+		void Show(){printf("[TableName:%s][SQLType:%d][iRealRowID:%u][iVirtualRowID:%u]\n",pTable->sTableName,SQLType,iRealRowID,iVirtualRowID);}
+		int Commit(TMdbShmDSN * pShmDSN);
+		int RollBack(TMdbShmDSN * pShmDSN);
+	public:
+	 	TMdbTable*  pTable;
+		char	SQLType;		//Insert or  delete or update
+	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
+	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
+
+	private:
+		int CommitInsert(TMdbShmDSN * pShmDSN);
+		int CommitUpdate(TMdbShmDSN * pShmDSN);
+		int CommitDelete(TMdbShmDSN * pShmDSN);
+		int RollBackInsert(TMdbShmDSN * pShmDSN);
+		int RollBackUpdate(TMdbShmDSN * pShmDSN);
+		int RollBackDelete(TMdbShmDSN * pShmDSN);
+};
+
+
+	
 //}
 
 

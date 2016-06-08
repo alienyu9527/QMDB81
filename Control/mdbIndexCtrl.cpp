@@ -423,6 +423,32 @@ int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
 	return iRet;
 }
 
+
+int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
+    {
+        int iRet = 0;
+        TADD_FUNC("AttachTable(%s) : Start.", pTable->sTableName);
+        int iFindIndexs = 0;
+        m_pAttachTable = pTable;
+        CleanTableIndexInfo();//清理
+
+        CHECK_RET(m_tHashIndex.AttachTable(pMdbShmDsn, pTable),"hash index attach table failed.");
+        CHECK_RET(m_tMHashIndex.AttachTable(pMdbShmDsn, pTable),"M-hash index attach table failed.");
+        CHECK_RET(m_tTrieIndex.AttachTable(pMdbShmDsn, pTable),"Trie index attach table failed.");
+
+		AttachHashIndex(pMdbShmDsn, pTable, iFindIndexs);
+		AttachMHashIndex(pMdbShmDsn, pTable, iFindIndexs);
+		AttachTrieIndex(pMdbShmDsn, pTable, iFindIndexs);
+		              
+        if(iFindIndexs < pTable->iIndexCounts)
+        {
+            TADD_ERROR(-1,"AttachTable(%s) : iFindIndexs[%d] < pTable->iIndexCounts[%d].",pTable->sTableName,iFindIndexs, pTable->iIndexCounts);
+            return ERR_TAB_INDEX_NUM_INVALID;
+        }
+        TADD_FUNC("AttachTable(%s) : Finish.", pTable->sTableName);
+        return iRet;
+    }
+
     int  TMdbIndexCtrl::AttachHashIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs)
     {
         for(int n=0; n<MAX_SHM_ID; ++n)
@@ -592,30 +618,7 @@ int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
 	}
 
 
-    int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
-    {
-        int iRet = 0;
-        TADD_FUNC("AttachTable(%s) : Start.", pTable->sTableName);
-        int iFindIndexs = 0;
-        m_pAttachTable = pTable;
-        CleanTableIndexInfo();//清理
-
-        CHECK_RET(m_tHashIndex.AttachTable(pMdbShmDsn, pTable),"hash index attach table failed.");
-        CHECK_RET(m_tMHashIndex.AttachTable(pMdbShmDsn, pTable),"M-hash index attach table failed.");
-        CHECK_RET(m_tTrieIndex.AttachTable(pMdbShmDsn, pTable),"Trie index attach table failed.");
-
-		AttachHashIndex(pMdbShmDsn, pTable, iFindIndexs);
-		AttachMHashIndex(pMdbShmDsn, pTable, iFindIndexs);
-		AttachTrieIndex(pMdbShmDsn, pTable, iFindIndexs);
-		              
-        if(iFindIndexs < pTable->iIndexCounts)
-        {
-            TADD_ERROR(-1,"AttachTable(%s) : iFindIndexs[%d] < pTable->iIndexCounts[%d].",pTable->sTableName,iFindIndexs, pTable->iIndexCounts);
-            return ERR_TAB_INDEX_NUM_INVALID;
-        }
-        TADD_FUNC("AttachTable(%s) : Finish.", pTable->sTableName);
-        return iRet;
-    }
+    
 
     void TMdbIndexCtrl::CleanTableIndexInfo()
     {
