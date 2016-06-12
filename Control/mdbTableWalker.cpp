@@ -579,6 +579,7 @@ bool TMdbTableWalker::NextByPage()
 
 		if(m_bStopScanTrie == true)	
 		{
+			StopWalk();
 			return false;
 		}
 	
@@ -593,8 +594,8 @@ bool TMdbTableWalker::NextByPage()
 		if (m_sTrieWord[0]== 0) return false;
 
 
-		//在树枝上
-		if(m_iNextIndexPos == -1)
+		//到树枝上找数据
+		if(m_iNextIndexPos < 0)
 		{
 		    for(;;++cPos)
 		    {
@@ -622,6 +623,7 @@ bool TMdbTableWalker::NextByPage()
 					if(!m_tCurRowIDData.IsEmpty())
 					{
 						m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+						return true;
 					}
 					break;
 				}
@@ -631,8 +633,10 @@ bool TMdbTableWalker::NextByPage()
 				pCur = pChild;
 			}
 		}
-		//在冲突链上
-		else
+
+
+		//到冲突链上找数据
+		if(m_iNextIndexPos > 0)
 		{
 			TMdbTrieConfIndexNode* pConflictNode = (TMdbTrieConfIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieConfIndex->iHeadBlockId, m_iNextIndexPos ,sizeof(TMdbTrieConfIndexNode),true);
 			CHECK_OBJ(pConflictNode);
@@ -644,19 +648,21 @@ bool TMdbTableWalker::NextByPage()
 			}
 		}
 
-
-		if(NULL != m_pDataAddr)
-        {			
-			if(-1==m_iNextIndexPos)
-				m_bStopScanTrie = true;
-            return true;
-        }
 		
-		StopWalk();
-		return false;
-
-        TADD_FUNC("Finish[false],out of while.");
+		//冲突链结束			
+		if(m_iNextIndexPos < 0)
+		{
+			//停止遍历
+			m_bStopScanTrie = true;
+			return true;
+		}
+		else
+		{
+			return true;
+		}
+	
         return false;
+		
     }
 
 	TMdbMhashBlock* TMdbTableWalker::GetMhashBlockById(int iBlockID, bool bConf)
