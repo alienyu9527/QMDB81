@@ -623,6 +623,11 @@ bool TMdbTableWalker::NextByPage()
 					if(!m_tCurRowIDData.IsEmpty())
 					{
 						m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+						if(m_iNextIndexPos < 0)
+						{
+							//Í£Ö¹±éÀú
+							m_bStopScanTrie = true;
+						}						
 						return true;
 					}
 					break;
@@ -654,15 +659,9 @@ bool TMdbTableWalker::NextByPage()
 		{
 			//Í£Ö¹±éÀú
 			m_bStopScanTrie = true;
-			return true;
+
 		}
-		else
-		{
-			return true;
-		}
-	
-        return false;
-		
+		return true;	
     }
 
 	TMdbMhashBlock* TMdbTableWalker::GetMhashBlockById(int iBlockID, bool bConf)
