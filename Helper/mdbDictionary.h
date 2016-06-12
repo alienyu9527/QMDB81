@@ -84,7 +84,6 @@
             void Clear()
             {
                 m_iRowID = 0;
-				m_iSessionID = 0;
             }
             //»ñÈ¡Ò³ºÅ
             int GetPageID();
@@ -94,13 +93,11 @@
             int SetPageID(int iPageID);
             int SetDataOffset(int iDataOffset);
 			int SetRowId(unsigned int iRowId){m_iRowID = iRowId;return 0;}
-			int SetSessionID(unsigned int iSessionID){m_iSessionID=iSessionID;return 0;}
             bool IsEmpty(){return 0==m_iRowID;}
             bool operator==(const TMdbRowID &t1)const{
                  return (this->m_iRowID == t1.m_iRowID);
              }  
 			unsigned int m_iRowID;
-			unsigned int m_iSessionID;
         private:
             
            // int iPageID;  //ËùÊôÒ³ºÅ
@@ -1307,7 +1304,22 @@ class TRBRowUnit
 	public:
 		TRBRowUnit(){}
 		~TRBRowUnit(){}
-		void Show(){printf("[TableName:%s][SQLType:%d][iRealRowID:%u][iVirtualRowID:%u]\n",pTable->sTableName,SQLType,iRealRowID,iVirtualRowID);}
+		void Show(){printf("[TableName:%s][SQLType:%s][iRealRowID:%u][iVirtualRowID:%u]\n",pTable->sTableName,GetSQLName(),iRealRowID,iVirtualRowID);}
+		const char* GetSQLName()
+		{
+			switch(SQLType)
+			{
+				case TK_INSERT:
+					return "insert";
+				case TK_DELETE:
+					return "delete";
+				case TK_UPDATE:
+					return "update";
+				default:
+					return "unkown";
+			}			
+			return "unkown";
+		}
 		int Commit(TMdbShmDSN * pShmDSN);
 		int RollBack(TMdbShmDSN * pShmDSN);
 	public:

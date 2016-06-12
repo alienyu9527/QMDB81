@@ -183,8 +183,17 @@
             CHECK_RET_FILL(ExecuteDelete(),"ExecuteDelete failed");
             break;
         case TK_UPDATE:
-            CHECK_RET_FILL(m_tLimitCtrl.Init(m_pMdbSqlParser->m_listOutputLimit),"m_tLimitCtrl.Init error..");
-            CHECK_RET_FILL(ExecuteUpdate(),"ExecuteUpdate failed");
+			{
+	            CHECK_RET_FILL(m_tLimitCtrl.Init(m_pMdbSqlParser->m_listOutputLimit),"m_tLimitCtrl.Init error..");
+				if(IsUseTrans())
+				{
+					CHECK_RET_FILL(ExecuteUpdate2(),"ExecuteUpdate2 failed");
+				}
+				else
+				{
+					CHECK_RET_FILL(ExecuteUpdate(),"ExecuteUpdate failed");
+				}
+        	}
             break;
         case TK_SELECT:
             m_pMdbSqlParser->ClearMemValue(m_pMdbSqlParser->m_listOutputCollist);//清理输出列
@@ -278,6 +287,116 @@
         return iRet;
 
     }
+
+
+	//事务  delete + insert
+	int TMdbExecuteEngine::ExecuteUpdate2()
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+        m_iRowsAffected = 0;
+        if(NULL == m_pInsertBlock)
+        {
+            m_pInsertBlock = new(std::nothrow) char[m_pTable->iOneRecordSize];
+            CHECK_OBJ_FILL(m_pInsertBlock);
+            TADD_FLOW("Create new Insert Block.size[%d].",m_pTable->iOneRecordSize);
+        }
+		
+		bool bNext = false;
+        
+        long long iTimeStamp = 0;
+        iTimeStamp = m_pMdbSqlParser->GetTimeStamp();
+        if(iTimeStamp <= 0)
+        {
+            iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
+        }
+        
+        while(1)
+        {
+            
+            CHECK_RET_FILL_BREAK(Next(bNext),"Next failed.");//下一个
+            if(false == bNext){break;}//结束
+            TADD_DETAIL("Find Row[%d].",m_iRowsAffected);
+            if(m_iIsStop == 1)
+            {
+                //收到信号控制
+                CHECK_RET_FILL(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
+            }
+
+			//先删除
+			SetDataFlagDelete(m_pDataAddr);			
+			TRBRowUnit tRBRowUnit;
+			tRBRowUnit.pTable = m_pTable;
+			tRBRowUnit.SQLType = TK_DELETE;
+			tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
+			tRBRowUnit.iVirtualRowID = 0;
+			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
+
+
+			//后插入
+			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
+			//复制VarChar和blob
+			CloneVarChar(m_pInsertBlock, m_pDataAddr);
+			do
+	        {
+	            for(int i = 0; i<m_pMdbSqlParser->m_listOutputCollist.iItemNum; i++)
+	            {
+	                ST_MEM_VALUE * pstMemValue = m_pMdbSqlParser->m_listOutputCollist.pValueArray[i];
+	                CHECK_RET_FILL_BREAK(m_tRowCtrl.FillOneColumn(m_pInsertBlock,pstMemValue->pColumnToSet,pstMemValue,TK_UPDATE),"FillOneColumn error");
+	            } 
+				
+				CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize),"InsertData failed");//插入到内存中				
+	        }
+			while(0);
+       
+            m_iRowsAffected ++;
+            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
+            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+
+    }
+
+	
+	int TMdbExecuteEngine::CloneVarChar(char* pDestBlock,char* pSourceBlock)
+	{
+		int iRet = 0 ;
+		for(int i=0;i<m_pTable->iColumnCounts;i++)
+		{
+			if(m_pTable->tColumn[i].iDataType == DT_Blob ||
+				m_pTable->tColumn[i].iDataType == DT_VarChar)
+			{
+				do
+	            {
+	                int iWhichPos = -1;
+	                unsigned int iRowId = 0;
+					int iOffSet = m_pTable->tColumn[i].iOffSet;
+	                m_tVarcharCtrl.GetStoragePos(pSourceBlock+iOffSet, iWhichPos, iRowId);
+					TMdbShmDSN* pMdbShmDSN = TMdbShmMgr::GetShmDSN(m_pDsn->sName);
+	                TMdbTableSpace * pTablespace = pMdbShmDSN->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
+	                char cStorage = pTablespace->m_bFileStorage?'Y':'N';
+	                if(iWhichPos >= VC_16 && iWhichPos <=VC_8192)
+	                {
+	                	int iLen = m_tVarcharCtrl.GetValueSize(iWhichPos);
+	                	char*  pResultValue = new char[iLen];
+						CHECK_OBJ(pResultValue);
+	                	m_tVarcharCtrl.GetVarcharValue(pResultValue,pSourceBlock+iOffSet);
+						
+	                    CHECK_RET(m_tVarcharCtrl.Insert(pResultValue, iWhichPos, iRowId,cStorage),"insert Varchar Faild,ColoumName=[%s],iVarCharlen[%d]",m_pTable->tColumn->sName,strlen(pResultValue));
+	                    m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, pDestBlock+iOffSet);
+						SAFE_DELETE(pResultValue);
+	                }
+	                else
+	                {
+						TADD_ERROR(-1,"VarChar Data missing.iWhichPos = %d",iWhichPos);
+					}
+	                
+	            }while(0);
+			}
+		}
+		return iRet;
+	}
 
     /******************************************************************************
     * 函数名称	:  ExecuteInsert
@@ -504,16 +623,7 @@
     {
         TADD_FUNC("(iSize=%d) : Start.", iSize);
 
-        TMdbRowID rowID;
-		if(IsUseTrans())
-		{
-			rowID.SetSessionID(m_pLocalLink->iSessionID);
-		}
-		else
-		{
-			rowID.SetSessionID(0);
-		}
-		
+        TMdbRowID rowID;		
         int iRet = 0;
         while(true)
         {
@@ -556,7 +666,7 @@
 		{
 			TRBRowUnit tRBRowUnit;
 			tRBRowUnit.pTable = m_pTable;
-			tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
+			tRBRowUnit.SQLType = TK_INSERT;
 			tRBRowUnit.iRealRowID = 0;
 			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");

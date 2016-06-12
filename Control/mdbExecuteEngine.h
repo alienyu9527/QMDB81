@@ -54,6 +54,10 @@
         int ExecuteInsert();//执行插入
         int ExecuteUpdate();//执行更新
         int ExecuteDelete();//执行删除
+		
+		int ExecuteUpdate2();
+		int CloneVarChar(char* pDestBlock,char* pSourceBlock);
+			
         int FillSqlParserValue(ST_MEM_VALUE_LIST & stMemValueList);//向解析器填充值
         int CheckWhere(bool &bResult);//检测where条件是否满足
 		int CheckVisible(bool &bResult);
