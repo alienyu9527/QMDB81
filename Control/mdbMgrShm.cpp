@@ -12,6 +12,7 @@
 #include "Helper/mdbStruct.h"
 #include "Control/mdbObserveCtrl.h"
 #include "Control/mdbJobCtrl.h"
+#include "Control/mdbLinkCtrl.h"
 #include "Helper/mdbDateTime.h"
 //#include "BillingSDK.h"
 

@@ -50,7 +50,7 @@
         TADD_FLOW("AddTableIndex Table=[%s],Size=[%lu] start.", pTable->sTableName,iDataSize);
 
 		//只需要申请一个根节点的空间
-        MDB_INT64 iTrieRootSize     =  sizeof(TMdbTrieIndexNode); 
+        MDB_UINT64 iTrieRootSize     =  sizeof(TMdbTrieIndexNode); 
         ST_TRIE_INDEX_INFO stTableIndex;
         stTableIndex.Clear();		
         CHECK_RET(GetTrieFreeRootIndexShm(iTrieRootSize, iDataSize ,stTableIndex),"GetFreeBIndexShm failed..");
@@ -207,7 +207,7 @@
 
 
 
-    int TMdbTrieIndexCtrl::GetTrieFreeRootIndexShm(MDB_INT64 iBaseIndexSize,size_t iDataSize,ST_TRIE_INDEX_INFO & stTableIndexInfo)
+    int TMdbTrieIndexCtrl::GetTrieFreeRootIndexShm(MDB_UINT64 iBaseIndexSize,size_t iDataSize,ST_TRIE_INDEX_INFO & stTableIndexInfo)
     {
         TADD_FUNC("Start.iBaseIndexSize=[%lld].iDataSize=[%lu]",iBaseIndexSize,iDataSize);
         int iRet = 0;
@@ -305,7 +305,7 @@
         return iRet;
     }
 
-	int TMdbTrieIndexCtrl::GetFreeBranchShm(MDB_INT64 iBranchSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock)
+	int TMdbTrieIndexCtrl::GetFreeBranchShm(MDB_UINT64 iBranchSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock)
 	{
 		TADD_FUNC("Start.iConfIndexSize=[%lld].iDataSize=[%lu]",iBranchSize,iDataSize);
 		int iRet = 0;
@@ -375,7 +375,7 @@
 	}
 
 	
-    int TMdbTrieIndexCtrl::GetFreeConflictShm(MDB_INT64 iConflictSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock)
+    int TMdbTrieIndexCtrl::GetFreeConflictShm(MDB_UINT64 iConflictSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock)
     {
         TADD_FUNC("Start.iConfIndexSize=[%lld].iDataSize=[%lu]",iConflictSize,iDataSize);
         int iRet = 0;
@@ -603,7 +603,7 @@
 
         int iNewCount = m_pAttachTable->iTabLevelCnts;
         int iNodeSize = sizeof(TMdbTrieConfIndexNode);
-        long long iConflictSize = iNewCount * iNodeSize;
+        MDB_UINT64 iConflictSize = iNewCount * iNodeSize;
         TMdbTrieBlock* pBlock = NULL;
         CHECK_RET(GetFreeConflictShm(iConflictSize, m_pMdbDsn->m_iDataSize,pBlock), "Get Free Conflict index shm failed.");
 
@@ -653,7 +653,7 @@
 
         int iNewCount = m_pAttachTable->iTabLevelCnts;
         int iNodeSize = sizeof(TMdbTrieIndexNode);
-        long long iBaseSize = iNewCount * iNodeSize;
+        MDB_UINT64 iBaseSize = iNewCount * iNodeSize;
         TMdbTrieBlock* pBlock = NULL;
         CHECK_RET(GetFreeBranchShm(iBaseSize, m_pMdbDsn->m_iDataSize,pBlock), "Get Free Conflict index shm failed.");
 

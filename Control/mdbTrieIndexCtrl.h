@@ -288,9 +288,9 @@
         // init index node
         int InitTrieNode(TMdbTrieIndexNode* pNode,MDB_INT64 iSize,bool bList);
         
-        int GetTrieFreeRootIndexShm(MDB_INT64 iBaseIndexSize,size_t iDataSize,ST_TRIE_INDEX_INFO & stTableIndexInfo);
-        int GetFreeConflictShm(MDB_INT64 iConflictSize,size_t iDataSize,TMdbTrieBlock* & pFreeBlock);
-		int GetFreeBranchShm(MDB_INT64 iConflictSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock);
+        int GetTrieFreeRootIndexShm(MDB_UINT64 iBaseIndexSize,size_t iDataSize,ST_TRIE_INDEX_INFO & stTableIndexInfo);
+        int GetFreeConflictShm(MDB_UINT64 iConflictSize,size_t iDataSize,TMdbTrieBlock* & pFreeBlock);
+		int GetFreeBranchShm(MDB_UINT64 iConflictSize,size_t iDataSize,TMdbTrieBlock*& pFreeBlock);
         
         int InitTrieRootIndex(ST_TRIE_INDEX_INFO & tTableIndex,TMdbTable * pTable);
 		int InitTrieBranchIndex(ST_TRIE_INDEX_INFO & tTableIndex);

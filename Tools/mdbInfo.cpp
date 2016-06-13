@@ -11,6 +11,7 @@
 #include "Tools/mdbInfo.h"
 #include "Interface/mdbQuery.h"
 #include "Control/mdbIndexCtrl.h"
+#include "Control/mdbLinkCtrl.h"
 #include "Tools/mdbChangeLog.h"
 #include "Helper/mdbDateTime.h"
 #include "Control/mdbStorageEngine.h"

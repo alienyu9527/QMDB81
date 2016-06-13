@@ -8,6 +8,7 @@
 *@History:
 ******************************************************************************************/
 #include "Control/mdbExecuteEngine.h"
+#include "Control/mdbLinkCtrl.h"
 #include "Control/mdbVarcharMgr.h"
 #include "Helper/mdbDateTime.h"
 #include "Helper/SyntaxTreeAnalyse.h"
@@ -289,7 +290,7 @@
     }
 
 
-	//事务  delete + insert
+	//事务  delete + insert,不同步
 	int TMdbExecuteEngine::ExecuteUpdate2()
     {
         TADD_FUNC("Start.");
@@ -351,8 +352,7 @@
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 
             m_iRowsAffected ++;
-            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
-            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
+			
         }
         TADD_FUNC("Finish.");
         return iRet;
@@ -451,6 +451,7 @@
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue failed.");//填充其他需要填充的信心
         }
         while(0);
+        CHECK_RET_FILL(iRet,"ERROR.");
 
 		if(IsUseTrans())
 		{
@@ -466,12 +467,11 @@
 	        m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
 	        ++m_pTable->iCounts;//表记录数增加1
 	        m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+			CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
+        	CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);       
 		}
 		
-        CHECK_RET_FILL(iRet,"ERROR.");
         ++m_iRowsAffected;
-        CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
-        CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -592,12 +592,13 @@
 	            m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &m_pDsn->tCurTime);
 	            --m_pTable->iCounts; //减少一条记录
 	            m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+				
+				CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
+            	CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
+        
 			}
             m_iRowsAffected ++;
-            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
-            CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,TMdbDateTime::StringToTime(m_pDsn->sCurTime)),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
         }
-        //m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
         TADD_FUNC("Finish.");
         return iRet;
     }

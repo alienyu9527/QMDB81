@@ -13,6 +13,9 @@
 #include "Helper/mdbDictionary.h"
 
 #include "Control/mdbMgrShm.h"
+#include "Control/mdbTableWalker.h"
+#include "Control/mdbExecuteEngine.h"
+
 
 //namespace QuickMDB{
 
@@ -42,6 +45,90 @@ private:
 	TMdbDSN       *  m_pDsn;//dsn信息	
 	TShmAlloc m_tMgrShmAlloc;//共享内存分配器
 	char* m_pMgrAddr;
+};
+
+
+//数据库本地链接信息
+class TRBRowUnit;
+class TMdbLocalLink
+{
+public:
+    void Clear();
+    void Print();
+    void Show(bool bIfMore=false);
+    bool IsValid(){return (iPID > 0 && 0 != sStartTime[0]);};//是否是合法的
+    bool IsCurrentThreadLink();//是否是当前线程的链接
+    void Commit(TMdbShmDSN * pShmDSN);
+	void RollBack(TMdbShmDSN * pShmDSN);
+	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
+	void ShowRBUnits();
+public:
+    int iPID;         //进程的PID
+    unsigned long int iTID;         //进程的Thread-ID
+    int iSocketID;    //链接ID
+    char cState;      //链接状态
+    char sStartTime[MAX_TIME_LEN]; //链接启动时间
+    char sFreshTime[MAX_TIME_LEN]; //链接最近更新时间，相当于心跳
+    int  iLogLevel;                //链接的日志级别
+    char cAccess;                  //权限, A-管理员;W-可读写;R-只读
+    int  iSQLPos;     //当前执行的SQL位置
+
+    int  iQueryCounts;  //查询次数
+    int  iQueryFailCounts;  //查询次数
+
+    int  iInsertCounts; //插入次数
+    int  iInsertFailCounts; //插入次数
+
+    int  iUpdateCounts; //更新次数
+    int  iUpdateFailCounts; //更新次数
+
+    int  iDeleteCounts; //删除次数
+    int  iDeleteFailCounts; //删除次数
+
+    char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
+	
+    unsigned int iSessionID; //事务id
+    TShmList<TRBRowUnit>  m_RBList; //回滚链表
+	size_t  iRBAddrOffset;
+};
+
+//回滚单元
+class TRBRowUnit 
+{	
+	public:
+		TRBRowUnit(){}
+		~TRBRowUnit(){}
+		void Show(){printf("[TableName:%s][SQLType:%s][iRealRowID:%u][iVirtualRowID:%u]\n",pTable->sTableName,GetSQLName(),iRealRowID,iVirtualRowID);}
+		const char* GetSQLName()
+		{
+			switch(SQLType)
+			{
+				case TK_INSERT:
+					return "insert";
+				case TK_DELETE:
+					return "delete";
+				case TK_UPDATE:
+					return "update";
+				default:
+					return "unkown";
+			}			
+			return "unkown";
+		}
+		int Commit(TMdbShmDSN * pShmDSN);
+		int RollBack(TMdbShmDSN * pShmDSN);
+	public:
+	 	TMdbTable*  pTable;
+		char	SQLType;		//Insert or  delete or update
+	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
+	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
+
+	private:
+		int CommitInsert(TMdbShmDSN * pShmDSN);
+		int CommitUpdate(TMdbShmDSN * pShmDSN);
+		int CommitDelete(TMdbShmDSN * pShmDSN);
+		int RollBackInsert(TMdbShmDSN * pShmDSN);
+		int RollBackUpdate(TMdbShmDSN * pShmDSN);
+		int RollBackDelete(TMdbShmDSN * pShmDSN);
 };
 
 
