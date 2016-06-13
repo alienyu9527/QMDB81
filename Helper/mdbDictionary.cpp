@@ -1083,7 +1083,10 @@
 		CHECK_OBJ(pDataAddr);
 		TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
 		pPageNode->iSessionID = 0;
-		pPageNode->iFlag = DATA_REAL;		
+		pPageNode->iFlag = DATA_REAL;	
+		pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
+	    ++pTable->iCounts; //减少一条记录
+	    pTable->tTableMutex.UnLock(pTable->bWriteLock);
 	}
 
 	int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
@@ -1102,6 +1105,7 @@
 		TMdbExecuteEngine tEngine;
 		//删除索引->删除varchar->删除内存
 		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
+		
 		return iRet;
 	}	
 	
@@ -1126,6 +1130,9 @@
 		pPageNode = (TMdbPageNode* )pDataAddr -1;
 		pPageNode->iSessionID = 0;
 		pPageNode->iFlag = DATA_REAL;
+		pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
+	    ++pTable->iCounts; //减少一条记录
+	    pTable->tTableMutex.UnLock(pTable->bWriteLock);
 
 		//删除之前的数据
 		pDataAddr = NULL;

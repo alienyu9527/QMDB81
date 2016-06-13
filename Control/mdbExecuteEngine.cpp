@@ -461,8 +461,13 @@
 			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 		}
+		else
+		{
+	        m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
+	        ++m_pTable->iCounts;//表记录数增加1
+	        m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+		}
 		
-        //m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
         CHECK_RET_FILL(iRet,"ERROR.");
         ++m_iRowsAffected;
         CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
@@ -502,6 +507,10 @@
 			CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
 			CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(rowID.GetDataOffset()),"m_mdbPageCtrl.DeleteData");
 			m_mdbPageCtrl.UnWLock();//解页锁
+			
+			m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &(pMdbShmDsn->GetDSN()->tCurTime));
+            --m_pTable->iCounts; //减少一条记录
+            m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
 		}
 		while(0);
 		return iRet;
@@ -548,7 +557,6 @@
 				tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
 				tRBRowUnit.iVirtualRowID = 0;
 				CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
-
 			}
 			else
 			{
@@ -672,9 +680,6 @@
         }
         TADD_DETAIL("InsertData(%s) : Data insert OK,rowID=%p .",m_pTable->sTableName,&rowID);
         CHECK_RET_FILL(ChangeInsertIndex(pAddr, rowID),"ChangeInsertIndex failed...");		
-        m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
-        ++m_pTable->iCounts;//表记录数增加1
-        m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
         TADD_FUNC("Finish.");
         return 0;
     }
