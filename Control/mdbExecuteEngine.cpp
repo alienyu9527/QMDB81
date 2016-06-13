@@ -188,7 +188,7 @@
 	            CHECK_RET_FILL(m_tLimitCtrl.Init(m_pMdbSqlParser->m_listOutputLimit),"m_tLimitCtrl.Init error..");
 				if(IsUseTrans())
 				{
-					CHECK_RET_FILL(ExecuteUpdate2(),"ExecuteUpdate2 failed");
+					CHECK_RET_FILL(ExecuteUpdateTrans(),"ExecuteUpdateTrans failed");
 				}
 				else
 				{
@@ -291,7 +291,7 @@
 
 
 	//事务  delete + insert,不同步
-	int TMdbExecuteEngine::ExecuteUpdate2()
+	int TMdbExecuteEngine::ExecuteUpdateTrans()
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -2388,14 +2388,43 @@
 		}
 	}
 
-	void TMdbExecuteEngine::SetDataFlagDelete(char* pAddr)
+	int  TMdbExecuteEngine::SetDataFlagDelete(char* pAddr)
 	{
+		int iRet = 0;
 		if(IsUseTrans())
 		{
 			TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
-			pNode->iSessionID = m_pLocalLink->iSessionID;
+
+			//如果是当前链接没有提交的数据,不加锁
+			if(pNode->iSessionID == m_pLocalLink->iSessionID)
+			{
+				//do nothing
+			}
+			else
+			{
+				int iTry = 5;
+				while(pNode->tMutex.TryLock()!=0)
+				{
+					printf("Table %s,Lock Row %d Failed,Try %d times.\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID,iTry);
+					iTry--;
+					TMdbDateTime::Sleep(4);
+					if(iTry<=0)
+					{
+						printf("Mutex[Table:%s][Row:%d] Maybe dead,force unLock it.\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+						CHECK_RET(pNode->tMutex.UnLock(true),"Force Unlock Row failed,[Table:%s][Row:%d].",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+						CHECK_RET(pNode->tMutex.Lock(true),"Lock Row failed,[Table:%s][Row:%d].",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+						break;
+					}	
+				}
+
+				printf("Table %s,Lock Row %d OK\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+	
+				pNode->iSessionID = m_pLocalLink->iSessionID;
+			}
+			
 			pNode->iFlag |= DATA_DELETE;
 		}
+		return iRet;
 	}
 //}
 

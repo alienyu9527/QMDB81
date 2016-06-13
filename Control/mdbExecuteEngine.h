@@ -55,7 +55,7 @@
         int ExecuteUpdate();//执行更新
         int ExecuteDelete();//执行删除
 		
-		int ExecuteUpdate2();
+		int ExecuteUpdateTrans();
 		int CloneVarChar(char* pDestBlock,char* pSourceBlock);
 			
         int FillSqlParserValue(ST_MEM_VALUE_LIST & stMemValueList);//向解析器填充值
@@ -94,7 +94,7 @@
         int SetRowDataTimeStamp(char* pAddr, int iOffset,long long iTimeStamp = 0);
         int UpdateRowDataTimeStamp(char* const & pAddr, int iOffset, long long iTimeStamp = 0);
 		void SetDataFlagInsert(char* pAddr);
-		void SetDataFlagDelete(char* pAddr);
+		int SetDataFlagDelete(char* pAddr);
     private:
 
         TMdbSqlParser * m_pMdbSqlParser;//语法树结构

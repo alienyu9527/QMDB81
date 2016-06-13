@@ -8,17 +8,14 @@
 *@History:
 ******************************************************************************************/
 #include "Control/mdbLinkCtrl.h"
-//#include "Agent/mdbAgentServer.h"
 #include "Helper/mdbOS.h"
 #include "Helper/mdbDateTime.h"
 
-//namespace QuickMDB{
 
-TMdbLinkCtrl::TMdbLinkCtrl():
-m_pShmDsn(NULL),
-m_pDsn(NULL)
+TMdbLinkCtrl::TMdbLinkCtrl()
 {
-
+	m_pShmDsn = NULL;
+	m_pDsn = NULL;
 }
 TMdbLinkCtrl::~TMdbLinkCtrl()
 {
@@ -641,10 +638,44 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 	while(!m_RBList.empty())
 	{
 		--itor; 
-		itor->Show();
 		if(itor->RollBack(pShmDSN)!=0)break;	
 		itor = m_RBList.erase(itor);
 	}
+}
+
+int TRBRowUnit::UnLockRow(char* pDataAddr,TMdbShmDSN * pShmDSN)
+{
+	int iRet = 0;
+	CHECK_OBJ(pDataAddr);
+	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
+
+	CHECK_RET(pPageNode->tMutex.UnLock(true),"PageNode UnLock Failed.");
+	printf("Table %s,UnLock Row %d\n",pTable->sTableName,iRealRowID);
+		
+	return iRet;
+}
+
+
+void TRBRowUnit::Show()
+{
+	printf("[TableName:%s][SQLType:%s][iRealRowID:%u][iVirtualRowID:%u]\n",
+		pTable->sTableName,GetSQLName(),iRealRowID,iVirtualRowID);
+}
+
+const char* TRBRowUnit::GetSQLName()
+{
+	switch(SQLType)
+	{
+		case TK_INSERT:
+			return "insert";
+		case TK_DELETE:
+			return "delete";
+		case TK_UPDATE:
+			return "update";
+		default:
+			return "unkown";
+	}			
+	return "unkown";
 }
 
 int TRBRowUnit::Commit(TMdbShmDSN * pShmDSN)
@@ -668,6 +699,7 @@ int TRBRowUnit::Commit(TMdbShmDSN * pShmDSN)
 }
 int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 {
+	int iRet = 0;
 	TMdbTableWalker tWalker;
 	tWalker.AttachTable(pShmDSN,pTable);
 	TMdbRowID rowID;
@@ -683,6 +715,9 @@ int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
 
 	//生成同步数据
+	//TODO::
+
+	return iRet;
 }
 
 int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
@@ -701,7 +736,11 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	TMdbExecuteEngine tEngine;
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
-	
+
+	//生成同步数据
+	//TODO::
+
+	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
 }	
 
@@ -739,6 +778,12 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	TMdbExecuteEngine tEngine;
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
+
+
+	//生成同步数据
+	//TODO::
+
+	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
 	
 }
@@ -798,6 +843,7 @@ int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
 	pPageNode->iFlag&=~DATA_DELETE;
 	
+	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
 }
 
@@ -821,7 +867,8 @@ int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
 	pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	pPageNode = (TMdbPageNode* )pDataAddr -1;
-	pPageNode->iFlag&=~DATA_DELETE;
+	pPageNode->iFlag&=~DATA_DELETE;	
+	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 
 	//RollBackInsert
 	pDataAddr = NULL;

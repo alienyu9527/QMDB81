@@ -17,39 +17,35 @@
 #include "Control/mdbExecuteEngine.h"
 
 
-//namespace QuickMDB{
+//回滚单元
+class TRBRowUnit 
+{	
+	public:
+		TRBRowUnit(){}
+		~TRBRowUnit(){}
+		void Show();
+		int Commit(TMdbShmDSN * pShmDSN);
+		int RollBack(TMdbShmDSN * pShmDSN);
+		
+	public:
+	 	TMdbTable*  pTable;
+		char	SQLType;		//Insert or  delete or update
+	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
+	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
 
-//class TAgentClient;
-//链接管理
-class TMdbLinkCtrl
-{
-public:
-	TMdbLinkCtrl();
-	~TMdbLinkCtrl();
-	int Attach(const char * sDsn);//链接共享内存
-	int RegLocalLink(TMdbLocalLink *& pLocalLink);//注册本地链接
-	int UnRegLocalLink(TMdbLocalLink *& pLocalLink);//注销本地链接管理
-	int RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注册远程链接
-	int UnRegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注销远程链接
-	int RegRepLink(TMdbRepLink &tRepLink);//注册rep链接
-	int UnRegRepLink(int iSocket,char cState);//注册rep链接
-	int ClearInvalidLink();//清除无效链接
-	int ClearRemoteLink();//清理远程链接
-	int ClearAllLink();//清除所有链接
-	int   GetCsAgentPort(int iClientPort);//根据客户端发过来的端口号，结合其他端口号判断，取一个合适的
-	int	  AddConNumForPort(int iAgentPort);//连接成功后，连接数增加
-	int	  MinusConNumForPort(int iAgentPort);//连接断开后，连接数减1
-	int   ClearCntNumForPort(int iAgentPort);//agent初始化时，连接数清0
-private:
-	TMdbShmDSN * m_pShmDsn;//管理区
-	TMdbDSN       *  m_pDsn;//dsn信息	
-	TShmAlloc m_tMgrShmAlloc;//共享内存分配器
-	char* m_pMgrAddr;
+	private:		
+		const char* GetSQLName();		
+		int CommitInsert(TMdbShmDSN * pShmDSN);
+		int CommitUpdate(TMdbShmDSN * pShmDSN);
+		int CommitDelete(TMdbShmDSN * pShmDSN);
+		int RollBackInsert(TMdbShmDSN * pShmDSN);
+		int RollBackUpdate(TMdbShmDSN * pShmDSN);
+		int RollBackDelete(TMdbShmDSN * pShmDSN);
+		int UnLockRow(char* pDataAddr, TMdbShmDSN * pShmDSN);
 };
 
 
 //数据库本地链接信息
-class TRBRowUnit;
 class TMdbLocalLink
 {
 public:
@@ -92,44 +88,35 @@ public:
 	size_t  iRBAddrOffset;
 };
 
-//回滚单元
-class TRBRowUnit 
-{	
-	public:
-		TRBRowUnit(){}
-		~TRBRowUnit(){}
-		void Show(){printf("[TableName:%s][SQLType:%s][iRealRowID:%u][iVirtualRowID:%u]\n",pTable->sTableName,GetSQLName(),iRealRowID,iVirtualRowID);}
-		const char* GetSQLName()
-		{
-			switch(SQLType)
-			{
-				case TK_INSERT:
-					return "insert";
-				case TK_DELETE:
-					return "delete";
-				case TK_UPDATE:
-					return "update";
-				default:
-					return "unkown";
-			}			
-			return "unkown";
-		}
-		int Commit(TMdbShmDSN * pShmDSN);
-		int RollBack(TMdbShmDSN * pShmDSN);
-	public:
-	 	TMdbTable*  pTable;
-		char	SQLType;		//Insert or  delete or update
-	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
-	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
-
-	private:
-		int CommitInsert(TMdbShmDSN * pShmDSN);
-		int CommitUpdate(TMdbShmDSN * pShmDSN);
-		int CommitDelete(TMdbShmDSN * pShmDSN);
-		int RollBackInsert(TMdbShmDSN * pShmDSN);
-		int RollBackUpdate(TMdbShmDSN * pShmDSN);
-		int RollBackDelete(TMdbShmDSN * pShmDSN);
+//链接管理
+class TMdbLinkCtrl
+{
+public:
+	TMdbLinkCtrl();
+	~TMdbLinkCtrl();
+	int Attach(const char * sDsn);//链接共享内存
+	int RegLocalLink(TMdbLocalLink *& pLocalLink);//注册本地链接
+	int UnRegLocalLink(TMdbLocalLink *& pLocalLink);//注销本地链接管理
+	int RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注册远程链接
+	int UnRegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注销远程链接
+	int RegRepLink(TMdbRepLink &tRepLink);//注册rep链接
+	int UnRegRepLink(int iSocket,char cState);//注册rep链接
+	int ClearInvalidLink();//清除无效链接
+	int ClearRemoteLink();//清理远程链接
+	int ClearAllLink();//清除所有链接
+	int   GetCsAgentPort(int iClientPort);//根据客户端发过来的端口号，结合其他端口号判断，取一个合适的
+	int	  AddConNumForPort(int iAgentPort);//连接成功后，连接数增加
+	int	  MinusConNumForPort(int iAgentPort);//连接断开后，连接数减1
+	int   ClearCntNumForPort(int iAgentPort);//agent初始化时，连接数清0
+private:
+	TMdbShmDSN * m_pShmDsn;//管理区
+	TMdbDSN       *  m_pDsn;//dsn信息	
+	TShmAlloc m_tMgrShmAlloc;//共享内存分配器
+	char* m_pMgrAddr;
 };
+
+
+
 
 
 //}
