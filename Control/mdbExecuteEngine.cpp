@@ -325,18 +325,11 @@
 
 			//先删除
 			SetDataFlagDelete(m_pDataAddr);			
-			TRBRowUnit tRBRowUnit;
-			tRBRowUnit.pTable = m_pTable;
-			tRBRowUnit.SQLType = TK_DELETE;
-			tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
-			tRBRowUnit.iVirtualRowID = 0;
-			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
-
-
 			//后插入
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
 			//复制VarChar和blob
 			CloneVarChar(m_pInsertBlock, m_pDataAddr);
+			TMdbRowID RowID;
 			do
 	        {
 	            for(int i = 0; i<m_pMdbSqlParser->m_listOutputCollist.iItemNum; i++)
@@ -345,10 +338,18 @@
 	                CHECK_RET_FILL_BREAK(m_tRowCtrl.FillOneColumn(m_pInsertBlock,pstMemValue->pColumnToSet,pstMemValue,TK_UPDATE),"FillOneColumn error");
 	            } 
 				
-				CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize),"InsertData failed");//插入到内存中				
+				CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize,RowID),"InsertData failed");//插入到内存中				
 	        }
 			while(0);
-       
+
+			
+			TRBRowUnit tRBRowUnit;
+			tRBRowUnit.pTable = m_pTable;
+			tRBRowUnit.SQLType = TK_UPDATE;
+			tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
+			tRBRowUnit.iVirtualRowID = RowID.m_iRowID;
+			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
+
             m_iRowsAffected ++;
             CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
             CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);
@@ -439,17 +440,28 @@
             iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
         }
 
-        
+        TMdbRowID  rowID;
         do
         {
             CHECK_RET_FILL_BREAK(InsertDataFill(m_pInsertBlock),"InsertDataFill failed....");//填充数据
             // 设置记录时间戳
             CHECK_RET_FILL_BREAK(SetRowDataTimeStamp(m_pInsertBlock, m_pTable->m_iTimeStampOffset,iTimeStamp),"insert row data timestamp failed.");
-            CHECK_RET_FILL_BREAK(PushRollbackData(m_pInsertBlock,NULL),"PushRollbackData failed...");//压入回滚数据成功后才能更新内核数据
-            CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize),"InsertData failed");//插入到内存中
+            //CHECK_RET_FILL_BREAK(PushRollbackData(m_pInsertBlock,NULL),"PushRollbackData failed...");//压入回滚数据成功后才能更新内核数据
+            CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize,rowID),"InsertData failed");//插入到内存中
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue failed.");//填充其他需要填充的信心
         }
         while(0);
+
+		if(IsUseTrans())
+		{
+			TRBRowUnit tRBRowUnit;
+			tRBRowUnit.pTable = m_pTable;
+			tRBRowUnit.SQLType = TK_INSERT;
+			tRBRowUnit.iRealRowID = 0;
+			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
+			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
+		}
+		
         //m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
         CHECK_RET_FILL(iRet,"ERROR.");
         ++m_iRowsAffected;
@@ -619,11 +631,10 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbExecuteEngine::InsertData(char* pAddr, int iSize)
+    int TMdbExecuteEngine::InsertData(char* pAddr, int iSize,TMdbRowID&  rowID)
     {
         TADD_FUNC("(iSize=%d) : Start.", iSize);
 
-        TMdbRowID rowID;		
         int iRet = 0;
         while(true)
         {
@@ -660,18 +671,7 @@
             break;
         }
         TADD_DETAIL("InsertData(%s) : Data insert OK,rowID=%p .",m_pTable->sTableName,&rowID);
-        CHECK_RET_FILL(ChangeInsertIndex(pAddr, rowID),"ChangeInsertIndex failed...");
-
-		if(IsUseTrans())
-		{
-			TRBRowUnit tRBRowUnit;
-			tRBRowUnit.pTable = m_pTable;
-			tRBRowUnit.SQLType = TK_INSERT;
-			tRBRowUnit.iRealRowID = 0;
-			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
-			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
-		}
-		
+        CHECK_RET_FILL(ChangeInsertIndex(pAddr, rowID),"ChangeInsertIndex failed...");		
         m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
         ++m_pTable->iCounts;//表记录数增加1
         m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);

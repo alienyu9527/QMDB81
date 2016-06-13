@@ -1085,12 +1085,7 @@
 		pPageNode->iSessionID = 0;
 		pPageNode->iFlag = DATA_REAL;		
 	}
-	int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
-	{
-		
 
-		return 0;
-	}
 	int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	{
 		int iRet=0;
@@ -1109,6 +1104,42 @@
 		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 		return iRet;
 	}	
+	
+	int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
+	{	
+		int iRet=0;
+		
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		
+		TMdbRowID VirtualRowID,RealRowID;	
+		int iDataSize = 0;
+		char* pDataAddr = NULL;
+		TMdbPageNode* pPageNode = NULL;
+
+		VirtualRowID.SetRowId(iVirtualRowID);
+		RealRowID.SetRowId(iRealRowID);
+
+		//生效插入的数据
+		pDataAddr = tWalker.GetAddressRowID(&VirtualRowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		pPageNode = (TMdbPageNode* )pDataAddr -1;
+		pPageNode->iSessionID = 0;
+		pPageNode->iFlag = DATA_REAL;
+
+		//删除之前的数据
+		pDataAddr = NULL;
+		pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		char* pPage = tWalker.GetPageAddr();	
+		CHECK_OBJ(pPage);		
+		TMdbExecuteEngine tEngine;
+		//删除索引->删除varchar->删除内存
+		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
+		return iRet;
+		
+	}
+	
 
 	int TRBRowUnit::RollBack(TMdbShmDSN * pShmDSN)
 	{
@@ -1132,6 +1163,7 @@
 	int TRBRowUnit::RollBackInsert(TMdbShmDSN * pShmDSN)
 	{
 		int iRet=0;
+		
 		TMdbTableWalker tWalker;
 		tWalker.AttachTable(pShmDSN,pTable);
 		TMdbRowID rowID;
@@ -1145,12 +1177,64 @@
 		TMdbExecuteEngine tEngine;
 		//删除索引->删除varchar->删除内存
 		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
+
 		return iRet;
 	}
-	int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
-	{return 0;}
+	
 	int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
-	{return 0;}
+	{
+		int iRet = 0;
+		
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		TMdbRowID rowID;
+		rowID.SetRowId(iRealRowID);
+		int iDataSize = 0;
+		char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
+		pPageNode->iFlag&=~DATA_DELETE;
+		
+		return iRet;
+	}
+
+	
+	int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
+	{
+		int iRet=0;
+		
+		TMdbTableWalker tWalker;
+		tWalker.AttachTable(pShmDSN,pTable);
+		
+		TMdbRowID VirtualRowID,RealRowID;	
+		int iDataSize = 0;
+		char* pDataAddr = NULL;
+		TMdbPageNode* pPageNode = NULL;
+
+		VirtualRowID.SetRowId(iVirtualRowID);
+		RealRowID.SetRowId(iRealRowID);
+
+		//RollBackDelete
+		pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);
+		pPageNode = (TMdbPageNode* )pDataAddr -1;
+		pPageNode->iFlag&=~DATA_DELETE;
+
+		//RollBackInsert
+		pDataAddr = NULL;
+		pDataAddr = tWalker.GetAddressRowID(&VirtualRowID,iDataSize,true);
+		CHECK_OBJ(pDataAddr);		
+		char* pPage = tWalker.GetPageAddr();
+		CHECK_OBJ(pPage);
+		
+		TMdbExecuteEngine tEngine;
+		//删除索引->删除varchar->删除内存
+		CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,VirtualRowID,pShmDSN,pTable),"ExecuteDelete failed.");
+		
+
+		return iRet;
+	}
+	
 	
     bool TMdbRemoteLink::IsCurrentThreadLink()
     {

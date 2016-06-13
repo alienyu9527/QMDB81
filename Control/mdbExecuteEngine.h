@@ -65,7 +65,7 @@
 		bool IsUseTrans();
         
         int InsertDataFill(char* const &sTmp);//填充要插入的数据
-        int InsertData(char* pAddr, int iSize);//将数据插入到内存中
+        int InsertData(char* pAddr, int iSize,TMdbRowID&  rowID);//将数据插入到内存中
         int UpdateData();//将数据更新到
         int ChangeInsertIndex( char* pAddr, TMdbRowID& rowID);
         int ChangeUpdateIndex(std::vector<ST_INDEX_VALUE > & vUpdateIndex);//对update 操作所造成的索引变更
