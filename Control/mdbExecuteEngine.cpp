@@ -661,8 +661,8 @@
             if(iRet == 0)
             {
                 m_mdbTSCtrl.SetPageDirtyFlag(pFreePage->m_iPageID);
+				SetDataFlagInsert(m_pDataAddr);
             }
-			SetDataFlagInsert(m_pDataAddr);
             m_mdbPageCtrl.UnWLock();//解页锁
             TADD_DETAIL("Get one record:DataAddr[%p],CurRowData[%d|%d],PageAddr[%p],PagePos[%d].",
             m_pDataAddr,rowID.GetPageID(),rowID.GetDataOffset(),
@@ -1230,7 +1230,7 @@
 		else if(pNode->iSessionID == m_pLocalLink->iSessionID)
 		{
 			//自己看不到自己删除的数据
-			if( pNode->iFlag & DATA_DELETE)
+			if( pNode->cFlag & DATA_DELETE)
 			{
 				bVisible = false;
 			}
@@ -1242,7 +1242,7 @@
 		else
 		{
 			//其他链接的数据看不到
-			if( pNode->iFlag & DATA_VIRTUAL)
+			if( pNode->cFlag & DATA_VIRTUAL)
 			{
 				bVisible = false;
 			}	
@@ -2380,11 +2380,15 @@
 	
 	void TMdbExecuteEngine::SetDataFlagInsert(char* pAddr)
 	{
+		TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
 		if(IsUseTrans())
 		{
-			TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
 			pNode->iSessionID = m_pLocalLink->iSessionID;
-			pNode->iFlag |= DATA_VIRTUAL;
+			pNode->cFlag |= DATA_VIRTUAL;
+		}
+		else
+		{
+			pNode->iSessionID = 0;
 		}
 	}
 
@@ -2422,7 +2426,7 @@
 				pNode->iSessionID = m_pLocalLink->iSessionID;
 			}
 			
-			pNode->iFlag |= DATA_DELETE;
+			pNode->cFlag |= DATA_DELETE;
 		}
 		return iRet;
 	}

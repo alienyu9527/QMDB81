@@ -108,8 +108,8 @@
 	enum DATA_FLAG
 	{
 		DATA_REAL = 0,
-		DATA_VIRTUAL = 0x0001,
-		DATA_DELETE = 0x0010
+		DATA_VIRTUAL = 0x01,
+		DATA_DELETE = 0x10
 	};
 	/**
 	 * @brief 页节点
@@ -123,7 +123,7 @@
 		int    iPreNode; //前一个节点
 		TMutex tMutex;
 		unsigned int iSessionID;
-		int iFlag;
+		unsigned char cFlag;
 	};
 
 

@@ -709,7 +709,7 @@ int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 	CHECK_OBJ(pDataAddr);
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
 	pPageNode->iSessionID = 0;
-	pPageNode->iFlag = DATA_REAL;	
+	pPageNode->cFlag = DATA_REAL;	
 	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
@@ -764,7 +764,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	CHECK_OBJ(pDataAddr);
 	pPageNode = (TMdbPageNode* )pDataAddr -1;
 	pPageNode->iSessionID = 0;
-	pPageNode->iFlag = DATA_REAL;
+	pPageNode->cFlag = DATA_REAL;
 	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
@@ -841,7 +841,7 @@ int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
 	char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
-	pPageNode->iFlag&=~DATA_DELETE;
+	pPageNode->cFlag&=~DATA_DELETE;
 	
 	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
@@ -867,7 +867,7 @@ int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
 	pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	pPageNode = (TMdbPageNode* )pDataAddr -1;
-	pPageNode->iFlag&=~DATA_DELETE;	
+	pPageNode->cFlag&=~DATA_DELETE;	
 	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 
 	//RollBackInsert

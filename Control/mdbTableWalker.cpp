@@ -285,9 +285,13 @@ int TMdbTableWalker::WalkByPage(int iStartPageID)
 * 作者		:  jin.shaohua
 *******************************************************************************/
 bool TMdbTableWalker::NextByPage()
-{
+{	
+	int iRet = 0; 
 	while(NULL != m_pCurPage)
 	{	
+		//加读锁
+		CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char*)m_pCurPage, m_pMdbTable->bReadLock, m_pMdbTable->bWriteLock),"TMdbTableWalker::m_mdbPageCtrl.Attach faild");
+	    CHECK_RET_BREAK(m_mdbPageCtrl.RLock(),"TMdbTableWalker::PageCtrl.RLock() failed.");
     	//获取下一数据
     	m_pDataAddr = m_pCurPage->GetNextDataAddr(m_pDataAddr,m_iPagePos,m_pNextDataAddr);
 		
@@ -297,6 +301,8 @@ bool TMdbTableWalker::NextByPage()
 			m_pNextPage = (TMdbPage *)m_tTSCtrl.GetAddrByPageID(m_pCurPage->m_iNextPageID);
 			//TADD_NORMAL("CurPage:%d.NextPage:%d.",m_pCurPage->m_iPageID,m_pNextPage->m_iPageID);
 		}
+		//解读锁
+	    m_mdbPageCtrl.UnRLock();
 		
     	if(NULL == m_pDataAddr)
 		{

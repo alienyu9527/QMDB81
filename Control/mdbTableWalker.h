@@ -144,6 +144,7 @@
         int     m_iPagePos;     //数据在页面中的位置
         TMdbRowID 		m_tNextRowIDData,m_tCurRowIDData;
         TMdbTableSpaceCtrl m_tTSCtrl;//表空间管理
+        TMdbPageCtrl   m_mdbPageCtrl;//页控制信息
         int m_iCurWalkIndexAlgo; //当前索引遍历算法类型
         
         // hash索引遍历使用
@@ -161,7 +162,8 @@
 		bool m_bStopScanTrie;
 				
         bool m_bScanAll;
-		
+
+			
 	public:	
         TMdbPage * m_pCurPage;    //数据所在页面的地址
         TMdbPage * m_pStartPage; //是否遍历过表FREE链的头结点

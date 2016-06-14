@@ -237,7 +237,7 @@
 	                m_iFullPageNode = iNewDataOffset - sizeof(TMdbPageNode);
 				}
 				pFreePageNode->tMutex.Create();
-				pFreePageNode->iFlag = 0;
+				pFreePageNode->cFlag = 0;
 				
             }
             else if(m_iFreeOffSet + m_iRecordSize + (int)sizeof(TMdbPageNode) < m_iPageSize)
@@ -262,7 +262,7 @@
 	                m_iFreeOffSet += m_iRecordSize + sizeof(TMdbPageNode);
             	}
 				pFreePageNode->tMutex.Create();
-				pFreePageNode->iFlag = 0;
+				pFreePageNode->cFlag = 0;
 				
             }
             else 
