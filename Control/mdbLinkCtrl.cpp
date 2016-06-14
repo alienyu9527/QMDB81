@@ -710,7 +710,7 @@ int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
 	pPageNode->iSessionID = 0;
 	pPageNode->cFlag = DATA_REAL;	
-	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
+	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetInfo()->tCurTime));
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
 
@@ -765,7 +765,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	pPageNode = (TMdbPageNode* )pDataAddr -1;
 	pPageNode->iSessionID = 0;
 	pPageNode->cFlag = DATA_REAL;
-	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetDSN()->tCurTime));
+	pTable->tTableMutex.Lock(pTable->bWriteLock, &(pShmDSN->GetInfo()->tCurTime));
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
 

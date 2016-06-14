@@ -275,93 +275,9 @@
             FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
         }
 
-        /*
-        if(m_pDsn->m_bIsRep && !QueryHasProperty(iFlags,QUERY_NO_REPFLUSH) &&
-        (Column_To_Rep == m_pTable->tColumn[0].iRepAttr ||
-        Column_Ora_Rep == m_pTable->tColumn[0].iRepAttr))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_REP);
-        }
-        if(m_pConfig->GetDSN()->bIsPeerRep && !QueryHasProperty(iFlags,QUERY_NO_PEERFLUSH) && 
-        (Column_To_Rep == m_pTable->tColumn[0].iRepAttr ||
-        Column_Ora_Rep == m_pTable->tColumn[0].iRepAttr))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_PEER);
-        }*/
-
-        /*
-        if(m_pDsn->m_bIsCaptureRouter)
-        {
-        //捕获路由
-        TMdbMemQueue * pCapQueue = (TMdbMemQueue * )pShmDsn->GetSyncAreaShm(SA_CAPTURE);
-        CHECK_OBJ(pCapQueue);
-        m_CaptureQueueCtrl.Init(pCapQueue,m_pDsn);
-        }
-        //设置同步属性
-        if(!QueryHasProperty(iFlags,QUERY_NO_REDOFLUSH) && 
-        NULL != pShmDsn->GetSyncAreaShm(SA_REDO))
-        {
-        TMdbMemQueue * pRedoQueue = (TMdbMemQueue *)pShmDsn->GetSyncAreaShm(SA_REDO);
-        m_RedoQueueCtrl.Init(pRedoQueue,m_pDsn);
-        FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
-        }
-        if(m_pDsn->m_bIsOraRep 
-        &&! QueryHasProperty(iFlags,QUERY_NO_ORAFLUSH) 
-        && (Column_To_Ora == m_pTable->tColumn[0].iRepAttr 
-        || Column_Ora_Rep == m_pTable->tColumn[0].iRepAttr))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_ORA);
-        }
-        if(m_pDsn->m_bIsRep && !QueryHasProperty(iFlags,QUERY_NO_REPFLUSH) &&
-        (Column_To_Rep == m_pTable->tColumn[0].iRepAttr ||
-        Column_Ora_Rep == m_pTable->tColumn[0].iRepAttr))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_REP);
-        }
-        if(m_pConfig->GetDSN()->bIsPeerRep && !QueryHasProperty(iFlags,QUERY_NO_PEERFLUSH) && 
-        (Column_To_Rep == m_pTable->tColumn[0].iRepAttr ||
-        Column_Ora_Rep == m_pTable->tColumn[0].iRepAttr))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_PEER);
-        }
-        */
-
-        /*if(m_pTable->m_bShardBack)
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
-        }*/
-
-        /*
-        if(FlushTypeHasProperty(m_iFlushType,FLUSH_ORA))
-        {
-        m_pOraQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm(SA_ORACLE);
-        CHECK_OBJ(m_pOraQueue);
-        CHECK_RET(m_OraQueueCtrl.Init(m_pOraQueue, m_pDsn),"Init failed.");
-        }
-        */
-        //UR: 415794
-        //if(FlushTypeHasProperty(m_iFlushType,FLUSH_REP))
-        /*
-        if(FlushTypeHasAnyProperty(m_iFlushType,FLUSH_REP|FLUSH_PEER))
-        {
-        m_pRepQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm(SA_REP);
-        CHECK_OBJ(m_pRepQueue);
-        CHECK_RET(m_RepQueueCtrl.Init(m_pRepQueue, m_pDsn),"Init failed");
-        }
-
-        if(m_pTable->m_bShardBack)
-        //if(m_pTable->m_bShardBack && !QueryHasProperty(iFlags,QUERY_NO_SHARDFLUSH))
-        {
-        FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
-        m_pShardBackQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm(SA_SHARD_BACKUP);
-        CHECK_OBJ(m_pShardBackQueue);
-        CHECK_RET(m_ShardBackQueueCtrl.Init(m_pShardBackQueue, m_pDsn),"Init failed");
-        }
-        */
         m_pQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm();
         CHECK_OBJ(m_pQueue);
         CHECK_RET(m_QueueCtrl.Init(m_pQueue, m_pDsn),"Init failed");
-        //memset(m_sDataBuf,0x00,sizeof(m_sDataBuf));
         TADD_FUNC("Finish.m_iFlushType=[%d].",m_iFlushType);
         return iRet;
     }
@@ -410,73 +326,6 @@
         TADD_DETAIL("NeedToFlush = [%s].",bRet?"TRUE":"FALSE");
         return bRet;
     }
-
-
-    /******************************************************************************
-    * 函数名称	:  FlushData
-    * 函数描述	:  刷出数据
-    * 输入		:
-    * 输入		:
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*
-    int TMdbFlush::FlushData()
-    {
-    TADD_FUNC("Start.");
-    int iRet = 0;
-    if(!bNeedToFlush())
-    {
-    return iRet;
-    }
-    m_sDataBuf[0] = '\0';
-    int iLen = 0;
-    CHECK_RET(FillData(m_sDataBuf,iLen),"FillData failed.");
-    TADD_DETAIL("m_sDataBuf=[%s],size=[%d]",m_sDataBuf,iLen);
-    switch(m_pMdbSqlParser->m_iSourceId)
-    {
-    case SOURCE_APP://向oracle，备机同步
-    if(FlushTypeHasProperty(m_iFlushType,FLUSH_ORA))
-    {
-    CHECK_RET(FlushToBuf(&m_OraQueueCtrl,m_sDataBuf,iLen),"FlushToBuf faild.");
-    }
-    if(FlushTypeHasAnyProperty(m_iFlushType,FLUSH_REP|FLUSH_PEER))
-    {
-    CHECK_RET(FlushToBuf(&m_RepQueueCtrl,m_sDataBuf,iLen),"FlushToBuf faild.");
-    }
-    break;
-    case SOURCE_REP://向备机同步
-    case SOURCE_PEER:
-    if(FlushTypeHasAnyProperty(m_iFlushType,FLUSH_REP|FLUSH_PEER))
-    {
-    CHECK_RET(FlushToBuf(&m_RepQueueCtrl,m_sDataBuf,iLen),"FlushToBuf faild.");
-    }
-    break;
-    default:
-    break;
-    }
-    TADD_FUNC("Finish.");
-    return iRet;
-    }
-    */
-
-
-
-
-    /******************************************************************************
-    * 函数名称	:  GetSourceId
-    * 函数描述	:  获取source id ，主备同步，容灾使用
-    * 输入		:
-    * 输入		:
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    //int TMdbFlush::GetSourceId()
-    //{
-    //    return m_pMdbSqlParser->m_iSourceId + 1;
-    //}
 
     /******************************************************************************
     * 函数名称	:  FlushToOraBuf
@@ -604,11 +453,6 @@
 
             m_psColmLenBuff[0]='\0';
         }
-        //memset(m_sNameBuff, 0, sizeof(m_sNameBuff));
-        //memset(m_sColmLenBuff, 0, sizeof(m_sColmLenBuff));
-        //memset(m_sColmValueBuff, 0, sizeof(m_sColmValueBuff));
-		
-
         sprintf(m_psNameBuff, "%s",m_pTable->sTableName);
         m_iNamePos += strlen(m_psNameBuff);
 
@@ -813,6 +657,536 @@
 
     }
 
+
+
+	/******************************************************************************
+    * 函数名称	:  TMdbFlush
+    * 函数描述	:  将对MDB操作的数据刷到同步缓存中
+    * 输入		:
+    * 输入		:
+    * 输出		:
+    * 返回值	:
+    * 作者		:  jin.shaohua
+    *******************************************************************************/
+    TMdbFlushTrans::TMdbFlushTrans(): 
+        m_pQueue(NULL),
+        m_pDsn(NULL),
+        m_pShardBackQueue(NULL),
+        m_pTable(NULL),
+        m_iFlushType(0),
+        m_psDataBuff(NULL),
+        m_psNameBuff(NULL),
+        m_psColmLenBuff(NULL),
+        m_psColmValueBuff(NULL)
+        
+    {
+		m_llRoutingID = DEFALUT_ROUT_ID;
+    }
+    /******************************************************************************
+    * 函数名称	:  ~TMdbFlush
+    * 函数描述	:  析构
+    * 输入		:
+    * 输入		:
+    * 输出		:
+    * 返回值	:  0 - 成功!0 -失败
+    * 作者		:  jin.shaohua
+    *******************************************************************************/
+    TMdbFlushTrans::~TMdbFlushTrans()
+    {
+		SAFE_DELETE(m_psDataBuff);
+		SAFE_DELETE(m_psNameBuff);
+		SAFE_DELETE(m_psColmLenBuff);
+		SAFE_DELETE(m_psColmValueBuff);
+    }
+    /******************************************************************************
+    * 函数名称	:  Init
+    * 函数描述	:  初始化
+    * 输入		:
+    * 输出		:
+    * 返回值	:  0 - 成功!0 -失败
+    * 作者		:
+    *******************************************************************************/
+    int TMdbFlushTrans::Init(TMdbShmDSN * pShmDSN,TMdbTable*  pTable, int iSqlType,char* pDataAddr)
+    {
+        int iRet = 0;
+        m_iFlushType = 0;
+		m_iSqlType = iSqlType;
+        m_pTable = pTable;
+		m_pDataAddr = pDataAddr;
+        TMdbShmDSN * pShmDsn = pShmDSN;
+        m_pDsn = pShmDsn->GetInfo();
+        CHECK_OBJ(m_pDsn);
+        CHECK_RET(m_tRowCtrl.Init(m_pDsn->sName,pTable->sTableName),"m_tRowCtrl.Init");
+
+		m_pConfig = TMdbConfigMgr::GetMdbConfig(m_pDsn->sName);
+		
+        //设置同步属性
+        if(m_pDsn->m_bIsOraRep && (REP_TO_DB == m_pTable->iRepAttr ))
+        {
+            FlushTypeSetProperty(m_iFlushType,FLUSH_ORA);
+        }
+
+        if(m_pTable->m_bShardBack)
+        {
+            FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
+        }
+        TMdbTableSpace* pTS = pShmDsn->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
+        CHECK_OBJ(pTS);
+        if(pTS->m_bFileStorage)
+        {
+            FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
+        }
+
+        m_pQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm();
+        CHECK_OBJ(m_pQueue);
+        CHECK_RET(m_QueueCtrl.Init(m_pQueue, m_pDsn),"Init failed");
+        TADD_FUNC("Finish.m_iFlushType=[%d].",m_iFlushType);
+        return iRet;
+    }
+
+    /******************************************************************************
+    * 函数名称	:  bNeedToFlush
+    * 函数描述	:  是否需要flush
+    * 输入		:
+    * 输入		:
+    * 输出		:
+    * 返回值	:  0 - 成功!0 -失败
+    * 作者		:  jin.shaohua
+    *******************************************************************************/
+    bool TMdbFlushTrans::bNeedToFlush()
+    {
+        bool bRet = false;
+        do
+        {
+            if(m_pTable->bIsSysTab)
+            {
+                bRet = false;//dba 表不需要同步
+                break;
+            }
+
+            if(m_iSqlType == TK_SELECT)
+            {
+                //查询不需要同步
+                bRet = false;
+                break;
+            }
+
+
+            if(FlushTypeHasAnyProperty(m_iFlushType, FLUSH_ORA|FLUSH_SHARD_BACKUP|FLUSH_REDO))
+            {
+                bRet = true;
+                break;
+            }
+            else
+            {
+                bRet = false;
+                break;
+            }
+        }
+        while(0);
+        TADD_DETAIL("NeedToFlush = [%s].",bRet?"TRUE":"FALSE");
+        return bRet;
+    }
+
+	bool  TMdbFlushTrans::IsCurRowNeedCapture()
+	{
+		if(DEFALUT_ROUT_ID == m_llRoutingID){return false;}
+	    if(TK_SELECT == m_iSqlType){return false;}//select 不捕获
+	    if(false == m_pDsn->m_bIsCaptureRouter){return false;}//不需要捕获
+	    int * arrRouterToCap = m_pDsn->m_arrRouterToCapture;
+	    if(NULL == arrRouterToCap){return false;}
+	    int i = 0;
+	    long long llRowRouter = m_llRoutingID;
+	    for(i = 1;i <= arrRouterToCap[0];++i)
+	    {
+	        if(llRowRouter == arrRouterToCap[i])
+	        {
+	            return true;
+	        }
+	    }
+	    return false;
+	}
+
+    /******************************************************************************
+    * 函数名称	:  FlushToOraBuf
+    * 函数描述	:  将数据刷到ora缓存
+    * 输入		:  sTemp -  数据 iLen-数据长度
+    * 输出		:
+    * 返回值	:
+    * 作者		:  jin.shaohua
+    *******************************************************************************/
+    int TMdbFlushTrans::FlushToBuf(TMdbQueue* pMemQueue,char * const sTemp,int iLen)
+    {
+        int iRet =0;
+        CHECK_OBJ(pMemQueue);
+        //如果push不进去
+        if(pMemQueue->Push(sTemp, iLen) == false)
+        {
+            TADD_WARNING("flushData wait for 0.03 seconds,not enough memory to flush.");
+            //iRet = ERROR_NO_MEMORY_TO_FLUSH;
+        }
+        return iRet;
+    }
+
+	long long TMdbFlushTrans::GetRoutingID()
+	{	
+		if(m_llRoutingID != DEFALUT_ROUT_ID)
+		{
+			return m_llRoutingID;
+		}
+		
+		long long llValue = DEFALUT_ROUT_ID;
+		char* sValue = NULL;
+		int iValueType = 0;
+		for(int i = 0;i < m_pTable->iColumnCounts;++i)
+	    {
+	        if(TMdbNtcStrFunc::StrNoCaseCmp(m_pTable->tColumn[i].sName,m_pConfig->GetDSN()->sRoutingName) == 0)
+	        {//有路由信息列
+				m_tRowCtrl.GetOneColumnValue(m_pDataAddr,&m_pTable->tColumn[i],llValue,sValue,-1,iValueType);
+	            break;
+	        }
+	    }
+		m_llRoutingID = llValue;
+		
+		return  llValue;
+	}
+
+    int TMdbFlushTrans::FillRepData(char * sTemp,long long iPageLSN, long long iTimeStamp,int & iLen)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+        int iPos = 0;
+
+        // ^^
+        sTemp[0] = '^';
+        sTemp[1] = '^';
+        iPos += 2;
+
+        // record Length [4 bytes]
+        // 长度等记录完整后再设置
+        iPos += 4;
+
+        // Version [1 bytes]
+        sTemp[6] = 'S'; 
+        iPos += 1;
+
+        // flush flag [4 bytes]
+        //sTemp[7] = GetSourceId() + '0';
+        sprintf(sTemp +iPos , "%04d", m_iFlushType);
+        iPos += 4;
+
+        // LSN [20 bytes]
+        sprintf(sTemp +iPos , "%20lld", iPageLSN);
+        iPos += 20;
+
+        // TimeStamp [10 bytes]
+        sprintf(sTemp +iPos , "%10lld", iTimeStamp);
+        iPos += 10;
+
+        // RowID [8 bytes]
+        sprintf(sTemp +iPos , "%08lld", 0);
+        iPos += 8;
+
+        // SQL Type [2 bytes]
+        sprintf(sTemp +iPos , "%02d", m_iSqlType);
+        iPos += 2;
+
+        // Routing ID [4 bytes]        
+        sprintf(sTemp +iPos , "%04d", GetRoutingID());
+           
+        iPos += 4;
+
+        m_iColmCount = 0;
+        m_iNamePos = 0;
+        m_iColumLenPos = 0;
+        m_iColumValuePos = 0;
+
+		if(NULL == m_psColmValueBuff)
+        {
+            m_psColmValueBuff = new char[MAX_VALUE_LEN];
+            if(NULL == m_psColmValueBuff)
+            {
+                TADD_ERROR(ERR_OS_NO_MEMROY,"no memory to string for syn buffer data");
+				return -1;
+            }
+        }
+        else
+        {
+            m_psColmValueBuff[0]='\0';
+        }
+
+		if(NULL == m_psNameBuff)
+        {
+            m_psNameBuff = new char[MAX_VALUE_LEN];
+            if(NULL == m_psNameBuff)
+            {
+                TADD_ERROR(ERR_OS_NO_MEMROY,"no memory to string for syn buffer data");
+                return -1;
+            }
+        }
+        else
+        {
+           m_psNameBuff[0]='\0';
+        }
+
+		if(NULL == m_psColmLenBuff)
+        {
+            m_psColmLenBuff = new char[MAX_VALUE_LEN];
+            if(NULL == m_psColmLenBuff)
+            {
+                TADD_ERROR(ERR_OS_NO_MEMROY,"no memory to string for syn buffer data");
+                return -1;
+            }
+        }
+        else
+        {
+            m_psColmLenBuff[0]='\0';
+        }
+        sprintf(m_psNameBuff, "%s",m_pTable->sTableName);
+        m_iNamePos += strlen(m_psNameBuff);
+
+        switch(m_iSqlType)
+        {
+        case TK_INSERT:
+            SetRepColmDataAll();
+            break;
+        case TK_UPDATE:
+			SetRepColmDataAll();
+            m_psNameBuff[m_iNamePos] = '|';
+            m_iNamePos++;
+            SetRepColmDataPK();
+            break;
+        case TK_DELETE:
+            m_psNameBuff[m_iNamePos] = '|';
+            m_iNamePos++;
+			SetRepColmDataPK();
+            break;
+        default:
+            CHECK_RET(-1,"sqltype[%d] do not need to flush.",m_iSqlType);
+            break;
+        }
+
+        // Column Name Length [4 bytes]
+        sprintf(sTemp +iPos , "%04d", m_iNamePos);
+        iPos += 4;
+
+        sprintf(sTemp +iPos,"%s", m_psNameBuff);
+        iPos += strlen(m_psNameBuff);
+
+        // Column count[4 bytes]
+        sprintf(sTemp +iPos , "%04d", m_iColmCount);
+        iPos += 4;
+
+        // 列值长度
+        sprintf(sTemp +iPos,"%s", m_psColmLenBuff);
+        iPos += strlen(m_psColmLenBuff);
+
+        // 列值
+        sprintf(sTemp +iPos,"%s", m_psColmValueBuff);
+        iPos += strlen(m_psColmValueBuff);
+
+        // ##
+        sTemp[iPos] = '#';
+        iPos++;
+        sTemp[iPos] = '#';
+        iPos++;
+
+        iLen = iPos;
+
+        sTemp[2] = (iLen)/1000 + '0';
+        sTemp[3] = ((iLen)%1000)/100 + '0';
+        sTemp[4] = ((iLen)%100)/10 + '0';
+        sTemp[5] = ((iLen)%10) + '0';
+
+        TADD_DETAIL("record:[%s]",sTemp );
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+
+	int TMdbFlushTrans::SetRepColmDataAll()
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+
+        int iValueLen = 0;
+		
+		//同步所有的列
+        for(int i = 0; i<m_pTable->iColumnCounts; ++i)
+        {
+        	char* sColName = m_pTable->tColumn[i].sName;
+            if(m_psNameBuff[m_iNamePos-1] == '|')
+            {
+                sprintf(m_psNameBuff+m_iNamePos,"%s", sColName);
+                m_iNamePos += strlen(sColName);
+            }
+            else
+            {
+                sprintf(m_psNameBuff+m_iNamePos,",%s", sColName);
+                m_iNamePos += (strlen(sColName)+ 1);
+            }
+            m_iColmCount++;
+		
+			long long llValue = 0;
+			char* sValue = NULL;
+			int iValueType = 0;
+			m_tRowCtrl.GetOneColumnValue(m_pDataAddr,&m_pTable->tColumn[i],llValue,sValue,-1,iValueType);
+				
+			if(MEM_Null == iValueType)
+            {
+                sprintf(m_psColmLenBuff + m_iColumLenPos, "%04d", NULL_VALUE_LEN);
+                m_iColumLenPos += 4;
+
+            }
+            else
+            {
+                if(MEM_Int == iValueType)
+                {
+                    sprintf(m_psColmValueBuff + m_iColumValuePos, "%lld", llValue);
+                }
+                else if(MEM_Str == iValueType)
+                {
+                    sprintf(m_psColmValueBuff + m_iColumValuePos, "%s", sValue);
+                }
+
+                iValueLen = strlen(m_psColmValueBuff ) - m_iColumValuePos;
+                m_iColumValuePos += iValueLen;
+
+                sprintf(m_psColmLenBuff + m_iColumLenPos, "%04d", iValueLen);
+                m_iColumLenPos += 4;
+            }
+
+        }
+
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+	
+    int TMdbFlushTrans::SetRepColmDataPK()
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+
+        int iValueLen = 0;
+		
+		//添加所有的主键
+        for(int i = 0; i<m_pTable->m_tPriKey.iColumnCounts; ++i)
+        {	
+        	int iPKColumnPos = m_pTable->m_tPriKey.iColumnNo[i];
+			char* sPKName = m_pTable->tColumn[iPKColumnPos].sName;
+			
+            if(m_psNameBuff[m_iNamePos-1] == '|')
+            {
+                sprintf(m_psNameBuff+m_iNamePos,"%s", sPKName);
+                m_iNamePos += strlen(sPKName);
+            }
+            else
+            {
+                sprintf(m_psNameBuff+m_iNamePos,",%s", sPKName);
+                m_iNamePos += (strlen(sPKName)+ 1);
+            }
+            m_iColmCount++;
+		
+			long long llValue = 0;
+			char* sValue = NULL;
+			int iValueType = 0;
+			m_tRowCtrl.GetOneColumnValue(m_pDataAddr,&m_pTable->tColumn[iPKColumnPos],llValue,sValue,-1,iValueType);
+				
+			if(MEM_Null == iValueType)
+            {
+                sprintf(m_psColmLenBuff + m_iColumLenPos, "%04d", NULL_VALUE_LEN);
+                m_iColumLenPos += 4;
+
+            }
+            else
+            {
+                if(MEM_Int == iValueType)
+                {
+                    sprintf(m_psColmValueBuff + m_iColumValuePos, "%lld", llValue);
+                }
+                else if(MEM_Str == iValueType)
+                {
+                    sprintf(m_psColmValueBuff + m_iColumValuePos, "%s", sValue);
+                }
+
+                iValueLen = strlen(m_psColmValueBuff ) - m_iColumValuePos;
+                m_iColumValuePos += iValueLen;
+
+                sprintf(m_psColmLenBuff + m_iColumLenPos, "%04d", iValueLen);
+                m_iColumLenPos += 4;
+            }
+
+        }
+
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+    
+    int TMdbFlushTrans::MakeBuf(MDB_INT64 iLsn,long long iTimeStamp)
+    {
+		TADD_FUNC("Start.");
+        int iRet = 0;
+        if( !bNeedToFlush() && !IsCurRowNeedCapture())
+		{
+			return iRet;
+		}
+		
+        if(NULL == m_psDataBuff)
+        {
+            m_psDataBuff = new char[MAX_VALUE_LEN];
+            if(NULL == m_psDataBuff)
+            {
+
+                TADD_ERROR(ERR_OS_NO_MEMROY,"no memory to string for syn buffer data");
+                return -1;
+            }
+        }
+        else
+        {
+            m_psDataBuff[0]='\0';
+        }
+		  
+        CHECK_RET(FillRepData(m_psDataBuff,iLsn,iTimeStamp,m_iBufLen),"FillData failed.");
+	}
+
+	void TMdbFlushTrans::SetBufVersion(char cVersion)
+	{
+		m_psDataBuff[6]=cVersion;
+	}
+	
+	
+    int TMdbFlushTrans::InsertBufIntoQueue(MDB_INT64 iLsn,long long iTimeStamp)
+    {  
+        TADD_FUNC("Start.");
+        int iRet = 0;	
+
+		if(!bNeedToFlush())
+		{
+			return iRet;
+		}
+		
+    	SetBufVersion(VERSION_DATA_SYNC);
+        CHECK_RET(FlushToBuf(&m_QueueCtrl,m_psDataBuff,m_iBufLen),"FlushToBuf faild.");
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+    int TMdbFlushTrans::InsertBufIntoCapture(MDB_INT64 iLsn,long long iTimeStamp)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;	
+		
+		if(!IsCurRowNeedCapture())
+        {
+            return iRet;
+        }
+		
+    	SetBufVersion(VERSION_DATA_CAPTURE);	
+        CHECK_RET(FlushToBuf(&m_QueueCtrl,m_psDataBuff,m_iBufLen),"FlushToBuf failed.");
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
 
 
     TConfigShmWrap::TConfigShmWrap():

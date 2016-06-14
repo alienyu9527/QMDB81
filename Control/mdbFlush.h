@@ -169,9 +169,54 @@
         int m_iNamePos ;
         int m_iColumLenPos;
         int m_iColumValuePos;
-        //char m_sNameBuff[MAX_VALUE_LEN];
-        //char m_sColmLenBuff[MAX_VALUE_LEN];
-        //char m_sColmValueBuff[MAX_VALUE_LEN];
+        char* m_psNameBuff;
+		char* m_psColmLenBuff;
+		char* m_psColmValueBuff;
+		
+    };
+
+	//事务模式下使用，生成同步数据
+	class TMdbFlushTrans
+    {
+    public:
+        TMdbFlushTrans();
+        ~TMdbFlushTrans();
+		int Init(TMdbShmDSN * pShmDSN,TMdbTable*  pTable, int iSqlType,char* pDataAddr);
+		int InsertBufIntoQueue(MDB_INT64 iLsn,long long iTimeStamp);
+		int InsertBufIntoCapture(MDB_INT64 iLsn,long long iTimeStamp);
+		
+    private:
+		bool bNeedToFlush();//是否需要flush
+		bool IsCurRowNeedCapture();
+        int FlushToBuf(TMdbQueue * pMemQueue,char * const sTemp,int iLen);
+		long long GetRoutingID();
+
+		
+		int MakeBuf(MDB_INT64 iLsn,long long iTimeStamp);
+		int FillRepData(char * sTemp,long long iPageLSN, long long iTimeStamp,int & iLen);
+		int SetRepColmDataAll();
+		int SetRepColmDataPK();		
+		void SetBufVersion(char cVersion);
+
+    private:
+        TMdbMemQueue* m_pQueue;
+		TMdbConfig* m_pConfig;
+        TMdbDSN     * m_pDsn;
+        TMdbTable   *     m_pTable;
+        int           m_iFlushType;//刷新类型
+        int 		m_iSqlType;
+		int     m_iBufLen;
+		long long  m_llRoutingID;
+        TMdbQueue    m_QueueCtrl;
+        char* m_psDataBuff;
+        TMdbRowCtrl m_tRowCtrl;//行数据管理
+        TMdbMemQueue* m_pShardBackQueue;
+		char*  m_pDataAddr;
+
+        int m_iColmCount;
+        int m_iNamePos ;
+        int m_iColumLenPos;
+        int m_iColumValuePos;
         char* m_psNameBuff;
 		char* m_psColmLenBuff;
 		char* m_psColmValueBuff;

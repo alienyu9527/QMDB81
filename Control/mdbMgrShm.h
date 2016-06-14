@@ -107,7 +107,6 @@
         char* GetVarcharShmAddr(SHAMEM_T iShmID);
         int   AttachvarCharBlockShm(int iPos, char **pAddr);
 		long long GetMgrKey(){return m_iMgrKey;}
-		TMdbDSN * GetDSN(){return m_pTMdbDSN;} 
 			
     public:
         TMdbTable * GetTableByName(const char * pTableName);//根据表名获取表

@@ -92,7 +92,7 @@
     int TMdbShmDSN::TryAttachEx(TMdbConfig &config)
     {
         TADD_FUNC("Start.");
-        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetDSN()->llValue;
+        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetInfo()->llValue;
         m_iMgrKey = GET_MGR_KEY(config.GetDSN()->llValue);
         char *pMgrAddr = NULL;
         return TMdbShm::AttachByKey(m_iMgrKey, pMgrAddr);
@@ -206,7 +206,7 @@
             TADD_FUNC("TMdbShmDSN::Attach() : Finish.");
             return 0;
         }
-        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetDSN()->llValue;
+        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetInfo()->llValue;
         m_iMgrKey = GET_MGR_KEY(config.GetDSN()->llValue);
         return Attach();
     }
@@ -864,7 +864,7 @@
 
         m_pTMdbDSN->iLocalPort = config.GetDSN()->iLocalPort; //对应的LocalPort
         m_pTMdbDSN->iPeerPort  = config.GetDSN()->iPeerPort;  //对应的iPeerPort
-        //m_pTMdbDSN->iAgentPort = config.GetDSN()->iAgentPort; //代理端口
+        //m_pTMdbDSN->iAgentPort = config.GetInfo()->iAgentPort; //代理端口
         for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			m_pTMdbDSN->iAgentPort[i] = config.GetDSN()->iAgentPort[i];
@@ -873,7 +873,7 @@
 			
 		}
         m_pTMdbDSN->m_iDataSize = config.GetDSN()->iDataSize;
-        //m_pTMdbDSN->iMonitorPort = config.GetDSN()->iMonitorPort; //本地监听端口
+        //m_pTMdbDSN->iMonitorPort = config.GetInfo()->iMonitorPort; //本地监听端口
         m_pTMdbDSN->iLogLevel = config.GetDSN()->iLogLevel; //日志级别
         //设置主备同步、Oracle同步开关
         m_pTMdbDSN->m_iOraRepCounts = config.GetDSN()->iOraRepCounts;

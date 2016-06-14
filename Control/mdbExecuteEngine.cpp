@@ -330,6 +330,7 @@
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
 			//复制VarChar和blob
 			CloneVarChar(m_pInsertBlock, m_pDataAddr);
+			
 			TMdbRowID RowID;
 			do
 	        {
@@ -384,7 +385,7 @@
 						CHECK_OBJ(pResultValue);
 	                	m_tVarcharCtrl.GetVarcharValue(pResultValue,pSourceBlock+iOffSet);
 						
-	                    CHECK_RET(m_tVarcharCtrl.Insert(pResultValue, iWhichPos, iRowId,cStorage),"insert Varchar Faild,ColoumName=[%s],iVarCharlen[%d]",m_pTable->tColumn->sName,strlen(pResultValue));
+	                    CHECK_RET_NONE(m_tVarcharCtrl.Insert(pResultValue, iWhichPos, iRowId,cStorage),"insert Varchar Faild,ColoumName=[%s],iVarCharlen[%d]",m_pTable->tColumn->sName,strlen(pResultValue));
 	                    m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, pDestBlock+iOffSet);
 						SAFE_DELETE(pResultValue);
 	                }
@@ -453,6 +454,7 @@
         while(0);
         CHECK_RET_FILL(iRet,"ERROR.");
 
+		//回滚模式下设置标志位,不生成同步数据，不计数
 		if(IsUseTrans())
 		{
 			TRBRowUnit tRBRowUnit;
@@ -487,9 +489,9 @@
 		{
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
-			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetDSN()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
-			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetDSN()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
-			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetDSN()->sName);
+			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetInfo()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
+			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetInfo()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
+			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetInfo()->sName);
 			for(int i=0; i<m_pTable->iIndexCounts; ++i)
 	        {
 	            CHECK_RET_FILL_BREAK(m_mdbIndexCtrl.DeleteIndexNode(i,pDataAddr,m_tRowCtrl,rowID),"DeleteIndexNode[%d] failed.",i);
@@ -508,7 +510,7 @@
 			CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(rowID.GetDataOffset()),"m_mdbPageCtrl.DeleteData");
 			m_mdbPageCtrl.UnWLock();//解页锁
 			
-			m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &(pMdbShmDsn->GetDSN()->tCurTime));
+			m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &(pMdbShmDsn->GetInfo()->tCurTime));
             --m_pTable->iCounts; //减少一条记录
             m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
 		}
