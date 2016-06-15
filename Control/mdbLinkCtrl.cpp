@@ -714,9 +714,14 @@ int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
 
-	//生成同步数据
-	//TODO::
 
+	//生成同步数据
+	TMdbFlushTrans tMdbFlushTrans;
+	tMdbFlushTrans.Init(pShmDSN,pTable,TK_INSERT,pDataAddr);
+	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
+	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");
 	return iRet;
 }
 
@@ -732,13 +737,20 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	CHECK_OBJ(pDataAddr);
 	char* pPage = tWalker.GetPageAddr();	
 	CHECK_OBJ(pPage);
+
+	//在删除之前需要采集同步数据
+	TMdbFlushTrans tMdbFlushTrans;
+	tMdbFlushTrans.Init(pShmDSN,pTable,TK_INSERT,pDataAddr);
+	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
+	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
 	
 	TMdbExecuteEngine tEngine;
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
-	//生成同步数据
-	//TODO::
+	//写入队列
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");
 
 	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
@@ -779,10 +791,14 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
-
 	//生成同步数据
-	//TODO::
-
+	TMdbFlushTrans tMdbFlushTrans;
+	tMdbFlushTrans.Init(pShmDSN,pTable,TK_INSERT,pDataAddr);
+	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
+	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
+	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");
+	
 	CHECK_RET(UnLockRow(pDataAddr,pShmDSN),"UnLockRow Failed.");
 	return iRet;
 	

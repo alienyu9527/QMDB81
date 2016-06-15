@@ -264,7 +264,7 @@
             FlushTypeSetProperty(m_iFlushType,FLUSH_ORA);
         }
 
-        if((m_pTable->m_bShardBack) && !QueryHasProperty(iFlags,QUERY_NO_SHARDFLUSH))
+        if((m_pTable->m_bShardBack) && !QueryHasProperty(iFlags,QUERY_NO_SHARDFLUSH) && m_pConfig->GetDSN()->m_bIsShardBackup)
         {
             FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
         }
@@ -726,7 +726,7 @@
             FlushTypeSetProperty(m_iFlushType,FLUSH_ORA);
         }
 
-        if(m_pTable->m_bShardBack)
+        if(m_pTable->m_bShardBack && m_pConfig->GetDSN()->m_bIsShardBackup)
         {
             FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
         }
@@ -790,6 +790,7 @@
 
 	bool  TMdbFlushTrans::IsCurRowNeedCapture()
 	{
+		m_llRoutingID = GetRoutingID();
 		if(DEFALUT_ROUT_ID == m_llRoutingID){return false;}
 	    if(TK_SELECT == m_iSqlType){return false;}//select 不捕获
 	    if(false == m_pDsn->m_bIsCaptureRouter){return false;}//不需要捕获
@@ -1148,6 +1149,7 @@
         }
 		  
         CHECK_RET(FillRepData(m_psDataBuff,iLsn,iTimeStamp,m_iBufLen),"FillData failed.");
+		return iRet;
 	}
 
 	void TMdbFlushTrans::SetBufVersion(char cVersion)
@@ -1156,7 +1158,7 @@
 	}
 	
 	
-    int TMdbFlushTrans::InsertBufIntoQueue(MDB_INT64 iLsn,long long iTimeStamp)
+    int TMdbFlushTrans::InsertBufIntoQueue()
     {  
         TADD_FUNC("Start.");
         int iRet = 0;	
@@ -1172,7 +1174,7 @@
         return iRet;
     }
 
-    int TMdbFlushTrans::InsertBufIntoCapture(MDB_INT64 iLsn,long long iTimeStamp)
+    int TMdbFlushTrans::InsertBufIntoCapture()
     {
         TADD_FUNC("Start.");
         int iRet = 0;	

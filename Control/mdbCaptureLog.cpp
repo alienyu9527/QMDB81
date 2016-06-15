@@ -143,6 +143,7 @@
         int iRet = 0;
         CHECK_OBJ(m_pCurFile);
         TADD_DETAIL("data=[%s],len=[%d]",m_sRecd,m_iRecdLen);
+		fseek(m_pCurFile,0,SEEK_END);
         if(fwrite(m_sRecd, m_iRecdLen, 1, m_pCurFile) == 0)
         {//写文件
             if(false == TMdbNtcFileOper::IsExist(m_sTempFile.c_str()))
@@ -212,6 +213,7 @@
         int iLen = strlen(m_sRecd);
         sprintf(sTemp,"%04d",iLen);
         memcpy(m_sRecd+2,sTemp,4);//添加长度值
+        m_iRecdLen = iLen;
         return iRet;
     }
     

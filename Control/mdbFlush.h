@@ -182,17 +182,16 @@
         TMdbFlushTrans();
         ~TMdbFlushTrans();
 		int Init(TMdbShmDSN * pShmDSN,TMdbTable*  pTable, int iSqlType,char* pDataAddr);
-		int InsertBufIntoQueue(MDB_INT64 iLsn,long long iTimeStamp);
-		int InsertBufIntoCapture(MDB_INT64 iLsn,long long iTimeStamp);
+		int InsertBufIntoQueue();
+		int InsertBufIntoCapture();		
+		int MakeBuf(MDB_INT64 iLsn,long long iTimeStamp);
+		
 		
     private:
 		bool bNeedToFlush();//ÊÇ·ñÐèÒªflush
 		bool IsCurRowNeedCapture();
         int FlushToBuf(TMdbQueue * pMemQueue,char * const sTemp,int iLen);
 		long long GetRoutingID();
-
-		
-		int MakeBuf(MDB_INT64 iLsn,long long iTimeStamp);
 		int FillRepData(char * sTemp,long long iPageLSN, long long iTimeStamp,int & iLen);
 		int SetRepColmDataAll();
 		int SetRepColmDataPK();		
