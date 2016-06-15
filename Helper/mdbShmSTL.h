@@ -210,7 +210,10 @@ public:
 	m_pStartAddr = tAlloc.GetStartAddr();
         if(0 == iOffset)
         {//Ê×´Î
-            m_tAlloc.Allocate(sizeof(list_node)*2,iOffset);
+            if(NULL == m_tAlloc.Allocate(sizeof(list_node)*2,iOffset))
+            {
+				CHECK_RET(ERR_OS_NO_MEMROY,"Not enough memroy for nodesize*2 %d bytes",sizeof(list_node)*2);
+			}
             m_HeadNode = (link_type)(m_pStartAddr+iOffset); 
             m_HeadNode->Init();
             m_HeadNode->m_iCurPos = iOffset;

@@ -600,7 +600,7 @@ bool TMdbTableWalker::NextByPage()
 		if (m_sTrieWord[0]== 0) return false;
 
 
-		//到树枝上找数据
+		//step1   到树枝上找数据
 		if(m_iNextIndexPos < 0)
 		{
 		    for(;;++cPos)
@@ -626,6 +626,7 @@ bool TMdbTableWalker::NextByPage()
 				{
 					m_tCurRowIDData = pCur->m_NodeInfo.m_tRowId;
 					m_iNextIndexPos = pCur->m_NodeInfo.m_iNextConfPos;
+					//分支节点有数据
 					if(!m_tCurRowIDData.IsEmpty())
 					{
 						m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
@@ -633,9 +634,11 @@ bool TMdbTableWalker::NextByPage()
 						{
 							//停止遍历
 							m_bStopScanTrie = true;
-						}						
-						return true;
+						}
+						return m_pDataAddr? true:false;
 					}
+					
+					//分支节点没有数据,跳出循环，前往stpe2
 					break;
 				}
 								
@@ -646,7 +649,7 @@ bool TMdbTableWalker::NextByPage()
 		}
 
 
-		//到冲突链上找数据
+		//step2  到冲突链上找数据
 		if(m_iNextIndexPos > 0)
 		{
 			TMdbTrieConfIndexNode* pConflictNode = (TMdbTrieConfIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieConfIndex->iHeadBlockId, m_iNextIndexPos ,sizeof(TMdbTrieConfIndexNode),true);
@@ -660,14 +663,15 @@ bool TMdbTableWalker::NextByPage()
 		}
 
 		
-		//冲突链结束			
+		//冲突链没有数据了			
 		if(m_iNextIndexPos < 0)
 		{
 			//停止遍历
 			m_bStopScanTrie = true;
 
 		}
-		return true;	
+		
+		return m_pDataAddr? true:false;	
     }
 
 	TMdbMhashBlock* TMdbTableWalker::GetMhashBlockById(int iBlockID, bool bConf)

@@ -147,6 +147,7 @@
         CHECK_RET(m_JobList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iJobAddr),"m_JobList Attach failed.");
         CHECK_RET(m_VarCharList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iVarcharAddr),"m_VarCharList Attach failed.");
 
+		
 		CHECK_RET(m_MhashConfList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iMHashConfAddr),"m_MhashConfList attach failed.");
         CHECK_RET(m_MhashLayerList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iMHashLayerAddr),"m_MhashLayerList attach failed.");
 
@@ -573,7 +574,6 @@
         TADD_FLOW("SHM:ID =[%d].SIZE=[%lu],ADDRESS=[%p],",iShmID,config.GetDSN()->iManagerSize,pAddr);
         TADD_NORMAL("Create Manager Shm ,size=[%luMB].",config.GetDSN()->iManagerSize/(1024*1024));
         //初始化DSN域
-        m_bIsAttach = true;
         CHECK_RET(InitDSN(config),"InitDSN() failed.");
 
         CHECK_RET(CreateMhashMgrShm(),"Can't create mhash mgr share memory.");
@@ -592,8 +592,7 @@
             CHECK_RET(CreateShardBackupRepInfoShm(pDSN->sName),"Can't create shard-backup share memory.");
             //CHECK_RET(CreateSyncAreaShm(SA_SHARD_BACKUP),"Can't create shard-backup share memory.");
         }       
-        
-        
+                
         CHECK_RET(Attach(),"Attach failed.");
         //观测点
         TObserveMgr tObMgr;

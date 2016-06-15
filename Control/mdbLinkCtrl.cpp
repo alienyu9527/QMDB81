@@ -740,7 +740,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 
 	//在删除之前需要采集同步数据
 	TMdbFlushTrans tMdbFlushTrans;
-	tMdbFlushTrans.Init(pShmDSN,pTable,TK_INSERT,pDataAddr);
+	tMdbFlushTrans.Init(pShmDSN,pTable,TK_DELETE,pDataAddr);
 	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
 	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
 	
@@ -781,6 +781,13 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	++pTable->iCounts; //减少一条记录
 	pTable->tTableMutex.UnLock(pTable->bWriteLock);
 
+	//生成同步数据
+	TMdbFlushTrans tMdbFlushTrans;
+	tMdbFlushTrans.Init(pShmDSN,pTable,TK_UPDATE,pDataAddr);
+	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
+	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
+	
+
 	//删除之前的数据
 	pDataAddr = NULL;
 	pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
@@ -791,11 +798,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
-	//生成同步数据
-	TMdbFlushTrans tMdbFlushTrans;
-	tMdbFlushTrans.Init(pShmDSN,pTable,TK_INSERT,pDataAddr);
-	long long iTimeStamp = TMdbDateTime::StringToTime(pShmDSN->GetInfo()->sCurTime);
-	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
+	//将同步数据插入队列
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");
 	
