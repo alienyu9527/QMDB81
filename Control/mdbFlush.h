@@ -196,6 +196,7 @@
 		int SetRepColmDataAll();
 		int SetRepColmDataPK();		
 		void SetBufVersion(char cVersion);
+		bool CheckIsPK(int iPos);
 
     private:
         TMdbMemQueue* m_pQueue;

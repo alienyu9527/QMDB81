@@ -1004,6 +1004,14 @@
         return iRet;
     }
 
+	bool TMdbFlushTrans::CheckIsPK(int iPos)
+	{
+		for(int i = 0; i<m_pTable->m_tPriKey.iColumnCounts; ++i)
+        {	
+        	if(iPos == m_pTable->m_tPriKey.iColumnNo[i]) return true;
+		}
+		return false;
+	}
 
 	int TMdbFlushTrans::SetRepColmDataAll()
     {
@@ -1014,7 +1022,12 @@
 		
 		//同步所有的列
         for(int i = 0; i<m_pTable->iColumnCounts; ++i)
-        {
+        {	
+        	
+        	//update不更新主键,不同步
+        	if(CheckIsPK(m_pTable->tColumn[i].iPos)){continue;}
+
+			
         	char* sColName = m_pTable->tColumn[i].sName;
             if(m_psNameBuff[m_iNamePos-1] == '|')
             {
