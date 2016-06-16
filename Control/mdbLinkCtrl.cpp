@@ -619,7 +619,11 @@ void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
 	TShmList<TRBRowUnit>::iterator itorB = m_RBList.begin();
 	while(!m_RBList.empty())
 	{		
-		if(itorB->Commit(pShmDSN)!=0)break; 
+		if(itorB->Commit(pShmDSN)!=0)
+		{
+			m_RBList.clear();
+			break; 
+		}
 		itorB= m_RBList.erase(itorB);
 	}
 	
@@ -638,7 +642,11 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 	while(!m_RBList.empty())
 	{
 		--itor; 
-		if(itor->RollBack(pShmDSN)!=0)break;	
+		if(itor->RollBack(pShmDSN)!=0)
+		{
+			m_RBList.clear();
+			break; 
+		}
 		itor = m_RBList.erase(itor);
 	}
 }
@@ -736,7 +744,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
-	if(pPageNode->iSessionID == 0 && pPageNode->cFlag == DATA_RCYCLE)
+	if(pPageNode->cFlag & DATA_RCYCLE)
 	{
 		CHECK_RET(-1,"CommitDelete, But data is deleted by other link.");
 	}
@@ -754,8 +762,8 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
-	pPageNode->iSessionID = 0;
-	pPageNode->cFlag = DATA_RCYCLE;
+	//回收掉的数据节点打上标志
+	pPageNode->cFlag |= DATA_RCYCLE;
 	
 	//写入队列
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
@@ -801,12 +809,21 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	pDataAddr = NULL;
 	pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
+	pPageNode = (TMdbPageNode* )pDataAddr -1;
+	if(pPageNode->cFlag & DATA_RCYCLE)
+	{
+		CHECK_RET(-1,"CommitUpdate, But data is deleted by other link.");
+	}
+		
 	char* pPage = tWalker.GetPageAddr();	
 	CHECK_OBJ(pPage);		
 	TMdbExecuteEngine tEngine;
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
+	//回收掉的数据节点打上标志
+	pPageNode->cFlag |= DATA_RCYCLE;
+	
 	//将同步数据插入队列
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");

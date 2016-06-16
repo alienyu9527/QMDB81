@@ -2386,7 +2386,7 @@
 		if(IsUseTrans())
 		{
 			pNode->iSessionID = m_pLocalLink->iSessionID;
-			pNode->cFlag |= DATA_VIRTUAL;
+			pNode->cFlag = DATA_VIRTUAL;
 		}
 		else
 		{

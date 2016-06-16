@@ -119,6 +119,8 @@
 	class TMdbPageNode
 	{
 	public:
+		void Print(){printf("SessionID:%d,cFlag:%d\n",iSessionID,cFlag);}
+	public:
 		char   cStorage;  //这条记录是否是文件存储的，主要用于varchar，非varchar页不使用该字段 Y:是 N:不是
 		int    iNextNode; //下一个节点，用来做连表，可以存放未使用的节点 <0 表示该节点正在使用，>=0 表示该节点空闲
 		int    iPreNode; //前一个节点
