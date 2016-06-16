@@ -735,6 +735,12 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	int iDataSize = 0;
 	char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
+	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
+	if(pPageNode->iSessionID == 0 && pPageNode->cFlag == DATA_RCYCLE)
+	{
+		CHECK_RET(-1,"CommitDelete, But data is deleted by other link.");
+	}
+	
 	char* pPage = tWalker.GetPageAddr();	
 	CHECK_OBJ(pPage);
 
@@ -748,6 +754,9 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	//…æ≥˝À˜“˝->…æ≥˝varchar->…æ≥˝ƒ⁄¥Ê
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
+	pPageNode->iSessionID = 0;
+	pPageNode->cFlag = DATA_RCYCLE;
+	
 	//–¥»Î∂”¡–
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoCapture(),"InsertBufIntoCapture failed.");

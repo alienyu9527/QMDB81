@@ -1025,7 +1025,10 @@
         {	
         	
         	//update不更新主键,不同步
-        	if(CheckIsPK(m_pTable->tColumn[i].iPos)){continue;}
+        	if( (m_iSqlType==TK_UPDATE) && CheckIsPK(m_pTable->tColumn[i].iPos))
+			{
+				continue;
+			}
 
 			
         	char* sColName = m_pTable->tColumn[i].sName;
