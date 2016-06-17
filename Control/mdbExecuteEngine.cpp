@@ -325,7 +325,7 @@
             }
 
 			//先删除
-			SetDataFlagDelete(m_pDataAddr);			
+			CHECK_RET(SetDataFlagDelete(m_pDataAddr),"SetDataFlagDelete failed.");
 			//后插入
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
 			//复制VarChar和blob
@@ -551,7 +551,7 @@
 			//在使用事务的情况下，只设置标志位，不删除数据
 			if(IsUseTrans())
             {				
-				SetDataFlagDelete(m_pDataAddr);
+				CHECK_RET(SetDataFlagDelete(m_pDataAddr),"SetDataFlagDelete failed.");
 				
 				TRBRowUnit tRBRowUnit;
 				tRBRowUnit.pTable = m_pTable;
@@ -2418,9 +2418,20 @@
 					{
 						printf("Mutex[Table:%s][Row:%d] Maybe dead,force unLock it.\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
 						CHECK_RET(pNode->tMutex.UnLock(true),"Force Unlock Row failed,[Table:%s][Row:%d].",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+
+						if(pNode->cFlag  & DATA_RECYCLE)
+						{
+							CHECK_RET(-1,"Data already be removed,table:%s,rowid:%d",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);				
+						}
+						
 						CHECK_RET(pNode->tMutex.Lock(true),"Lock Row failed,[Table:%s][Row:%d].",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
 						break;
 					}	
+				}
+				
+				if(pNode->cFlag  & DATA_RECYCLE)
+				{
+					CHECK_RET(-1,"Data already be removed,table:%s,rowid:%d",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);				
 				}
 
 				printf("Table %s,Lock Row %d OK\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);

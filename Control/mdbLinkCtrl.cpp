@@ -744,7 +744,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	char* pDataAddr = tWalker.GetAddressRowID(&rowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
-	if(pPageNode->cFlag & DATA_RCYCLE)
+	if(pPageNode->cFlag & DATA_RECYCLE)
 	{
 		CHECK_RET(-1,"CommitDelete, But data is deleted by other link.");
 	}
@@ -763,7 +763,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
 	//回收掉的数据节点打上标志
-	pPageNode->cFlag |= DATA_RCYCLE;
+	pPageNode->cFlag |= DATA_RECYCLE;
 	
 	//写入队列
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");
@@ -810,7 +810,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	pDataAddr = tWalker.GetAddressRowID(&RealRowID,iDataSize,true);
 	CHECK_OBJ(pDataAddr);
 	pPageNode = (TMdbPageNode* )pDataAddr -1;
-	if(pPageNode->cFlag & DATA_RCYCLE)
+	if(pPageNode->cFlag & DATA_RECYCLE)
 	{
 		CHECK_RET(-1,"CommitUpdate, But data is deleted by other link.");
 	}
@@ -822,7 +822,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
 	//回收掉的数据节点打上标志
-	pPageNode->cFlag |= DATA_RCYCLE;
+	pPageNode->cFlag |= DATA_RECYCLE;
 	
 	//将同步数据插入队列
 	CHECK_RET(tMdbFlushTrans.InsertBufIntoQueue(),"InsertBufIntoQueue failed.");

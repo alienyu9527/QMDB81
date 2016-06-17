@@ -110,7 +110,7 @@
 		DATA_REAL = 0,
 		DATA_VIRTUAL = 0x01,
 		DATA_DELETE = 0x02,
-		DATA_RCYCLE = 0x04
+		DATA_RECYCLE = 0x04
 	};
 	/**
 	 * @brief Ò³½Úµã
