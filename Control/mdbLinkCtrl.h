@@ -85,6 +85,7 @@ public:
 	
     unsigned int iSessionID; //事务id
     TShmList<TRBRowUnit>  m_RBList; //回滚链表
+    int iAffect;
 	size_t  iRBAddrOffset;
 };
 

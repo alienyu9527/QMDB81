@@ -336,7 +336,6 @@ private:
     bool m_bSetSQL;      //是否已经初始化
     char* m_pszSQL; //存放临时的SQL语句
     int m_iSQLBuffLen; //当前存放sql内存长度
-    int  m_iRBUnitPos;   //回滚单元位置
     int m_iQueryFlag;//query flag
 
     int  m_iSetParamType;//setparam方式
@@ -405,7 +404,6 @@ private:
     char m_sPWD[128];
     char m_sDSN[128];
 
-    TMdbRollback* m_pRollback;
     TMdbConfig *m_pConfig;
     TMdbShmDSN * m_pShmDSN;
     TMdbLocalLink* m_pLocalLink;

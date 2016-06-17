@@ -59,7 +59,7 @@
         m_iIsStop(0),
         m_pInsertBlock(NULL),
         m_pVarCharBlock(NULL),
-        m_pRollback(NULL),
+        m_bCanRollBack(false),
         m_pUpdateBlock(NULL),
         m_aRowIndexPos(NULL)
     {
@@ -128,7 +128,7 @@
 
 	bool TMdbExecuteEngine::IsUseTrans()
 	{
-		return NULL != m_pRollback && m_pTable->bRollBack;
+		return m_bCanRollBack && m_pTable->bRollBack;
 	}
 	
 	int TMdbExecuteEngine::CheckDiskFree()
@@ -234,8 +234,7 @@
             CHECK_OBJ_FILL(m_pUpdateBlock);
             TADD_FLOW("Create new Update Block.size[%d].",m_pTable->iOneRecordSize);
         }
-        //是否需要加表锁
-        //bool bNeedLockTable = (0 != m_pMdbSqlParser->m_stSqlStruct.vIndexChanged.size())?true:false;
+		
         bool bNext = false;
         
         long long iTimeStamp = 0;
@@ -256,11 +255,6 @@
                 //收到信号控制
                 CHECK_RET_FILL(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
             }
-            //先加表锁
-            /*if(bNeedLockTable)
-            {//对于不修改索引的无需加表锁
-                CHECK_RET_FILL(m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,  &m_pDsn->tCurTime),"tTableMutex lock failed.");
-            }*/
             CHECK_RET_FILL_CODE(m_mdbPageCtrl.Attach(m_pPageAddr, m_pTable->bReadLock, m_pTable->bWriteLock),
                 ERR_OS_ATTACH_SHM,"tPageCtrl.Attach() failed.");
             CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
@@ -269,15 +263,11 @@
                 CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue error.");
                 CHECK_RET_FILL_BREAK(m_pMdbSqlParser->ExecuteSQL(),"ExecuteSQL error.");
                 CHECK_RET_FILL_BREAK(GetUpdateDiff(),"GetUpdateDiff error.");
-                CHECK_RET_FILL_BREAK(PushRollbackData(m_pDataAddr,m_pUpdateBlock),"PushRollbackData failed...");//压入回滚段
                 CHECK_RET_FILL_BREAK(UpdateData(),"UpdateData failed..");
                 CHECK_RET_FILL_BREAK(UpdateRowDataTimeStamp(m_pDataAddr,m_pTable->m_iTimeStampOffset,iTimeStamp), "update row data timestamp failed.");
             }while(0);
             m_mdbPageCtrl.UnWLock();//解页锁
-            /*if(bNeedLockTable)
-            {//对于不修改索引的无需加表锁
-                m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);//解表锁
-            }*/
+
             CHECK_RET_FILL(iRet,"ERROR.");
             m_mdbTSCtrl.SetPageDirtyFlag(((TMdbPage*)m_pPageAddr)->m_iPageID);//设置脏页
             m_iRowsAffected ++;
@@ -545,7 +535,6 @@
                 //收到信号控制
                 CHECK_RET_FILL_BREAK(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
             }
-            CHECK_RET_FILL_BREAK(PushRollbackData(m_pDataAddr,NULL),"PushRollbackData failed...");//压入回滚数据
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputPriKey),"FillSqlParserValue failed.");//填充主键信息
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue failed.");//填充其他需要填充的信心
 			//在使用事务的情况下，只设置标志位，不删除数据
@@ -1733,35 +1722,10 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbExecuteEngine::SetRollbackBlock(TMdbRollback * pRollback,int iRBUnitPos)
+    void TMdbExecuteEngine::SetRollback(bool bCanRollback)
     {
-        m_pRollback = pRollback;
-        m_iRBUnitPos = iRBUnitPos;
-        return 0;
+		m_bCanRollBack = bCanRollback;
     }
-
-    /******************************************************************************
-    * 函数名称	:  PushRollbackData
-    * 函数描述	:  搜集需要回滚的数据
-    * 输入		:
-    * 输入		:
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    int TMdbExecuteEngine::PushRollbackData(const char *pDataAddr,const char * pExtraDataAddr)
-    {
-        int iRet = 0;
-        if(NULL != m_pRollback && m_pTable->bRollBack)
-        {
-            //只有在事务中的时候，才需要采集回滚数据
-            iRet = m_pRollback->PushData(m_iRBUnitPos,pDataAddr,m_iRowsAffected,pExtraDataAddr,&m_tRowCtrl);
-		}
-		
-        return iRet;
-    }
-
-
 
     /******************************************************************************
     * 函数名称	:  IsPKExist

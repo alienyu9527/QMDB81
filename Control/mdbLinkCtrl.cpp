@@ -610,7 +610,8 @@ int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)
 
 
 void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
-{
+{	
+	iAffect = 0;
 	if(m_RBList.empty()) return;
 	
 	TADD_NORMAL("TMdbLocalLink::Commit\n");
@@ -624,6 +625,7 @@ void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
 			m_RBList.clear();
 			break; 
 		}
+		iAffect++;
 		itorB= m_RBList.erase(itorB);
 	}
 	
@@ -631,7 +633,7 @@ void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
 
 void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 {
-
+	iAffect = 0;
 	if(m_RBList.empty()) return;
 	
 	TADD_NORMAL("TMdbLocalLink::RollBack\n");
@@ -647,6 +649,8 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 			m_RBList.clear();
 			break; 
 		}
+		
+		iAffect++;
 		itor = m_RBList.erase(itor);
 	}
 }

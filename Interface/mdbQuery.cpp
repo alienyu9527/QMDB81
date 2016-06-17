@@ -622,7 +622,6 @@ TMdbQuery::TMdbQuery(TMdbDatabase *pTMdbDatabase,int iSQLFlag)
     m_pDDLExecuteEngine = NULL;
     
     
-    m_iRBUnitPos = -1;
     m_iSetParamType = SET_PARAM_NONE;
     m_bSetList   = NULL;
     m_pParamArray= NULL;
@@ -660,24 +659,6 @@ TMdbQuery::~TMdbQuery()
 }
 
 /******************************************************************************
-* 函数名称	:  CleanRBUnit
-* 函数描述	:  清理回滚单元
-* 输入		:
-* 输出		:
-* 返回值	:
-* 作者		:
-*******************************************************************************/
-void TMdbQuery::CleanRBUnit()
-{
-    if(NULL != m_pMdb && NULL != m_pMdb->m_pRollback)
-    {
-        m_pMdb->m_pRollback->SetCloseRBUnit(m_iRBUnitPos);
-    }
-    m_iRBUnitPos = -1;
-}
-
-
-/******************************************************************************
 * 函数名称	:  Close
 * 函数描述	:  关闭SQL语句，以准备接收下一个sql语句
 * 输入		:
@@ -711,7 +692,6 @@ void TMdbQuery::CloseSQL()
     }
     m_vField.clear();
     if(m_pszSQL != NULL)    memset(m_pszSQL,0x00,m_iSQLBuffLen);
-    CleanRBUnit();//清理回滚单元
     SAFE_DELETE_ARRAY(m_bSetList);
     SAFE_DELETE_ARRAY(m_pParamArray);
     SAFE_DELETE_ARRAY(m_pParamPool);
@@ -982,11 +962,7 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
                     m_pszSQL,"[%s].",m_pExecuteEngine->m_tError.GetErrMsg());
     if(IsCanRollback())
     {
-        //只有增删改才需要设置回滚段
-        TADD_DETAIL("Create RollBack Query.");
-        m_iRBUnitPos = m_pMdb->m_pRollback->CreateQuery(sSqlStatement,m_pMdbSqlParser);
-        m_pExecuteEngine->SetRollbackBlock(m_pMdb->m_pRollback,m_iRBUnitPos);//设置回滚段以及事务状态
-        TADD_DETAIL("Create RollBack Query.m_iRBUnitPos=[%d]",m_iRBUnitPos);
+		m_pExecuteEngine->SetRollback(true);
     }
     PrepareParam();
     m_bSetSQL = true;
@@ -999,61 +975,6 @@ bool TMdbQuery::IsNeedToCheckSQLRepeat(bool bFirstSet, int iFlag)
 	return bFlag && DealTableVersion();
 }
 
-/*
-void TMdbQuery::CheckDDLSQL()
-{
-    char sCmd[MAX_DDL_CMD_LEN+2] = {0};//最多需要检查MAX_DDL_CMD_LEN个字符
-    char *p = (char*)memccpy(sCmd, m_pszSQL, ' ', sizeof(sCmd)-1);
-    if(NULL == p) return;//没有空格
-    *(p-1) = '\0';//去掉空格
-    for(int i = 0; i<DDL_CMD_COUNT; ++i)
-    {
-        if(TMdbNtcStrFunc::StrNoCaseCmp(gKeywordsDDL[i], sCmd) == 0)
-        {
-            m_bIsDDLSQL = true;
-            break;
-        }
-    }
-    return;
-}
-*/
-#if 0
-void TMdbQuery::SetDDLSQL(const char *sSqlStatement,int iPreFetchRows) throw (TMdbException)
-{
-    int iRet = 0;
-    TADD_FUNC("SQL=[%s],fetchRows=[%d].",sSqlStatement,iPreFetchRows);
-
-    if(m_pMdb == NULL || m_pMdb->IsConnect() == false || false == IsLinkOK())
-    {
-        ERROR_TO_THROW(ERR_DB_NOT_CONNECTED,sSqlStatement,"DB not connect. Please connect!");
-    } 
-    if(NULL == sSqlStatement)
-    {
-        ERROR_TO_THROW_NOSQL(ERR_DB_NOT_CONNECTED,"SQL cannot be NULL.");
-    }
-    CheckAndSetSql(sSqlStatement);//做一些简单处理和校验
-
-    //在线执行要求用户必须是admin用户才可以执行
-    if(m_pMdb->m_pConfig->GetAccess() != MDB_ADMIN)
-    {
-        ERROR_TO_THROW(ERR_DB_PRIVILEGE_INVALID,m_pszSQL,
-                       "Link-Access is [%d],trying to operate ",
-                       m_pMdb->m_pConfig->GetAccess());
-    }
-    //做一些简单处理和校验
-    TADD_DETAIL("sSql=%s", sSqlStatement);
-    CHECK_RET_THROW(m_pMdbSqlParser->SetDB(m_pMdb->GetShmDsn(),m_pMdb->m_pConfig),
-                    ERR_DB_NOT_CONNECTED,m_pszSQL,"[%s].",m_pMdbSqlParser->m_tError.GetErrMsg());
-    CHECK_RET_THROW(m_pMdbSqlParser->ParseSQL(m_pszSQL),ERR_SQL_INVALID,
-                    m_pszSQL,"[%s].",m_pMdbSqlParser->m_tError.GetErrMsg());
-
-    CHECK_RET_THROW(m_pDDLExecuteEngine->Init(m_pMdbSqlParser),m_pDDLExecuteEngine->m_tError.GetErrCode(),
-                    m_pszSQL,"[%s].",m_pDDLExecuteEngine->m_tError.GetErrMsg());
-    CHECK_RET_THROW(m_pDDLExecuteEngine->SetCurOperateUser(m_pMdb->GetUser()),m_pDDLExecuteEngine->m_tError.GetErrCode(),
-                    m_pszSQL,"[%s].",m_pDDLExecuteEngine->m_tError.GetErrMsg());
-    
-}
-#endif
 /******************************************************************************
 * 函数名称	:  ExecuteDDLSQL
 * 函数描述	:  执行数据库变更SQL语句
@@ -1634,10 +1555,7 @@ bool TMdbQuery::ExecuteArray(int iExecuteRows)throw (TMdbException)
     }
     int iParamCount = m_pMdbSqlParser->m_listInputVariable.iItemNum;
     TADD_FUNC("Start.iDataCount[%d],iParamCount[%d].",iDataCount,iParamCount);
-    if(IsCanRollback())
-    {
-        m_pMdb->m_pRollback->SetArraryExecuteStart();
-    }
+
     try
     {
         for(i = 0; i<iDataCount; ++i)
@@ -1672,12 +1590,10 @@ bool TMdbQuery::ExecuteArray(int iExecuteRows)throw (TMdbException)
     }
     catch(TMdbException& e)
     {
-        m_pMdb->m_pRollback->RollbackOneArrayExecute();//回滚这次批量执行
         throw;
     }
     catch(...)
     {
-        m_pMdb->m_pRollback->RollbackOneArrayExecute();//回滚这次批量执行
         ERROR_TO_THROW(ERR_APP_INVALID_PARAM,m_pszSQL,"Unknown error!");
     }
     TADD_FUNC("Finish.");
@@ -2553,10 +2469,8 @@ TMdbDatabase::TMdbDatabase()
     m_bConnectFlag = false;
     m_pConfig  = NULL;
     m_pShmDSN  = NULL;
-    m_pRollback = NULL;
     m_bIsNeedCommit = true;
     m_bAsManager = false;
-    m_iTransactionState = TRANS_IN;//默认是开启事务的
     m_pLinkCtrl = NULL;
     m_pLocalLink = NULL;
     m_pMultiProtector = NULL;
@@ -2683,11 +2597,7 @@ bool TMdbDatabase::Connect(bool bIsAutoCommit) throw (TMdbException)
 	m_iSessionID = m_pLocalLink->iSessionID;
 	
     m_bConnectFlag = true;
-    if(m_pRollback == NULL)
-    {
-        m_pRollback = new TMdbRollback();
-        m_pRollback->SetDB(this,m_sDSN);
-    }
+
     if(NULL == m_pMultiProtector)
     {
         m_pMultiProtector = new(std::nothrow) TMdbMultiProtector();//并发保护
@@ -2760,11 +2670,7 @@ int TMdbDatabase::ReleaseSysSQL() throw (TMdbException)
 int TMdbDatabase::Disconnect() throw(TMdbException)
 {
     TADD_FUNC("Start.");
-    if(m_pRollback != NULL)
-    {
-        delete m_pRollback;
-        m_pRollback = NULL;
-    }
+
     //释放相关的注册SQL
     if(m_bConnectFlag == true)
     {
@@ -2828,14 +2734,7 @@ void TMdbDatabase::TransBegin()
 *******************************************************************************/                          																								//开启事务
 void TMdbDatabase::Commit()
 {
-    if(m_pRollback != NULL)
-    {
-        m_iTransactionState = TRANS_COMMIT;
-        m_pRollback->Commit();
-    }
-
 	m_pLocalLink->Commit(m_pShmDSN);
-	
     m_iTransactionState = TRANS_IN;
     return;
 }
@@ -2844,13 +2743,6 @@ void TMdbDatabase::Commit()
 //提交, 记录提交的记录数                            																								//开启事务
 void TMdbDatabase::CommitEx()
 {
-    //m_iCommitBufSize = 0;
-    if(m_pRollback == NULL)
-    {
-        return;
-    }
-
-    m_pRollback->CommitEx();
     return;
 }
 
@@ -2864,16 +2756,7 @@ void TMdbDatabase::CommitEx()
 *******************************************************************************/
 void TMdbDatabase::Rollback()
 {
-    if(m_pRollback != NULL)
-    {
-        m_iTransactionState = TRANS_ROLLBACK;
-       // m_pRollback->RollbackAll();
-       // m_pRollback->Rollback(false);
-    }	
-	
-	m_pLocalLink->RollBack(m_pShmDSN);
-	
-    m_iTransactionState = TRANS_IN;
+	m_pLocalLink->RollBack(m_pShmDSN);	
     return;
 }
 /******************************************************************************
@@ -2988,66 +2871,6 @@ const char* TMdbDatabase::GetProvider()
     return NULL;
 }
 
-
-/******************************************************************************
-* 函数名称	:  SetSQL
-* 函数描述	:  设置执行的SQL语句,返回对应的位置
-* 输入		:
-* 输出		:
-* 返回值	:
-* 作者		:  jin.shaohua
-*******************************************************************************/
-int TMdbDatabase::SetSQL(const char* pszSQL,int iSqlPos) throw (TMdbException)
-{
-#if 0
-    TMdbDSN* pDsn = ((TMdbShmDSN*)m_pShmDSN)->GetInfo();
-    TADD_DETAIL("TMdbDatabase::SetSQL() : Before Lock.....");
-    //首先加锁, 防止冲突
-    pDsn->tMutex.Lock(true);
-
-    TADD_DETAIL("TMdbDatabase::SetSQL() : After Lock.....");
-
-    //找到系统SQL的首地址
-    char* pAddr = (char*)pDsn;
-    TMdbSysSQL* pSysSQL = (TMdbSysSQL*)(pAddr + pDsn->iSQLAddr);
-    int i = 0;
-    for(i=0; i<MAX_SYS_SQL_COUNTS; i++)
-    {
-        TADD_DETAIL("TMdbDatabase::SetSQL(): pSysSQL->iSqlPos=%d,pSysSQL->iRowID=%d",pSysSQL->iSqlPos,pSysSQL->iRowID);
-        if(pSysSQL->iSqlPos == -1)
-        {
-            //strcpy(pSysSQL->sSQL, pszSQL);
-            SAFESTRCPY(pSysSQL->sSQL,sizeof(pSysSQL->sSQL),pszSQL);
-            pSysSQL->iSqlPos = iSqlPos;
-            pSysSQL->iRowID = i;
-            if(pDsn->iSQLMaxLabel < i)
-            {
-                pDsn->iSQLMaxLabel = i;
-            }
-            TADD_FLOW("TMdbDatabase::SetSQL():pSysSQL->sSQL=%s,--pSysSQL->iSqlPos =%d,pSysSQL->iRowID=%d",pSysSQL->sSQL,pSysSQL->iSqlPos,pSysSQL->iRowID );
-
-            pSysSQL->iPID = TMdbOS::GetPID();
-            pSysSQL->iTID = TMdbOS::GetTID();
-
-            SAFESTRCPY(pSysSQL->sIP, sizeof(pSysSQL->sIP), "127.0.0.1");
-            sprintf(pSysSQL->sDatabaseAddr, "%p\0", this);
-            break;
-        }
-        ++pSysSQL;
-    }
-    if(i >= MAX_SYS_SQL_COUNTS)
-    {
-        pDsn->tMutex.UnLock(true);
-        throw TMdbException(ERROR_REGSQL_TOO_MANY,"TMdbDatabase::SetSQL() ", "File=[%s], Line=[%d], pSysSQL->iSQLCounts[%d] > MAX_SYS_SQL_COUNTS.", __FILE__, __LINE__, pDsn->iSQLCounts);
-    }
-
-    ++pDsn->iSQLCounts;
-    pDsn->tMutex.UnLock(true);
-#endif
-    return 0;
-
-}
-
 /******************************************************************************
 * 函数名称	:  SetSQLPos
 * 函数描述	:  设置执行的SQL的位置
@@ -3075,11 +2898,7 @@ void TMdbDatabase::SetSQLPos(int iPos)
 
 int TMdbDatabase::RowsAffected()
 {
-    if(m_pRollback != NULL)
-    {
-        return m_pRollback->RowsAffected();
-    }
-    return 0;
+	return m_pLocalLink->iAffect;
 }
 
 TMdbShmDSN * TMdbDatabase::GetShmDsn()

@@ -40,7 +40,7 @@
         {
             return m_iRowsAffected;    //获取影响的记录数
         }
-        int SetRollbackBlock(TMdbRollback * pRollback,int iRBUnitPos);//设置回滚段
+        void SetRollback(bool bCanRollback);
         int GetOneRowData(void *pStruct,int* Column);//获取一列数据信息
 		int GetOneRowData(TMdbColumnAddr* pTColumnAddr);
         long long GetRowTimeStamp();
@@ -86,7 +86,6 @@
 		int NextWhereByPage(bool & bResult);
 		int NextWhereByIndex(bool & bResult);
 		
-        int PushRollbackData(const char *pDataAddr,const char * pExtraDataAddr);//搜集需要回滚的数据
         int IsPKExist();//检测主键是否已存在
         bool IsDataPosBefore();//该记录是否被定位过
         inline int * GetRowIndexArray(char * pDataAddr);//获取rowindex数组
@@ -123,8 +122,7 @@
         char * m_pInsertBlock;//插入块
         char * m_pVarCharBlock;//变长char 块用来做索引计算用
 
-        TMdbRollback * m_pRollback;//回滚段
-        int            m_iRBUnitPos;//回滚unit
+		bool  m_bCanRollBack;
         TMdbFlush    m_tMdbFlush;//mdb 刷新模块
 
         char     m_sTempValue[MAX_BLOB_LEN];//存放临时字符串，为了性能
