@@ -52,6 +52,7 @@ int main(int argc, char* argv[])
     TMdbIndexCtrl indexCtrl;
     CHECK_RET(indexCtrl.AttachTable(pShmDsn,pTable),"indexCtrl.AttachTable failed");
     printf("please wait.....\n");
+	  
     indexCtrl.PrintIndexInfo(atoi(argv[3]),true);
     printf("finish.....\n");
     //TADD_END();

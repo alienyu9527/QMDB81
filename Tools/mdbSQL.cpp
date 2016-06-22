@@ -1686,7 +1686,8 @@ int TMdbRichSQL::PushSqlParam(const char * sMsg,std::vector<ST_SQL> *pvSQL,std::
     }
     //动态SQL解析
     int iEqual = TMdbNtcStrFunc::FindString(sMsg,"=");
-    int iSplitCount = mdbSplit.SplitString(sMsg, ",@");
+    mdbSplit.SplitString(sMsg, ",@");
+    int iSplitCount = mdbSplit.GetFieldCount();
     if(iEqual > 0 && iSplitCount < 2)// 包含 = ，并且不包含 ",@" 代表是执行sql行
     {
         ST_SQL stSQL;

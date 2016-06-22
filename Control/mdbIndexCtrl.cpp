@@ -1416,6 +1416,38 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
     return iRet;
 }
 
+bool TMdbIndexCtrl::CheckHashConflictIndexFull()
+{
+    if(!m_pAttachTable) 
+    {
+        TADD_ERROR(-1,"table not attached");
+        return false;
+    }
+    for(int i=0; i<m_pAttachTable->iIndexCounts; ++i)
+    {
+        if(false == m_arrTableIndex[i].bInit)
+        {
+            TADD_ERROR(-1,"stTableIndex is not init....");
+            return false;
+        }
+
+		//Ö»¼ì²âhashË÷Òý
+		if(m_arrTableIndex[i].pIndexInfo->m_iAlgoType != INDEX_HASH)
+		{
+			continue;
+		}
+		
+        if(m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iFreeHeadPos < 0)
+        {
+            TADD_ERROR(-1,"table[%s] index[%s] has no conflict index node,record-counts[%d] is too small",
+                m_pAttachTable->sTableName,m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->sName,m_pAttachTable->iRecordCounts);
+            return false;
+        }
+    }
+    return true;
+}
+
+
     
 
 //}

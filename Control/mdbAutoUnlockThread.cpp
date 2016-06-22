@@ -113,7 +113,7 @@
         struct timeval tCurTime;                 //当前时间
         gettimeofday(&tCurTime, NULL);
         //DSN管理区锁
-        if(0 != CheckAndRelease(m_pDsn->tMutex,tCurTime,5000,true))
+        if(0 != CheckAndRelease(m_pDsn->tMutex,tCurTime,5000,true,"Dsn Mutex",m_pDsn->sName))
         {
              TADD_ERROR(ERROR_UNKNOWN, "Mutex Dsn[%s] is block.", m_pDsn->sName);
         }
@@ -126,33 +126,25 @@
             {
                 continue;
             }
-            if(0 != CheckAndRelease(pTable->tFreeMutex,tCurTime,20000,true))
+            if(0 != CheckAndRelease(pTable->tFreeMutex,tCurTime,20000,true,"FreePage Mutex",pTable->sTableName))
             {
                  TADD_ERROR(ERROR_UNKNOWN, "Table[%s] tFreeMutex is block.", pTable->sTableName);
             }
-            if(0 != CheckAndRelease(pTable->tFullMutex,tCurTime,20000,true))
+            if(0 != CheckAndRelease(pTable->tFullMutex,tCurTime,20000,true,"FullPage Mutex",pTable->sTableName))
             {
                  TADD_ERROR(ERROR_UNKNOWN, "Table[%s] tFullMutex is block.", pTable->sTableName);
             }
-            if(0 != CheckAndRelease(pTable->tTableMutex,tCurTime,20000,true))
+            if(0 != CheckAndRelease(pTable->tTableMutex,tCurTime,20000,true,"TableMutex",pTable->sTableName))
             {
                  TADD_ERROR(ERROR_UNKNOWN,"Table[%s] tTableMutex is block.", pTable->sTableName);
             }
         }
-        //varchar 管理区锁
-        /*
-        TvarcharBlock * pVarcharBlock = (TvarcharBlock *)m_pShmDSN->GetVarcharMgrAddr();
-        if(0 != CheckAndRelease(pVarcharBlock->tVarCharMutex,tCurTime,5000))
-        {
-                TADD_ERROR(ERROR_UNKNOWN,"tVarCharMutex is block.");
-        }
-        */
 
         TShmList<TMdbVarchar>::iterator itorVar = m_pShmDSN->m_VarCharList.begin();
         for(; itorVar != m_pShmDSN->m_VarCharList.end(); ++itorVar)
         {
             TMdbVarchar* pVarchar = &(*itorVar);
-            if(0 != CheckAndRelease(pVarchar->tMutex,tCurTime,5000,true))
+            if(0 != CheckAndRelease(pVarchar->tMutex,tCurTime,5000,true,"VarcharMutex"))
             {
                  TADD_ERROR(ERROR_UNKNOWN, "TMdbVarchar[%d] tMutex is block.", pVarchar->iVarcharID);
             }
@@ -162,7 +154,7 @@
         TMutex* pMutex = (TMutex*)(m_pShmDSN->GetPageMutexAddr());
         for(int i=0; i<MAX_MUTEX_COUNTS; ++i)
         {
-            if(0 != CheckAndRelease(*pMutex,tCurTime,5000,true))
+            if(0 != CheckAndRelease(*pMutex,tCurTime,5000,true,"PageMutex"))
             {
                     TADD_ERROR(ERROR_UNKNOWN,"Page Mutex[%d] block", i);
             }
@@ -172,7 +164,7 @@
 	pMutex = (TMutex*)(m_pShmDSN->GetVarcharPageMutexAddr());
         for(int i=0; i<MAX_VARCHAR_MUTEX_COUNTS; ++i)
         {
-            if(0 != CheckAndRelease(*pMutex,tCurTime,5000,true))
+            if(0 != CheckAndRelease(*pMutex,tCurTime,5000,true,"VarCharPageMutex"))
             {
                     TADD_ERROR(ERROR_UNKNOWN,"Varchar Page Mutex[%d] block", i);
             }
@@ -182,11 +174,11 @@
         TMdbMemQueue * pMemQueue = (TMdbMemQueue*)m_pShmDSN->GetSyncAreaShm();
         if(pMemQueue != NULL)
         {
-            if(0 != CheckAndRelease(pMemQueue->tPopMutex,tCurTime,5000,true))
+            if(0 != CheckAndRelease(pMemQueue->tPopMutex,tCurTime,5000,true,"PopMutex"))
             {
                     TADD_ERROR(ERROR_UNKNOWN, "[%s] PopMutex block",m_pDsn->m_arrSyncArea.m_sName);
             }
-            if(0 != CheckAndRelease(pMemQueue->tPushMutex,tCurTime,5000,true))
+            if(0 != CheckAndRelease(pMemQueue->tPushMutex,tCurTime,5000,true,"PushMutex"))
             {
                     TADD_ERROR(ERROR_UNKNOWN,"[%s] tPushMutex block",m_pDsn->m_arrSyncArea.m_sName);
             }
@@ -202,24 +194,24 @@
     * 返回值	:  
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbAutoUnlockThread::CheckAndRelease(TMutex & tMutex,struct timeval tNow, int iTimeOutMS,bool bRelaseNow)
+    int TMdbAutoUnlockThread::CheckAndRelease(TMutex & tMutex,struct timeval tNow, int iTimeOutMS,bool bRelaseNow, const char* sType, const char* sInfo)
     {
         int iRet = 0;
         if(DiffMSecond(tNow, tMutex.m_tCurTime) >= iTimeOutMS)
         {
             if(tMutex.GetLockPID() <=0 || false == TMdbNtcSysUtils::IsProcessExist(tMutex.GetLockPID()))
             {
-                TADD_ERROR(ERROR_UNKNOWN, "Proc[%d] is not exist,relase mutex",tMutex.GetLockPID());
+                TADD_ERROR(ERROR_UNKNOWN, "Proc[%d] is not exist,relase mutex,[%s][%s]",tMutex.GetLockPID(),sType,sInfo);
                 CHECK_RET(tMutex.UnLock(true),"UnLock Faild");
             }
             else if(bRelaseNow == true)
             {
-                TADD_ERROR(ERROR_UNKNOWN,"Proc[%d] exist,timeout is [%d]ms,relase mutex",tMutex.GetLockPID(),iTimeOutMS);
+                TADD_ERROR(ERROR_UNKNOWN,"Proc[%d] exist,timeout is [%d]ms,relase mutex,[%s][%s]",tMutex.GetLockPID(),iTimeOutMS,sType,sInfo);
                 CHECK_RET(tMutex.UnLock(true),"UnLock Faild");
             }
             else
             {
-                TADD_ERROR(ERROR_UNKNOWN, "Proc[%d] exist,but hold the mutex to looong,timeout is [%d]ms",tMutex.GetLockPID(),iTimeOutMS);
+                TADD_ERROR(ERROR_UNKNOWN, "Proc[%d] exist,but hold the mutex to looong,timeout is [%d]ms,[%s][%s]",tMutex.GetLockPID(),iTimeOutMS,sType,sInfo);
 				return ERR_APP_INVALID_PARAM;
             }
             

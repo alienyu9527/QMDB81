@@ -410,6 +410,12 @@
             TADD_ERROR(ERR_TAB_INDEX_NOT_EXIST,"Table[%s] doesn't have any index,Insert operations are not allowed.",m_pTable->sTableName);
             return ERR_TAB_INDEX_NOT_EXIST;
         }
+		if(false == m_mdbIndexCtrl.CheckHashConflictIndexFull())
+	    {
+	        TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"table[%s] CheckHashConflictIndexFull falied!",m_pTable->sTableName);
+	        return ERR_TAB_NO_CONFLICT_INDEX_NODE;
+	    }
+		
         if(m_pMdbSqlParser->m_stSqlStruct.bCheckInsertPriKey)
         {
             //¼ì²âÖ÷¼ü

@@ -100,11 +100,11 @@ void TMDBCheckState::CheckOraRep()
     //检查ora同步进程是否存在
     std::vector<std::string > vProcName;
     char sProcFullName[MAX_NAME_LEN] = {0};
-    snprintf(sProcFullName,MAX_NAME_LEN, "mdbFlushOra %s", pDsn->sName);
+    snprintf(sProcFullName,MAX_NAME_LEN, "mdbFlushRep %s", pDsn->sName);
     vProcName.push_back(sProcFullName);
     for(int i=-1; i<m_pConfig->GetDSN()->iOraRepCounts; ++i)
     {
-        snprintf(sProcFullName, MAX_NAME_LEN, "mdbOraRep %s %d %d", pDsn->sName, m_pConfig->GetDSN()->iOraRepCounts, i);
+        snprintf(sProcFullName, MAX_NAME_LEN, "mdbDbRep %s %d %d", pDsn->sName, m_pConfig->GetDSN()->iOraRepCounts, i);
         vProcName.push_back(sProcFullName);
     }
 

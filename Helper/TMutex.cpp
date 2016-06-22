@@ -166,28 +166,11 @@ int TMutex::Lock(bool bFlag, struct timeval *tCurtime)
 {
     if(bFlag)
     {
-#ifdef WIN32
-        DWORD dwWaitResult;
-        TMutex::iErrCode=0;
-
-        if(mutex == NULL)
-        {
-            return ERROR_SEM_PARAMETER;
-        }
-
-        dwWaitResult=WaitForSingleObject(mutex,INFINITE);//等待信号量毫秒数
-        if(dwWaitResult != WAIT_OBJECT_0)
-        {
-            return -1;
-        }
-        m_iLockPID = TMDB_CUR_PID;
-        bIsLock = true;
-        return 0;
-#else
+    	int iRet = 0;
         int iCount = 0;
         while(iCount < 5)
         {
-            int iRet = pthread_mutex_lock(&mutex);
+            iRet = pthread_mutex_lock(&mutex);
             if(iRet != 0)
             {
                 iCount++;
@@ -201,7 +184,7 @@ int TMutex::Lock(bool bFlag, struct timeval *tCurtime)
         if(iCount >=5)
         {
             printf("Lock Failed");
-            return -1;
+            return iRet;
         }
         if(tCurtime != NULL)
         {
@@ -213,8 +196,7 @@ int TMutex::Lock(bool bFlag, struct timeval *tCurtime)
         }
         m_iLockPID = TMDB_CUR_PID;
         bIsLock = true;
-        return 0;
-#endif
+        return iRet;
 
     }
     else
@@ -252,17 +234,16 @@ int TMutex::UnLock(bool bFlag, const char* pszTime)
 {
     if(bFlag)
     {
-#ifdef WIN32
-        ReleaseMutex(mutex);
-        iErrCode=GetLastError();
+    	int iRet = 0;
+        m_tCurTime.tv_sec = 0;
+        m_tCurTime.tv_usec = 0;
         m_iLockPID = -1;
-        return 0;
-#else
-        //m_sTime[0] = '\0';
+        bIsLock = false;
+		
         int iCount = 0;
         while(iCount < 5)
         {
-            int iRet = pthread_mutex_unlock(&mutex);
+            iRet = pthread_mutex_unlock(&mutex);
             if(iRet != 0)
             {
                 iCount++;
@@ -275,14 +256,9 @@ int TMutex::UnLock(bool bFlag, const char* pszTime)
         if(iCount >=5)
         {
             printf("UnLock Failed");
-            return -1;
+            return iRet;
         }
-        m_tCurTime.tv_sec = 0;
-        m_tCurTime.tv_usec = 0;
-        m_iLockPID = -1;
-        bIsLock = false;
-        return 0;
-#endif
+        return iRet;
     }
     else
     {

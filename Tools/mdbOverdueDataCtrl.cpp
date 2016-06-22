@@ -685,7 +685,11 @@
 
             SAFESTRCPY(sUpperTabName, sizeof(sUpperTabName), sTabName);
             SAFESTRCPY(sUpperDsnName, sizeof(sUpperDsnName), sDsnName);
-            
+
+			//mjx sql tool add start
+			TMdbNtcStrFunc::ToUpper(sUpperTabName);
+			TMdbNtcStrFunc::ToUpper(sUpperDsnName);
+			//mjx sql tool add end
             snprintf(sFileHeader, sizeof(sFileHeader), "BAK.%s.%s", sUpperDsnName,sUpperTabName);
 
             m_tFileList.Clear();
@@ -776,7 +780,10 @@
 
             SAFESTRCPY(sUpperTabName, sizeof(sUpperTabName), sTabName);
             SAFESTRCPY(sUpperDsnName, sizeof(sUpperDsnName), sDsnName);
-            
+            //mjx sql tool add start
+			TMdbNtcStrFunc::ToUpper(sUpperTabName);
+			TMdbNtcStrFunc::ToUpper(sUpperDsnName);
+			//mjx sql tool add end
             snprintf(sFileHeader, sizeof(sFileHeader), "BAK.%s.%s", sUpperDsnName,sUpperTabName);
 
             m_tFileList.Clear();
@@ -1042,7 +1049,10 @@
         char sUpperDsnName[MAX_NAME_LEN]={0};
         SAFESTRCPY(sUpperTabName, sizeof(sUpperTabName), tTabInfo.m_sTableName.c_str());
         SAFESTRCPY(sUpperDsnName, sizeof(sUpperDsnName), tTabInfo.m_sDsn.c_str());
-
+		//mjx sql tool add start
+		TMdbNtcStrFunc::ToUpper(sUpperTabName);
+		TMdbNtcStrFunc::ToUpper(sUpperDsnName);
+		//mjx sql tool add end
         // 文件名格式: DSN_TABLE_YYYYMMDDHHMMSS
         snprintf(sFileName, MAX_FILE_NAME, "BAK.%s.%s.%s.OK"
                     , sUpperDsnName, sUpperTabName, sCurTime);
@@ -1579,6 +1589,9 @@
                             tColm.m_bIsTime = true;
                         }
 
+						//mjx sql tool add start
+						SAFESTRCPY(tColm.m_sName,sizeof(tColm.m_sName),m_pMdbQry->Field("column_name").AsString());
+						//mjx sql tool add end
                         TADD_DETAIL("Get PK:[%s]", tColm.m_sName);
                         m_vPkSet.push_back(tColm);
                         break;

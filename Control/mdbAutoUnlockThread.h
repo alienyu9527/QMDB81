@@ -31,7 +31,7 @@
         static void* agent(void* p);
         void ReleaseMutex();//释放超时锁
         int DiffMSecond(struct timeval tTV1, struct timeval tTV2);
-        int CheckAndRelease(TMutex & tMutex,struct timeval tNow, int iTimeOutMS,bool bRelaseNow);//检测并释放锁
+        int CheckAndRelease(TMutex & tMutex,struct timeval tNow, int iTimeOutMS,bool bRelaseNow, const char* sType=" ",const char* sInfo=" ");//检测并释放锁
     private:
         bool  m_bRunFlag;
         bool m_bIsRun;

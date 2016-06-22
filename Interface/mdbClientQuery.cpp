@@ -2189,6 +2189,7 @@
         m_pCspTransRecv = NULL;
         m_pCspErrorRecv = NULL;
         m_iIsBigEndian = 0;
+        m_iUseOcp = MDB_CS_USE_OCP;
     }
 
     /******************************************************************************

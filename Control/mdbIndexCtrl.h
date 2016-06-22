@@ -94,7 +94,8 @@
 		
         long long CalcIndexValue( TMdbRowCtrl& tRowCtrl,char* pAddr, TMdbIndex* pIndex, int& iError);
         int RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,const char *sNewTableName);//rename 表后 调整索引中的表名
-
+		bool CheckHashConflictIndexFull();
+		
     private:
         void CleanTableIndexInfo();
         int GenerateIndexValue(ST_INDEX_COLUMN *pIndexColumnArr [] ,ST_TABLE_INDEX_INFO  * pstTableIndexInfo,int iCurPos,std::vector<ST_INDEX_VALUE> & vIndexValue);
@@ -102,7 +103,7 @@
         // hash值计算
         long long CalcMPIndexValue(TMdbRowCtrl& tRowCtrl, char* pAddr, TMdbIndex* pIndex, int& iError);
         long long CalcOneIndexValue(TMdbRowCtrl& tRowCtrl, char* pAddr, TMdbIndex* pIndex, int& iError);
-        int CalcMemValueHash(ST_INDEX_VALUE & stIndexValue,long long & llValue);        
+        int CalcMemValueHash(ST_INDEX_VALUE & stIndexValue,long long & llValue);   
 
     private:
         TMdbShmDSN * m_pMdbShmDsn;

@@ -525,7 +525,8 @@
 	    	CHECK_OBJ(pCur);
 			if(!isdigit(sTrieWord[cPos]))
 			{
-				CHECK_RET(-1,"TrieIndex only support '0~9'. ");
+				CHECK_RET(ERR_TAB_INDEX_CALC_VALUE_FAILED,"TrieIndex only support '0~9'. Table[%s],Index[%s].",
+					m_pAttachTable->sTableName,tTrieIndex.pRootIndex->sName);
 			}
 	    	iChrIndex = sTrieWord[cPos] - '0';
 			
@@ -565,9 +566,7 @@
 				pCur = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId, pCur->m_iChildrenPos[iChrIndex] ,sizeof(TMdbTrieIndexNode),false);
 			}
 	    }
-
-    	
-        
+      
         TADD_FUNC("Finish.");
         return iRet;
     }
