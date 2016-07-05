@@ -899,7 +899,7 @@ int TMdbNoNtcAgentServer::Authentication(TAgentClient *ptClient)
         IS_LOG(2){pParser->Print();}
         //设置协议模式
         int iBig = MdbNtcIsBigEndian()?(MDB_CS_BIG_ED):(MDB_CS_LIT_ED);
-        if(pParser->m_tHead.iVersion == MDB_CS_USE_OCP)
+        if(pParser->m_tHead.iVersion == MDB_CS_USE_OCP || iBig != pParser->m_tHead.iVersion)
         {//没配置，或者设置强制标记
             ptClient->m_tTMdbCSLink.m_iUseOcp = MDB_CS_USE_OCP;
         }
@@ -3799,7 +3799,7 @@ int TMdbAgentServer::Authentication(TAgentClient *ptClient)
         IS_LOG(2){pParser->Print();}
         //设置协议模式
         int iBig = MdbNtcIsBigEndian()?(MDB_CS_BIG_ED):(MDB_CS_LIT_ED);
-        if(pParser->m_tHead.iVersion == MDB_CS_USE_OCP)
+        if(pParser->m_tHead.iVersion == MDB_CS_USE_OCP || iBig != pParser->m_tHead.iVersion)
         {//没配置，或者设置强制标记
             ptClient->m_tTMdbCSLink.m_iUseOcp = MDB_CS_USE_OCP;
         }

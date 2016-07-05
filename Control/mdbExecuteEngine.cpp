@@ -56,12 +56,12 @@
         m_pTable(NULL),
         m_pDsn(NULL),
         m_iRowsAffected(0),
-        m_iIsStop(0),
         m_pInsertBlock(NULL),
         m_pVarCharBlock(NULL),
         m_bCanRollBack(false),
         m_pUpdateBlock(NULL),
-        m_aRowIndexPos(NULL)
+        m_aRowIndexPos(NULL),
+        m_pIsStop(NULL)
     {
         memset(m_sTempValue,0x00,sizeof(m_sTempValue));
     }
@@ -108,12 +108,18 @@
         m_mdbPageCtrl.SetDSN(m_pDsn->sName);
         //m_tVarcharMgr.SetConfig(m_pMdbSqlParser->m_stSqlStruct.pShmDSN);//设置varchar
         m_tVarcharCtrl.Init(m_pDsn->sName);
+		
         CHECK_RET_FILL_CODE(m_mdbTSCtrl.Init(m_pDsn->sName,m_pTable->m_sTableSpace),
                        ERR_OS_ATTACH_SHM,"m_mdbTSCtrl.Init error");
-		 CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(m_pMdbSqlParser->m_stSqlStruct.pShmDSN),
+		
+		CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(m_pMdbSqlParser->m_stSqlStruct.pShmDSN),
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn failed.");
         CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable failed.");
+		
+		CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(pLocalLink),ERROR_UNKNOWN,"m_mdbIndexCtrl.SetLinkInfo failed");
+		
+		
         CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
                        ERR_OS_ATTACH_SHM,"m_MdbTableWalker.AttachTable failed.");
         CHECK_RET_FILL_CODE(m_tMdbFlush.Init(pMdbSqlParser,iFlag),ERR_SQL_FLUSH_DATA,"m_tMdbFlush.Init failed");//初始化flush模块
@@ -214,6 +220,13 @@
         return iRet;
     }
 
+
+	
+	void TMdbExecuteEngine::SetCancelPoint(int* pPoint)
+	{
+		m_pIsStop = pPoint;
+	}
+
     /******************************************************************************
     * 函数名称	:  ExecuteUpdate
     * 函数描述	:  执行update操作
@@ -250,7 +263,7 @@
             CHECK_RET_FILL_BREAK(Next(bNext),"Next failed.");//下一个
             if(false == bNext){break;}//结束
             TADD_DETAIL("Find Row[%d].",m_iRowsAffected);
-            if(m_iIsStop == 1)
+            if(CheckIsStop() == true)
             {
                 //收到信号控制
                 CHECK_RET_FILL(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
@@ -308,7 +321,7 @@
             CHECK_RET_FILL_BREAK(Next(bNext),"Next failed.");//下一个
             if(false == bNext){break;}//结束
             TADD_DETAIL("Find Row[%d].",m_iRowsAffected);
-            if(m_iIsStop == 1)
+            if(CheckIsStop()== 1)
             {
                 //收到信号控制
                 CHECK_RET_FILL(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
@@ -450,7 +463,7 @@
         while(0);
         CHECK_RET_FILL(iRet,"ERROR.");
 
-		//回滚模式下设置标志位,不生成同步数据，不计数
+		//回滚模式下不生成同步数据，不计数
 		if(IsUseTrans())
 		{
 			TRBRowUnit tRBRowUnit;
@@ -536,7 +549,7 @@
             CHECK_RET_FILL_BREAK(Next(bNext),"next failed.");
             if(false == bNext){break;}
             TADD_DETAIL("Find Row[%d].",m_iRowsAffected);
-            if(m_iIsStop == 1)
+            if(CheckIsStop() == true)
             {
                 //收到信号控制
                 CHECK_RET_FILL_BREAK(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
@@ -644,7 +657,7 @@
         int iRet = 0;
         while(true)
         {
-            if(m_iIsStop == 1)
+            if(CheckIsStop() == true)
             {
                 CHECK_RET_FILL(ERR_SQL_FILL_MDB_INFO,"Catch the SIGINT signal.");
             }
@@ -1710,7 +1723,6 @@
         m_bScanAll     = false;
         m_llScanAllPos = -1;
         m_iRowsAffected= 0;
-        m_iIsStop      = 0;
         m_iNextType    = NEXT_NORMAL;
         m_iMoniNext    = 0;
         m_tCurRowIDData.Clear();
@@ -1994,6 +2006,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
+		CHECK_OBJ_FILL(pTColumnAddr);
         CHECK_OBJ_FILL(m_pDataAddr);
         TMdbColumn * pMdbColumn = NULL;
         int i = 0;
@@ -2361,6 +2374,7 @@
 		else
 		{
 			pNode->iSessionID = 0;
+			pNode->cFlag = DATA_REAL;
 		}
 	}
 

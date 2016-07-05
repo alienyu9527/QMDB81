@@ -17,7 +17,7 @@
 #include "stdlib.h"
 #include "time.h"
 
-#include "Helper/mdbStruct.h"
+//#include "Helper/mdbStruct.h"
 #include "Helper/TThreadLog.h"
 #include "Control/mdbStorageEngine.h"
 #include "Helper/mdbDateTime.h"

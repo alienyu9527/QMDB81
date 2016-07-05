@@ -1188,6 +1188,12 @@ long long TMdbQuery::GetTimeStamp()
     return m_pExecuteEngine->GetRowTimeStamp();
 }
 
+void TMdbQuery::SetCancelPoint(int* pPoint)
+{
+	m_pExecuteEngine->SetCancelPoint(pPoint);
+}
+
+
 /******************************************************************************
 * 函数名称	:  GetParamByName
 * 函数描述	:  根据ParamName获取Param

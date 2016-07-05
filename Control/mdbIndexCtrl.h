@@ -11,6 +11,8 @@
 #include "Control/mdbTrieIndexCtrl.h"
 
 
+class TMdbLocalLink;
+
     //index分配方案
     struct ST_SHM_ASSIGN_CELL
     {
@@ -43,8 +45,8 @@
             m_HashIndexInfo.Clear();
             m_MHashIndexInfo.Clear();
             m_TrieIndexInfo.Clear();
-        }     
-        
+        }
+
     };
 
     class TMdbIndexCtrl
@@ -61,6 +63,9 @@
 		int TruncateTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);
         int DeleteTableSpecifiedIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,const char* pIdxName);
 
+
+		int SetLinkInfo(TMdbLocalLink* pLink);
+		
         int AttachDsn(TMdbShmDSN * pMdbShmDsn);
         int AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);
 		int AttachHashIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs);
@@ -107,13 +112,16 @@
 
     private:
         TMdbShmDSN * m_pMdbShmDsn;
-        TMdbDSN   * m_pMdbDsn;
+        TMdbDSN   * m_pMdbDsn;		
+		TMdbLocalLink *m_pLink;
 
         TMdbHashIndexCtrl m_tHashIndex;
         TMdbMHashIndexCtrl m_tMHashIndex;
 		TMdbTrieIndexCtrl m_tTrieIndex;
 
         TMdbTable * m_pAttachTable;
+
+		//此处记录的是当前表 表级别的索引信息，真实使用时,由链接到此申请索引节点
         ST_TABLE_INDEX_INFO   m_arrTableIndex[MAX_INDEX_COUNTS];
 
         char     m_sTempValue[MAX_BLOB_LEN];//存放临时字符串，为了性能

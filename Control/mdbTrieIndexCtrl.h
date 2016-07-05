@@ -229,6 +229,7 @@
 
 			pRootNode = NULL;
         }
+
         
         TMdbTrieRootIndexMgrInfo     * pRootIndexMgr;    //索引根节点管理区
         TMdbTrieRootIndex            * pRootIndex;    //索引根节点信息
@@ -257,7 +258,8 @@
     public:
         // attch shm 
         int AttachDsn(TMdbShmDSN * pMdbShmDsn);
-        int AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable* pTable);
+        int AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable* pTable);		
+		void SetLink(TMdbLocalLink* pLink){m_pLink=pLink;}
         
         // add & delete index
         int AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize);
@@ -323,7 +325,8 @@
     private:
         TMdbTable * m_pAttachTable;
         TMdbShmDSN * m_pMdbShmDsn;//MDB共享管理区
-        TMdbDSN   * m_pMdbDsn;        
+        TMdbDSN   * m_pMdbDsn;     
+		TMdbLocalLink* m_pLink;
 
         
     };

@@ -107,10 +107,10 @@
 
 	enum DATA_FLAG
 	{
-		DATA_REAL = 0,
-		DATA_VIRTUAL = 0x01,
+		DATA_REAL = 0,               //真实插入的数据节点
+		DATA_VIRTUAL = 0x01,		
 		DATA_DELETE = 0x02,
-		DATA_RECYCLE = 0x04
+		DATA_RECYCLE = 0x04         //真实删除回收的数据节点
 	};
 	/**
 	 * @brief 页节点
@@ -736,7 +736,8 @@ enum E_JOB_STATE
 {
    JOB_STATE_NONE = 1,//无效状态
    JOB_STATE_WAIT ,    //等待执行
-   JOB_STATE_RUNNING //正在执行
+   JOB_STATE_RUNNING, //正在执行
+   JOB_STATE_PAUSE   //中断
 };
 
 class TMdbJob
@@ -751,18 +752,27 @@ public:
     void StateToWait(){m_iState = JOB_STATE_WAIT;}//变更状态到等待态
     void StateToRunning(){m_iState = JOB_STATE_RUNNING;};//变更状态到执行态
     bool IsCanModify(){return JOB_STATE_RUNNING != m_iState;};//是否可以变更。
+    int  GetStat(){return m_iState;}
+	void SetStat(int iStat){m_iState = iStat;}
+	void SetStopFlag(int iFlag){m_iStop = iFlag;}
+	bool IsWaiting(){return JOB_STATE_WAIT == m_iState;}
+	
 public:
     char m_sName[MAX_NAME_LEN];//job name
     char m_sExecuteDate[MAX_TIME_LEN];//执行时间点
     int   m_iInterval;                      //执行频率间隔
     int   m_iRateType;                   //执行频率类型
     char m_sSQL[MAX_SQL_LEN];//待执行的 sql
+    int m_iStop;
+
+	
 public:
     char m_sNextExecuteDate[MAX_TIME_LEN];//计算出的下一次执行的时间
     int   m_iExcCount;                      //执行次数
     char m_sStartTime[MAX_TIME_LEN];//第一次执行的时间
 private:
     int m_iState;      //当前job状态
+
 };
 
 class TMemSeq

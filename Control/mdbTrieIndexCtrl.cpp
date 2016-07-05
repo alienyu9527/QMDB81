@@ -543,9 +543,9 @@
 				TMdbTrieIndexNode* pFreeNode = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId,iFreePos,sizeof(TMdbTrieIndexNode),false);				
 		        CHECK_OBJ(pFreeNode);
 		        pFreeNode->m_ch = sTrieWord[cPos];
-				printf("Add Branch Node, ch:%c\n",pFreeNode->m_ch);
 				pCur->m_iChildrenPos[iChrIndex] = iFreePos;	
-				tTrieIndex.pBranchIndex->iFreeHeadPos = pFreeNode->m_iNextPos;     
+				tTrieIndex.pBranchIndex->iFreeHeadPos = pFreeNode->m_iNextPos; 
+				tTrieIndex.pBranchIndex->iFreeNodeCounts--;
 			}
 
 			if(0 == sTrieWord[cPos+1])
@@ -579,7 +579,6 @@
         {
             CHECK_RET(ApplyNewConflictNode(tTrieIndex),"no more free conflict node space.");
         }
-		printf("TMdbTrieIndexCtrl::InsertConflictNode.");
         int iFreePos = tTrieIndex.pConflictIndex->iFreeHeadPos;
         TMdbTrieConfIndexNode * pFreeNode = (TMdbTrieConfIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pConflictIndex->iHeadBlockId,iFreePos,sizeof(TMdbTrieConfIndexNode),true);
         CHECK_OBJ(pFreeNode);

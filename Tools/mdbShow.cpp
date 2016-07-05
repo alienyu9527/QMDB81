@@ -82,6 +82,9 @@ struct ST_SHOW_PARAM
     bool bPrintLock;
     bool bPrintRouting;//是否打印路由信息
     bool bPrintNotLoadFromDB;//表不从数据库加载的附加配置信息
+    char sLinkTid[256];
+	long lTid;
+	
     ST_SHOW_PARAM()
     {
         memset(sDsn,        0, sizeof(sDsn));
@@ -96,6 +99,11 @@ struct ST_SHOW_PARAM
         memset(sRouters, 0, sizeof(sRouters));  
         memset(sJob, 0, sizeof(sJob));
         memset(sUserName,0,sizeof(sUserName));
+		
+		sLinkTid[0] = '0';
+		sLinkTid[1] = 0;
+		lTid = 0;
+		
         bMore = false;
         bShowDsn = false;
         ilevel = 0;
@@ -129,6 +137,7 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
     clp.set_check_condition("-k", 0);//显示锁信息
     clp.set_check_condition("-f", 0);//显示路由备份信息
     clp.set_check_condition("-o", 0);//表不从数据库加载的附加配置信息
+    clp.set_check_condition("-T", 0, 1);//表不从数据库加载的附加配置信息
     
     if(!clp.check())
     {
@@ -183,6 +192,13 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
         if(opt == "-q")
         {
             CHECK_IF_ALL(args,stShowParam.sSeq);
+            continue;
+        }
+		if(opt == "-T")
+        {            
+            SAFESTRCPY(stShowParam.sLinkTid,sizeof(stShowParam.sLinkTid),args[0].c_str());
+            stShowParam.sLinkTid[strlen(stShowParam.sLinkTid)]='\0';
+            stShowParam.lTid = atol(stShowParam.sLinkTid);
             continue;
         }
         /*if(opt == "-Q")
@@ -340,15 +356,15 @@ int main(int argc, char* argv[])
     {
         if(TMdbNtcStrFunc::StrNoCaseCmp(stShowParam.sLink, "local") == 0)
         {
-            info.PrintLink(1);
+            info.PrintLink(1, stShowParam.lTid);
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(stShowParam.sLink, "remote") == 0)
         {
-            info.PrintLink(2);
+            info.PrintLink(2, stShowParam.lTid);
         }
         else
         {
-            info.PrintLink(0);
+            info.PrintLink(0,stShowParam.lTid);
         }
     }
     if (stShowParam.bPrintNotLoadFromDB)//

@@ -49,8 +49,8 @@
 		int BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos);
 		void ClearLastExecute();
         int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);
-		int ExecuteDelete(char* pPage,char* pDataAddr,TMdbRowID rowID,TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);
-     protected:
+		void SetCancelPoint(int* pPoint);	
+		int ExecuteDelete(char* pPage,char* pDataAddr,TMdbRowID rowID,TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);     protected:
         int ExecuteInsert();//执行插入
         int ExecuteUpdate();//执行更新
         int ExecuteDelete();//执行删除
@@ -94,7 +94,9 @@
         int UpdateRowDataTimeStamp(char* const & pAddr, int iOffset, long long iTimeStamp = 0);
 		void SetDataFlagInsert(char* pAddr);
 		int SetDataFlagDelete(char* pAddr);
-    private:
+		bool CheckIsStop(){return m_pIsStop&&(1==*m_pIsStop);}
+		
+	private:
 
         TMdbSqlParser * m_pMdbSqlParser;//语法树结构
         int m_iCurIndex;//正在使用第几个索引
@@ -114,7 +116,6 @@
         TMdbPageCtrl   m_mdbPageCtrl;              //页控制信息
         TMdbTableSpaceCtrl m_mdbTSCtrl;            //表空间控制信息
         int m_iRowsAffected;						//影响的记录数
-        int m_iIsStop;    //中途停止
         TMdbIndexCtrl   m_mdbIndexCtrl;//索引管理
         int    m_iMoniNext; //模拟next
         int    m_iNextType;//next的类型
@@ -133,8 +134,9 @@
         TMdbRowCtrl m_tRowCtrl;//记录控制
         int* m_aRowIndexPos; 
         TMdbCacheTable m_tCacheTable;//缓存表
-        TMdbLocalLink* m_pLocalLink;
-    public:
+		TMdbLocalLink* m_pLocalLink;
+		int* m_pIsStop;    //中途停止
+	public:
         TMdbErrorHelper m_tError;
     };
 //}

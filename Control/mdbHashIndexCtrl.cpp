@@ -1,6 +1,8 @@
-#include "Control/mdbHashIndexCtrl.h" 
 #include "Helper/mdbDateTime.h"
+#include "Control/mdbHashIndexCtrl.h" 
 #include "Control/mdbRowCtrl.h"
+#include "Control/mdbLinkCtrl.h" 
+
 
 //namespace QuickMDB{
 
@@ -121,14 +123,14 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbHashIndexCtrl::UpdateIndexNode(TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashInfo,TMdbRowID& tRowId)
+    int TMdbHashIndexCtrl::UpdateIndexNode(int iIndexPos,TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashInfo,TMdbRowID& tRowId)
     {
         TADD_FUNC("Startrow[%d|%d]",tRowId.GetPageID(),tRowId.GetDataOffset());
         int iRet = 0;
 
         CHECK_RET(DeleteIndexNode( tOldRowIndex,tHashInfo,tRowId),"DeleteIndexNode failed ,tOldRowIndex[%d|%d],row[%d|%d]",
                   tOldRowIndex.iBaseIndexPos,tOldRowIndex.iConflictIndexPos,tRowId.GetPageID(),tRowId.GetDataOffset());//先删除
-        CHECK_RET(InsertIndexNode( tNewRowIndex,tHashInfo,tRowId),"InsertIndexNode failed ,tNewRowIndex[%d|%d],row[%d|%d]",
+        CHECK_RET(InsertIndexNode(iIndexPos,tNewRowIndex,tHashInfo,tRowId),"InsertIndexNode failed ,tNewRowIndex[%d|%d],row[%d|%d]",
                   tNewRowIndex.iBaseIndexPos,tNewRowIndex.iConflictIndexPos,tRowId.GetPageID(),tRowId.GetDataOffset());//再增加
                   
         TADD_FUNC("Finish.");
@@ -143,12 +145,11 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbHashIndexCtrl::InsertIndexNode(TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndex, TMdbRowID& rowID)
+    int TMdbHashIndexCtrl::InsertIndexNode(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tTableHashIndex, TMdbRowID& rowID)
     {
         TADD_FUNC("Start.rowID[%d|%d]",  rowID.GetPageID(),rowID.GetDataOffset());
         int iRet = 0;
-        CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
-        TMdbIndexNode * pBaseNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
+        TMdbIndexNode * pBaseNode = &(tTableHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
         tRowIndex.iPreIndexPos       = -1;
         if(pBaseNode->tData.IsEmpty())
         {
@@ -159,33 +160,95 @@
         }
         else
         {
-            TADD_DETAIL("Row can insert ConflictIndex.");
-            if(tHashIndex.pConflictIndex->iFreeHeadPos >= 0)
-            {
-                //还有空闲冲突节点, 对冲突链进行头插
-                int iFreePos = tHashIndex.pConflictIndex->iFreeHeadPos;
-                TMdbIndexNode * pFreeNode = &(tHashIndex.pConflictIndexNode[iFreePos]);//空闲冲突节点
-                pFreeNode->tData = rowID;//放入数据
-                tHashIndex.pConflictIndex->iFreeHeadPos = pFreeNode->iNextPos;
-                pFreeNode->iNextPos  = pBaseNode->iNextPos;
-                pBaseNode->iNextPos  = iFreePos;
-                tHashIndex.pConflictIndex->iFreeNodeCounts --;//剩余节点数-1
-                tRowIndex.iConflictIndexPos = iFreePos;//在冲突链上某位置
-            }
-            else
-            {
-                //没有空闲冲突节点了。
-                TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
-                           tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),
-                           m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
-                PrintIndexInfo(tHashIndex,0,false);
-                iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
-            }
+        	TMdbSingleTableIndexInfo* pTableIndexInfo = m_pLink->FindCurTableIndex(m_pAttachTable->sTableName);
+			ST_LINK_INDEX_INFO &tLinkIndexInfo = pTableIndexInfo->arrLinkIndex[iIndexPos];
+
+			int iTry = 3;
+			do
+			{
+				if(tLinkIndexInfo.iHashCFreeHeadPos>= 0)
+	            {
+	                //还有空闲冲突节点, 对冲突链进行头插
+	                int iFreePos = tLinkIndexInfo.iHashCFreeHeadPos;
+	                TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);//空闲冲突节点
+	                pFreeNode->tData = rowID;//放入数据
+	                tLinkIndexInfo.iHashCFreeHeadPos = pFreeNode->iNextPos;
+	                pFreeNode->iNextPos  = pBaseNode->iNextPos;
+	                pBaseNode->iNextPos  = iFreePos;
+	                tLinkIndexInfo.iHashCFreeNodeCounts --;//剩余节点数-1
+	                tRowIndex.iConflictIndexPos = iFreePos;//在冲突链上某位置
+	                break;
+	            }
+	            else
+	            {
+	            	//链接上的冲突节点不够，从表申请
+	            	iRet = GetFreeConflictNode(tLinkIndexInfo, tTableHashIndex);
+
+					if(iRet!=0){iTry--;}
+					
+					//最多尝试三次，要是还申请不到，就报错
+					if(iTry < 0)
+					{
+		                TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
+		                           tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),
+		                           m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
+		                PrintIndexInfo(tTableHashIndex,0,false);
+		                iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
+						break;
+					}
+	            }
+			}while(1);	
         }
-        CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+    int TMdbHashIndexCtrl::GetFreeConflictNode(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
+    {
+    	int iRet = 0;
+		//tTableHashIndex 属于表级别的公共资源，需要加锁保护
+        CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
+		int iAskNodeNum = 100;
+
+		if(tTableHashIndex.pConflictIndex->iFreeHeadPos < 0) 
+		{
+			return ERR_TAB_NO_CONFLICT_INDEX_NODE;
+		}
+
+		tLinkIndexInfo.iHashCFreeHeadPos= tTableHashIndex.pConflictIndex->iFreeHeadPos;
+		
+		int iFreePos = -1;	
+		int iLastPos = -1;//记录申请到的最后一个节点的位置
+		for(int i = 0;i<iAskNodeNum;i++)
+		{	
+			iFreePos = tTableHashIndex.pConflictIndex->iFreeHeadPos;
+			//表上面的冲突节点也申请完了
+			if(-1 == iFreePos){break;}
+			
+			TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);
+
+			//削减表的冲突节点长度
+			tTableHashIndex.pConflictIndex->iFreeHeadPos = pFreeNode->iNextPos;
+			tTableHashIndex.pConflictIndex->iFreeNodeCounts--;
+			
+			tLinkIndexInfo.iHashCFreeNodeCounts++;
+			iLastPos = iFreePos;
+
+		}
+
+		if(-1 != iLastPos)
+		{
+			TMdbIndexNode* pLastNode = &(tTableHashIndex.pConflictIndexNode[iLastPos]);
+			pLastNode->iNextPos = -1;
+		}
+		
+
+		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
+		return iRet;
+	}
+
+
+	
     /******************************************************************************
     * 函数名称	:  FindRowIndexCValue
     * 函数描述	:  查找冲突索引值
@@ -444,6 +507,8 @@
         m_pAttachTable = pTable;
         return iRet;
     }
+
+
 
     /******************************************************************************
     * 函数名称	:  AttachTable

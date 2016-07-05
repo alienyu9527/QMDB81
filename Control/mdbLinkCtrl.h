@@ -17,6 +17,104 @@
 #include "Control/mdbExecuteEngine.h"
 
 
+//链接上只需要记录"需要动态申请的索引"的信息
+struct ST_LINK_INDEX_INFO
+{
+    bool bInit;//是否被初始化
+	char sName[MAX_NAME_LEN]; //索引名称
+	int  iAlgoType;  // 索引的算法类型: hash , multistep hash, btree
+
+  //Hash
+	//conflict
+	int iHashCFreeHeadPos;   
+	int iHashCFreeNodeCounts;
+
+  //Mhash
+	//conflict
+	int iMHashCFreeHeadPos; 
+	int iMHashCFreeNodeCounts;
+	//Layer
+	int iMHashLFreeHeadPos;
+	int iMHashLFreeNodeCounts;
+
+  //Trie
+	//conflict
+	int iTrieCFreeHeadPos; 
+	int iTrieCFreeNodeCounts;
+	//Branch
+	int iTrieBFreeHeadPos;
+	int iTrieBFreeNodeCounts;
+
+    void Clear()
+    {
+        bInit = false;
+		sName[0] = 0;
+		iAlgoType = INDEX_UNKOWN;
+		iHashCFreeHeadPos = -1;
+		iHashCFreeNodeCounts = 0;
+		iMHashCFreeHeadPos = -1;
+		iMHashCFreeNodeCounts = 0;
+		iMHashLFreeHeadPos = -1;
+		iMHashLFreeNodeCounts = 0;
+		iTrieCFreeHeadPos = -1;
+		iTrieCFreeNodeCounts  =0;
+		iTrieBFreeHeadPos = -1;
+		iTrieBFreeNodeCounts = 0;
+    }
+
+	void Print()
+	{
+		printf("[IndexName:%s].",sName);
+		switch(iAlgoType)
+		{
+			case INDEX_HASH:
+			{
+				printf("[Hash] ");
+				printf("[Conflict FreeHeadPos:%d]",iHashCFreeHeadPos);
+				printf("[Conflict FreeNodeCounts:%d]",iHashCFreeNodeCounts);
+				break;
+			}
+			case INDEX_M_HASH:
+			{
+				printf("[MHash]");
+				printf("[Conflict FreeHeadPos:%d]",iMHashCFreeHeadPos);
+				printf("[Conflict FreeNodeCounts:%d]",iMHashCFreeNodeCounts);
+
+				printf("[Layer FreeHeadPos:%d]",iMHashLFreeHeadPos);
+				printf("[Layer FreeNodeCounts:%d]",iMHashLFreeNodeCounts);
+				break;
+			}
+			case INDEX_TRIE:
+			{
+				printf("[Trie]");
+				printf("[Conflict FreeHeadPos:%d]",iTrieCFreeHeadPos);
+				printf("[Conflict FreeNodeCounts:%d]",iTrieCFreeNodeCounts);
+
+				printf("[Branch FreeHeadPos:%d]",iTrieBFreeHeadPos);
+				printf("[Branch FreeNodeCounts:%d]",iTrieBFreeNodeCounts);
+				break;
+			}
+			default:
+				break;
+		}
+		printf("\n");
+	}
+
+};
+
+
+//连接上 记录表的全部索引信息
+class TMdbSingleTableIndexInfo
+{	
+	public:
+		TMdbSingleTableIndexInfo();
+		
+	public:
+		char  sTableName[MAX_NAME_LEN];
+		ST_LINK_INDEX_INFO	 arrLinkIndex[MAX_INDEX_COUNTS];
+};
+
+
 //回滚单元
 class TRBRowUnit 
 {	
@@ -58,6 +156,9 @@ public:
 	void RollBack(TMdbShmDSN * pShmDSN);
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();
+	void ShowIndexInfo();
+	TMdbSingleTableIndexInfo*  FindCurTableIndex(const char* sTableName);
+	
 public:
     int iPID;         //进程的PID
     unsigned long int iTID;         //进程的Thread-ID
@@ -87,6 +188,9 @@ public:
     TShmList<TRBRowUnit>  m_RBList; //回滚链表
     int iAffect;
 	size_t  iRBAddrOffset;
+
+	//需要保存多张表的索引信息
+	TMdbSingleTableIndexInfo m_AllTableIndexInfo[MAX_TABLE_COUNTS];
 };
 
 //链接管理

@@ -1027,6 +1027,7 @@
         m_iInterval = 0;
         m_iRateType = 0;
         m_iState = JOB_STATE_NONE;
+		m_iStop = 0;
         return  0;
     }
 

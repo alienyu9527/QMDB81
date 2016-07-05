@@ -21,7 +21,8 @@
         void SetThreadInfo(LPVOID parg, unsigned int stack=1024*1024);//设置线程参数
         int  Run(unsigned int* phandle);//启动线程，具体动作需要子类重写    
     	int GetTID();//获取线程的ID    
-    	int KillThread();//KillThread()
+    	int KillThread();//KillThread()   
+    	void Clean();
 
     protected:
         virtual int svc()=0;//子类的线程动作

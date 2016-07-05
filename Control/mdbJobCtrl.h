@@ -12,9 +12,32 @@
 #include "Control/mdbMgrShm.h"
 #include "Control/mdbProcCtrl.h"
 #include "Interface/mdbQuery.h"
+#include "Helper/mdbThreadBase.h"
 
-//namespace QuickMDB{
+
+int CalcNextExecDate(TMdbJob * pJob);//计算下一次执行的时间
+int AddOneTimeInterval(TMdbJob * pJob);
+
+
     class TMdbDatabase;
+
+	class TMdbJobThread:public TMdbThreadBase
+	{
+		public:
+		    TMdbJobThread();
+		    virtual ~TMdbJobThread();
+		    int Start(const char* m_sDsn, TMdbJob* pJob);
+		    virtual int svc();
+		private:
+		    int DoJob(TMdbJob * pJob);//处理job
+		private:
+		    TMdbQuery  *m_pQuery;  
+		    TMdbDatabase m_tDB;
+			
+			TMdbJob *m_pJob;
+			const char* m_sDsn;
+	};
+
     //mdb job管理 
     class TMdbJobCtrl
     {
@@ -26,20 +49,14 @@
         int StartJob();//启动jobs
         int AddNewJob(TMdbJob * pNewJob);//添加新job
         int DeleteJobByName(const char * sJobName);//根据job name 删除job
+		int SetCancel(const char* pJobName);
     private:
-        int CalcNextExecDate(TMdbJob * pJob);//计算下一次执行的时间
-		int AddOneTimeInterval(TMdbJob * pJob);
-        int DoJob(TMdbJob * pJob);//处理job
         int ConnectMDB(const char * sDsn);//链接数据库
-        int DealDeleteTask(const char*pDelSQL);//处理删除任务
-        int GenSelctSQLByDelSQL(TMdbTable * pTable,const char*pDelSQL,char *pSSQL,const int iLen);
-        int GenDelSQL(TMdbTable * pTable,char *pDelSQL,const int iLen);
+		TMdbJobThread* GetJobThread();
     private:
         TMdbShmDSN * m_pShmDsn;
         TMdbProcCtrl m_tProcCtrl;
-        TMdbQuery * m_pDelQuery;
-        TMdbQuery  *m_pQuery;
-    	TMdbDatabase m_tDB;
+		TMdbJobThread* m_pJobThreadPool[MAX_THREAD_COUNTS];
     };
 //}
 

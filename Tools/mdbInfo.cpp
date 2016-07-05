@@ -123,12 +123,12 @@
     /******************************************************************************
     * 函数名称  :  PrintLink()
     * 函数描述  :  打印链接信息
-    * 输入      :  iFlag, 1-打印本地链接, 2-打印远程链接, 0-打印所有链接
+    * 输入      :  iFlag, 1-打印本地链接, 2-打印远程链接, 0-打印所有链接, lTid指定某一个线程
     * 输出      :  无
     * 返回值    :  无
     * 作者      :  li.shugang
     *******************************************************************************/
-    void TMdbInfo::PrintLink(int iFlag)
+    void TMdbInfo::PrintLink(int iFlag, unsigned long lTid)
     {
         if(m_pDsn == NULL)
             return;
@@ -141,7 +141,12 @@
                 if(pLocalLink->iPID >= 0)
                 {
                     pLocalLink->Show(m_bMore);
-					pLocalLink->ShowRBUnits();
+					
+					if(lTid && lTid == pLocalLink->iTID)
+					{
+						pLocalLink->ShowRBUnits();					
+						pLocalLink->ShowIndexInfo();
+					}
                 }
             }
         }

@@ -10,6 +10,18 @@
 #include "Control/mdbLinkCtrl.h"
 #include "Helper/mdbOS.h"
 #include "Helper/mdbDateTime.h"
+#include "Control/mdbIndexCtrl.h"
+
+
+TMdbSingleTableIndexInfo::TMdbSingleTableIndexInfo()
+{
+	sTableName[0] = 0;
+	for(int i=0; i<MAX_INDEX_COUNTS; i++)
+	{
+		arrLinkIndex[i].Clear();
+	}
+}
+
 
 void TMdbLocalLink::Clear()
 {
@@ -92,6 +104,24 @@ void TMdbLocalLink::ShowRBUnits()
 	int iSize = m_RBList.size();
 	printf("RBUnits num %d,Cost Memory %d Bytes.\n",iSize,iSize*sizeof(TRBRowUnit));
 }
+
+void TMdbLocalLink::ShowIndexInfo()
+{
+	for(int i=0;i<MAX_TABLE_COUNTS;i++)
+	{
+		if(!m_AllTableIndexInfo[i].sTableName[0]) continue;
+		printf("Table:[%s].\n",m_AllTableIndexInfo[i].sTableName);
+		
+		for(int j=0; j<MAX_INDEX_COUNTS; j++)
+		{
+			ST_LINK_INDEX_INFO& tIndexInfo = m_AllTableIndexInfo[i].arrLinkIndex[j];
+			if(!tIndexInfo.bInit) continue;
+			tIndexInfo.Print();
+		}
+	}
+
+}
+
 void TMdbLocalLink::Print()
 {
 	TADD_NORMAL("==============Local-Link=================");
@@ -180,6 +210,20 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 		iAffect++;
 		itor = m_RBList.erase(itor);
 	}
+}
+
+TMdbSingleTableIndexInfo*  TMdbLocalLink::FindCurTableIndex(const char* sTableName)
+{
+	for(int i=0; i<MAX_TABLE_COUNTS; i++)
+	{
+		if(0 == strcasecmp(sTableName,m_AllTableIndexInfo[i].sTableName))
+		{
+			return &m_AllTableIndexInfo[i];
+		}
+	
+	}
+
+	return NULL;
 }
 
 int TRBRowUnit::UnLockRow(char* pDataAddr,TMdbShmDSN * pShmDSN)

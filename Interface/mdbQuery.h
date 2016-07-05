@@ -307,6 +307,7 @@ public:
     long long GetTimeStamp();    
     ST_MEM_VALUE * GetParamByIndex(int iIndex);//通过名字获取参数值
     int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);
+	void SetCancelPoint(int* pPoint);
 private:
     bool ExecuteOne()throw (TMdbException);//单条执行
     bool ExecuteArray(int iExecuteRows)throw (TMdbException);//批量执行

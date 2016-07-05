@@ -12,7 +12,7 @@
 #include <map>
 //#include "BillingSDK.h"
 #include "Control/mdbRowCtrl.h"
-
+#include "Control/mdbLinkCtrl.h"
 //using namespace ZSmart::BillingSDK;
 
 
@@ -423,6 +423,65 @@ int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
 	return iRet;
 }
 
+
+//为链接填充索引信息
+int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
+{
+	int iRet = 0;
+	int iPos = -1;
+	for(int i=0; i<MAX_TABLE_COUNTS; i++)
+	{
+		if(0 == strcasecmp(pLink->m_AllTableIndexInfo[i].sTableName, m_pAttachTable->sTableName))
+		{
+			iPos = i;
+			break;
+		}
+	}
+
+	if(-1 == iPos)
+	{	
+		//找不到的情况，添加一个
+		for(int i=0; i<MAX_TABLE_COUNTS; i++)
+		{
+			if(0 == pLink->m_AllTableIndexInfo[i].sTableName[0])
+			{
+				iPos = i;
+				break;
+			}
+		}
+
+		if( -1 == iPos)
+		{
+			TADD_ERROR(ERR_TAB_TABLE_NUM_EXCEED_MAX,"Too Many Table Operating On One Link.");
+			return ERR_TAB_TABLE_NUM_EXCEED_MAX;
+		}
+
+		//begin  拷贝索引部分信息
+		strncpy(pLink->m_AllTableIndexInfo[iPos].sTableName, m_pAttachTable->sTableName, MAX_NAME_LEN);
+		for(int j=0; j<MAX_INDEX_COUNTS; j++)
+		{
+			if(m_arrTableIndex[j].bInit)
+			{
+				pLink->m_AllTableIndexInfo[iPos].arrLinkIndex[j].bInit = true;
+				strncpy(pLink->m_AllTableIndexInfo[iPos].arrLinkIndex[j].sName, m_arrTableIndex[j].pIndexInfo->sName, MAX_NAME_LEN);
+				pLink->m_AllTableIndexInfo[iPos].arrLinkIndex[j].iAlgoType = m_arrTableIndex[j].pIndexInfo->m_iAlgoType;
+			}
+			else
+			{
+				pLink->m_AllTableIndexInfo[iPos].arrLinkIndex[j].bInit = false;
+				continue;
+			}
+		}
+		//end 
+		
+	}
+
+	m_pLink = pLink;
+	m_tHashIndex.SetLink(pLink);
+	m_tMHashIndex.SetLink(pLink);
+	m_tTrieIndex.SetLink(pLink);
+	return iRet;
+}
 
 int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
     {
@@ -871,7 +930,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
                 return -1;
             }
             
-            iRet = m_tHashIndex.InsertIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+            iRet = m_tHashIndex.InsertIndexNode(iIndexPos,tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
         {
@@ -994,7 +1053,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
             tNewRowIndex.Clear();
             tNewRowIndex.iBaseIndexPos = llNewValue;
             
-            iRet = m_tHashIndex.UpdateIndexNode( tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+            iRet = m_tHashIndex.UpdateIndexNode(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
             
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1255,7 +1314,8 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
         m_pMdbDsn = pMdbShmDsn->GetInfo();
         CHECK_OBJ(m_pMdbDsn);
         CHECK_RET(m_tHashIndex.AttachDsn(pMdbShmDsn),"hash attach failed...");
-        CHECK_RET(m_tMHashIndex.AttachDsn(pMdbShmDsn),"hash attach failed...");
+        CHECK_RET(m_tMHashIndex.AttachDsn(pMdbShmDsn),"mhash attach failed...");
+        CHECK_RET(m_tTrieIndex.AttachDsn(pMdbShmDsn),"trie attach failed...");
         return iRet;
     }
 

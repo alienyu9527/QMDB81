@@ -31,6 +31,235 @@
         iRet = ERROR_UNKNOWN;\
     }
 
+/******************************************************************************
+* 函数名称	:  CalcNextExecDate
+* 函数描述	:  计算下一次执行的时间
+* 输入		:  pJob -  待计算的job
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  jin.shaohua
+*******************************************************************************/
+int CalcNextExecDate(TMdbJob * pJob)
+{
+	TADD_FUNC("Start.");
+	int iRet = 0;
+	char sCurTime[MAX_TIME_LEN] = {0};
+	TMdbDateTime::GetCurrentTimeStr(sCurTime);
+	if(TMdbDateTime::GetDiffSeconds(sCurTime,pJob->m_sExecuteDate) < 0)
+	{//未来的某个时间点才执行
+		memcpy(pJob->m_sNextExecuteDate,pJob->m_sExecuteDate,MAX_TIME_LEN);
+		return 0;
+	}
+	else if(0 == pJob->m_sNextExecuteDate[0])
+	{		
+		memcpy(pJob->m_sNextExecuteDate,pJob->m_sExecuteDate,MAX_TIME_LEN);
+		//从起始时间开始计算，直到找到当前时间之后的时间点
+		while(TMdbDateTime::GetDiffSeconds(sCurTime,pJob->m_sNextExecuteDate) >= 0)
+		{
+			AddOneTimeInterval(pJob);
+		}
+	}
+	else
+	{
+		AddOneTimeInterval(pJob);
+	}
+	
+	TADD_FUNC("Finish");
+	return iRet;
+}
+
+
+int AddOneTimeInterval(TMdbJob * pJob)
+{
+	int iRet = 0;
+	CHECK_OBJ(pJob);
+	switch(pJob->m_iRateType)
+	{
+		case JOB_PER_YEAR:
+			{
+				TMdbDateTime::AddYears(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		case JOB_PER_MONTH:
+			{
+				TMdbDateTime::AddMonths(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		case JOB_PER_DAY:
+			{
+				TMdbDateTime::AddDay(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		case JOB_PER_HOUR:
+			{
+				TMdbDateTime::AddHours(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		case JOB_PER_MIN:
+			{
+				TMdbDateTime::AddMins(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		case JOB_PER_SEC:
+			{
+				TMdbDateTime::AddSeconds(pJob->m_sNextExecuteDate,pJob->m_iInterval);
+			}
+			break;
+		default:
+			CHECK_RET(ERR_APP_INVALID_PARAM,"error ratetype[%d]",pJob->m_iRateType);
+			break;
+	}
+
+	return iRet;
+}
+
+
+
+
+/******************************************************************************
+* 函数名称	:  
+* 函数描述	:  
+* 输入		:  
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  dong.chun
+*******************************************************************************/
+TMdbJobThread::TMdbJobThread()
+{
+    m_pQuery = NULL;
+	m_pJob = NULL;
+}
+
+/******************************************************************************
+* 函数名称	:  
+* 函数描述	:  
+* 输入		:  
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  dong.chun
+*******************************************************************************/
+TMdbJobThread::~TMdbJobThread()
+{
+    SAFE_DELETE(m_pQuery);
+}
+
+/******************************************************************************
+* 函数名称	:  Start
+* 函数描述	:  初始化和启动线程
+* 输入		:  
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  dong.chun
+*******************************************************************************/
+int TMdbJobThread::Start(const char* sDsn, TMdbJob* pJob)
+{
+    int iRet = 0;
+    CHECK_OBJ(pJob);
+    CHECK_OBJ(sDsn);
+	m_pJob = pJob;
+	m_sDsn = sDsn;
+	
+    SetThreadInfo(this,1024*1024*20);   
+    CHECK_RET(Run(NULL),"Run Thread faild.");
+    return iRet;
+}
+
+/******************************************************************************
+* 函数名称	:  svc
+* 函数描述	:  初始化和启动线程
+* 输入		:  
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  dong.chun
+*******************************************************************************/
+int TMdbJobThread::svc()
+{
+    int iRet = 0;
+
+	//重连
+	m_tDB.Disconnect();
+	TMdbConfig * pConfig = TMdbConfigMgr::GetMdbConfig(m_sDsn);
+	CHECK_OBJ(pConfig);
+	TMDbUser * pUser = pConfig->GetUser(0);
+	CHECK_OBJ(pUser);		
+	if(false == m_tDB.Connect(pUser->sUser,pUser->sPwd,m_sDsn))
+	{
+		CHECK_RET(ERR_DB_LOCAL_CONNECT,"connect mdb by[%s/******@%s] failed.",pUser->sUser,m_sDsn);
+	}
+	
+	SAFE_DELETE(m_pQuery);
+    m_pQuery = m_tDB.CreateDBQuery();
+    CHECK_OBJ(m_pQuery);
+
+	
+    do
+    {
+        TADD_NORMAL("Start Do Job [%s]",m_pJob->m_sSQL);
+        m_pJob->StateToRunning();//切换状态到执行态
+        CHECK_RET_BREAK(DoJob(m_pJob),"Do Job Faild[%s]",m_pJob->m_sSQL);
+		if(m_pJob->GetStat() == JOB_STATE_PAUSE)
+		{
+			TADD_NORMAL("Job %s Get Pause Signal.",m_pJob->m_sName);
+		}
+        m_pJob->StateToWait();//切换状态到等待态
+        TADD_NORMAL("Finish Do Job [%s]",m_pJob->m_sSQL);
+    }while(0);
+
+	
+    return iRet;
+}
+
+/******************************************************************************
+* 函数名称	:  DoJob
+* 函数描述	:  处理job
+* 输入		:  
+* 输入		:  
+* 输出		:  
+* 返回值	:  0 - 成功!0 -失败
+* 作者		:  jin.shaohua
+*******************************************************************************/
+int TMdbJobThread::DoJob(TMdbJob * pJob)
+{
+    TADD_FUNC("Start.");
+    int iRet = 0;
+    CHECK_OBJ(pJob);
+    _TRY_CATCH_BEGIN_
+    CHECK_OBJ(m_pQuery);
+    m_pQuery->Close();
+    m_pQuery->SetSQL(pJob->m_sSQL);
+	pJob->SetStopFlag(0);
+
+	//设置query取消点
+	m_pQuery->SetCancelPoint(&(pJob->m_iStop));
+	
+    //不执行select
+    if(TK_SELECT == m_pQuery->GetSQLType())
+    {
+        TADD_ERROR(-1,"do not execute select sql[%s].",pJob->m_sSQL);
+    }
+    else
+    {
+        m_pQuery->Execute();
+        m_pQuery->Commit();
+    }
+    _TRY_CATCH_END_
+    if(0 == pJob->m_iExcCount)
+    {//首次执行,记录首次执行时间
+        SAFESTRCPY(pJob->m_sStartTime,sizeof(pJob->m_sStartTime),pJob->m_sNextExecuteDate);
+    }
+    pJob->m_iExcCount ++;
+	CalcNextExecDate(pJob);
+	
+    TADD_FUNC("Finish.");
+    return iRet;
+}
+
+
     /******************************************************************************
     * 函数名称	:  
     * 函数描述	:  
@@ -43,8 +272,10 @@
     TMdbJobCtrl::TMdbJobCtrl():
     m_pShmDsn(NULL)
     {
-        m_pQuery = NULL;
-        m_pDelQuery = NULL;
+		for(int i = 0; i<MAX_THREAD_COUNTS;i++)
+	    {
+	        m_pJobThreadPool[i] = NULL;
+	    }
     }
     /******************************************************************************
     * 函数名称	:  
@@ -57,8 +288,10 @@
     *******************************************************************************/
     TMdbJobCtrl::~TMdbJobCtrl()
     {
-        SAFE_DELETE(m_pQuery);
-        SAFE_DELETE(m_pDelQuery);
+		for(int i = 0; i<MAX_THREAD_COUNTS;i++)
+	    {
+	        SAFE_DELETE(m_pJobThreadPool[i]);
+	    }
     }
     /******************************************************************************
     * 函数名称	:  Init
@@ -125,204 +358,76 @@
     int TMdbJobCtrl::StartJob()
     {
         TADD_FUNC("Start.");
-        int iRet = 0;
-        CHECK_OBJ(m_pShmDsn);
-        //进行首次计算处理
-        TShmList<TMdbJob>::iterator itorMem = m_pShmDsn->m_JobList.begin();
-        for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
-        {
-            TMdbJob * pJob = &(*itorMem);
-            if(pJob->IsValid())
-            {
-                CalcNextExecDate(pJob);
-            }
-        }
-        TADD_NORMAL("after scan job");
-        //链接数据库
-        CHECK_RET(ConnectMDB(m_pShmDsn->GetInfo()->sName),"connect mdb failed.");
-        //循环处理
-        while(1)
-        {
-            m_tProcCtrl.UpdateProcHeart(0);//心跳处理
-            if(m_tProcCtrl.IsCurProcStop())
-            {
-                TADD_NORMAL("Get exit msg....");
-                break;
-            }
-            //处理所有job
-            char sCurTime[MAX_TIME_LEN] = {0};
-            TMdbDateTime::GetCurrentTimeStr(sCurTime);
-            itorMem = m_pShmDsn->m_JobList.begin();
-            for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
-            {
-                TMdbJob * pJob = &(*itorMem);
-                if(pJob->IsValid() && TMdbDateTime::GetDiffSeconds(pJob->m_sNextExecuteDate,sCurTime) < 0)
-                {//需要执行
-                    pJob->StateToRunning();//切换状态到执行态
-                    DoJob(pJob);
-                    CalcNextExecDate(pJob);//计算下一次执行时间
-                    pJob->StateToWait();//切换状态到等待态
-                    m_tProcCtrl.UpdateProcHeart(0);
-                }
-            }
-            TMdbDateTime::Sleep(1);//休息
-        }
-        TADD_FUNC("Finish");
-        return iRet;
-    }
-    /******************************************************************************
-    * 函数名称	:  CalcNextExecDate
-    * 函数描述	:  计算下一次执行的时间
-    * 输入		:  pJob -  待计算的job
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    int TMdbJobCtrl::CalcNextExecDate(TMdbJob * pJob)
-    {
-        TADD_FUNC("Start.");
-        int iRet = 0;
-        char sCurTime[MAX_TIME_LEN] = {0};
-        TMdbDateTime::GetCurrentTimeStr(sCurTime);
-        if(TMdbDateTime::GetDiffSeconds(sCurTime,pJob->m_sExecuteDate) < 0)
-        {//未来的某个时间点才执行
-            memcpy(pJob->m_sNextExecuteDate,pJob->m_sExecuteDate,MAX_TIME_LEN);
-            return 0;
-        }
-		else if(0 == pJob->m_sNextExecuteDate[0])
-	    {    	
-	        memcpy(pJob->m_sNextExecuteDate,pJob->m_sExecuteDate,MAX_TIME_LEN);
-			//从起始时间开始计算，直到找到当前时间之后的时间点
-			while(TMdbDateTime::GetDiffSeconds(sCurTime,pJob->m_sNextExecuteDate) >= 0)
+	    int iRet = 0;
+	    int iCount = 0;
+	    CHECK_OBJ(m_pShmDsn);
+		//首次计算
+	    TShmList<TMdbJob>::iterator itorMem = m_pShmDsn->m_JobList.begin();
+	    for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
+	    {
+	        TMdbJob * pJob = &(*itorMem);
+	        if(pJob->IsValid())
+	        {
+	            CalcNextExecDate(pJob);
+				pJob->StateToWait();
+	        }
+	    }
+
+		int iSleepCount = 0;
+	    //循环处理
+	    while(1)
+	    {
+	        m_tProcCtrl.UpdateProcHeart(0);//心跳处理
+	        if(m_tProcCtrl.IsCurProcStop())
+	        {
+	            TADD_NORMAL("Get exit msg....");
+	            break;
+	        }
+	        char sCurTime[MAX_TIME_LEN] = {0};
+	        TMdbDateTime::GetCurrentTimeStr(sCurTime);
+	        //处理所有job
+	        itorMem = m_pShmDsn->m_JobList.begin();
+	        for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
+	        {
+	            TMdbJob * pJob = &(*itorMem);
+				
+				//只会执行等待状态的job
+	            if(pJob->IsValid() && pJob->IsWaiting() 
+					&& TMdbDateTime::GetDiffSeconds(pJob->m_sNextExecuteDate,sCurTime) < 0)
+	            {
+	                TMdbJobThread* pMdbJob = GetJobThread();
+	                CHECK_OBJ(pMdbJob);
+	                if(pMdbJob->Start(m_pShmDsn->GetInfo()->sName, pJob) != 0)
+	                {
+	                    TADD_ERROR(-1,"Start Thread Faild");
+	                }
+	            }
+	        }
+	        m_tProcCtrl.UpdateProcHeart(0);
+	        TMdbDateTime::MSleep(1000);//休息
+	        iSleepCount++;
+	        //输出线程池中正在工作的线程个数
+	        iCount = 0;
+	        for(int i = 0; i<MAX_THREAD_COUNTS;i++)
+	        {
+	            if(m_pJobThreadPool[i] != NULL)
+	            {
+	                if(m_pJobThreadPool[i]->GetTID() != -1)
+	                {
+	                    iCount++;
+	                }
+	            }
+	        }
+			if(iSleepCount >= 30)
 			{
-				AddOneTimeInterval(pJob);
+				iSleepCount = 0;
+	    		TADD_NORMAL("Current ThreadCount = [%d]",iCount);
 			}
 	    }
-		else
-		{
-			AddOneTimeInterval(pJob);
-		}
-        
-        TADD_FUNC("Finish");
-        return iRet;
+	    TADD_FUNC("Finish");
+	    return iRet;
     }
 
-
-	int TMdbJobCtrl::AddOneTimeInterval(TMdbJob * pJob)
-	{
-		int iRet = 0;
-		CHECK_OBJ(pJob);
-		switch(pJob->m_iRateType)
-		{
-			case JOB_PER_YEAR:
-				{
-					TMdbDateTime::AddYears(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			case JOB_PER_MONTH:
-				{
-					TMdbDateTime::AddMonths(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			case JOB_PER_DAY:
-				{
-					TMdbDateTime::AddDay(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			case JOB_PER_HOUR:
-				{
-					TMdbDateTime::AddHours(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			case JOB_PER_MIN:
-				{
-					TMdbDateTime::AddMins(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			case JOB_PER_SEC:
-				{
-					TMdbDateTime::AddSeconds(pJob->m_sNextExecuteDate,pJob->m_iInterval);
-				}
-				break;
-			default:
-				CHECK_RET(ERR_APP_INVALID_PARAM,"error ratetype[%d]",pJob->m_iRateType);
-				break;
-		}
-
-		return iRet;
-	}
-	
-    /******************************************************************************
-    * 函数名称	:  DoJob
-    * 函数描述	:  处理job
-    * 输入		:  
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    int TMdbJobCtrl::DoJob(TMdbJob * pJob)
-    {
-        TADD_FUNC("Start.");
-        int iRet = 0;
-        CHECK_OBJ(pJob);
-        TADD_NORMAL("Try to do job[%s]",pJob->m_sSQL);
-        _TRY_CATCH_BEGIN_
-        CHECK_OBJ(m_pQuery);
-        m_pQuery->Close();
-        m_pQuery->SetSQL(pJob->m_sSQL);
-        //不执行select
-        if(TK_SELECT == m_pQuery->GetSQLType())
-        {
-            TADD_ERROR(ERROR_UNKNOWN,"do not execute select sql[%s]",pJob->m_sSQL);
-        }
-        else if(TK_DELETE == m_pQuery->GetSQLType())
-        {
-            DealDeleteTask(pJob->m_sSQL);
-        }
-        else
-        {
-            m_pQuery->Execute();
-            m_pQuery->Commit();
-        }
-        _TRY_CATCH_END_
-        if(0 == pJob->m_iExcCount)
-        {//首次执行,记录首次执行时间
-            SAFESTRCPY(pJob->m_sStartTime,sizeof(pJob->m_sStartTime),pJob->m_sNextExecuteDate);
-        }
-        pJob->m_iExcCount ++;
-        TADD_FUNC("Finish.");
-        return iRet;
-    }
-    /******************************************************************************
-    * 函数名称	:  ConnectMDB
-    * 函数描述	:  链接数据库
-    * 输入		:  
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    int TMdbJobCtrl::ConnectMDB(const char * sDsn)
-    {
-        int iRet = 0;
-        TMdbConfig * pConfig = TMdbConfigMgr::GetMdbConfig(sDsn);
-        CHECK_OBJ(pConfig);
-        TMDbUser * pUser = pConfig->GetUser(0);
-        CHECK_OBJ(pUser);
-        _TRY_CATCH_BEGIN_
-        if(false == m_tDB.Connect(pUser->sUser,pUser->sPwd,sDsn))
-        {//链接失败
-            CHECK_RET(ERR_APP_INVALID_PARAM,"connect mdb by[%s/******@%s] failed.",pUser->sUser,sDsn);
-        }
-        m_pQuery = m_tDB.CreateDBQuery();
-        CHECK_OBJ(m_pQuery);
-        m_pDelQuery = m_tDB.CreateDBQuery();
-        CHECK_OBJ(m_pDelQuery);
-        _TRY_CATCH_END_
-        return iRet;
-    }
     /******************************************************************************
     * 函数名称	:  AddNewJob
     * 函数描述	:  添加新job
@@ -392,143 +497,58 @@
         return iRet;
     }
 
-    /******************************************************************************
-    * 函数名称	:  DealDeleteTask
-    * 函数描述	:  删除任务操作
-    * 输入		:  pDelSQL -  删除sql
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  cao.peng
-    *******************************************************************************/
-    int TMdbJobCtrl::DealDeleteTask(const char*pDelSQL)
-    {
-        TADD_FUNC("Start.");
-        int iRet = 0;
-        int iDelCount = 0;
-        char sDelSQL[MAX_SQL_LEN] = {0};
-        char sSelSQL[MAX_SQL_LEN] = {0};
-		int iColumnNo = 0;
-        CHECK_OBJ(pDelSQL);
-        _TRY_CATCH_BEGIN_
-        CHECK_OBJ(m_pQuery);
-        TMdbTable * pTable = m_pQuery->m_pMdbSqlParser->m_stSqlStruct.pMdbTable;
-        CHECK_RET(GenSelctSQLByDelSQL(pTable,pDelSQL,sSelSQL,MAX_SQL_LEN),"Failed to get query SQL.");
-        CHECK_RET(GenDelSQL(pTable,sDelSQL,MAX_SQL_LEN),"Failed to get the delete SQL.");
-        m_pQuery->Close();
-        m_pDelQuery->Close();
-        m_pQuery->SetSQL(sSelSQL);
-        m_pDelQuery->SetSQL(sDelSQL);
-        m_pQuery->Open();
-        while(m_pQuery->Next())
-        {
-            iDelCount++;
-			iColumnNo = 0;
-            for(int i= 0;i<m_pQuery->FieldCount();i++)
-            {
-                if(m_pQuery->Field(i).isNULL())
-                {
-                    m_pDelQuery->SetParameterNULL(i);
-                }
-                iColumnNo = pTable->m_tPriKey.iColumnNo[i];
-                if(pTable->tColumn[iColumnNo].iDataType == DT_Int)
-                {
-                    m_pDelQuery->SetParameter(i,m_pQuery->Field(i).AsInteger());
-                }
-                else
-                {
-                    m_pDelQuery->SetParameter(i,m_pQuery->Field(i).AsString());
-                }
-        	}
-            m_pDelQuery->Execute();
-            if(iDelCount%10000 == 0)
-            {
-               m_pDelQuery->Commit();
-               m_tProcCtrl.UpdateProcHeart(0);
-            }
-        }
-        if(iDelCount%10000 != 0)
-        {
-            m_pDelQuery->Commit();
-        }
-        _TRY_CATCH_END_
-        TADD_FUNC("Finish.");
-        return iRet;
-    }
 
-    /******************************************************************************
-    * 函数名称	:  GenSelctSQLByDelSQL
-    * 函数描述	:  通过执行job任务sql获取反查sql
-    * 输入		:  
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  cao.peng
-    *******************************************************************************/
-    int TMdbJobCtrl::GenSelctSQLByDelSQL(TMdbTable * pTable,const char*pDelSQL,char *pSSQL,const int iLen)
+	//中断正在运行的job
+    int TMdbJobCtrl::SetCancel(const char* pJobName)
     {
-        TADD_FUNC("Start.");
-        int iRet = 0;
-        CHECK_OBJ(pTable);
-        CHECK_OBJ(pDelSQL);
-        snprintf(pSSQL,iLen,"%s","select ");
-        for(int i=0; i<pTable->m_tPriKey.iColumnCounts; ++i)
+		TShmList<TMdbJob>::iterator itorMem = m_pShmDsn->m_JobList.begin();
+        for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
         {
-            int iColumnNo = pTable->m_tPriKey.iColumnNo[i];
-            if(i == 0)
+            if(TMdbNtcStrFunc::StrNoCaseCmp(pJobName,itorMem->m_sName) == 0)
             {
-                snprintf(pSSQL+strlen(pSSQL),iLen-strlen(pSSQL)," %s", pTable->tColumn[iColumnNo].sName);
-            }
-            else
-            {
-                snprintf(pSSQL+strlen(pSSQL),iLen-strlen(pSSQL),",%s", pTable->tColumn[iColumnNo].sName);
-            }
+				if(itorMem->GetStat() != JOB_STATE_RUNNING)
+				{
+					printf("Job %s is not running now.\n",pJobName);
+					return -1;
+				}
+				else
+				{
+					itorMem->SetStopFlag(1);
+					itorMem->SetStat(JOB_STATE_PAUSE);					
+					return 0;
+				}
+			}
         }
-        snprintf(pSSQL+strlen(pSSQL),iLen-strlen(pSSQL)," from %s ",pTable->sTableName);
-        //获取删除SQL中的where条件
-        char pTmpSQL[MAX_SQL_LEN] = {0};
-        SAFESTRCPY(pTmpSQL, MAX_SQL_LEN, pDelSQL);
-        TMdbNtcStrFunc::ToUpper(pTmpSQL);
-        int iPos = TMdbNtcStrFunc::FindString(pTmpSQL,"WHERE");
-        if(iPos >= 0)
-        {
-            snprintf(pSSQL+strlen(pSSQL),iLen-strlen(pSSQL)," %s ",pTmpSQL+iPos);
-        }
-        TADD_FUNC("Finish.");
-        return iRet;
-    }
 
-    /******************************************************************************
-    * 函数名称	:  GenDelSQL
-    * 函数描述	:  获取删除SQL
-    * 输入		:  
-    * 输入		:  
-    * 输出		:  
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  cao.peng
-    *******************************************************************************/
-    int TMdbJobCtrl::GenDelSQL(TMdbTable * pTable,char *pDelSQL,const int iLen)
-    {
-        TADD_FUNC("Start.");
-        int iRet = 0;
-        CHECK_OBJ(pTable);
-        snprintf(pDelSQL,iLen,"delete from %s where ",pTable->sTableName);
-        for(int i=0; i<pTable->m_tPriKey.iColumnCounts; ++i)
-        {
-            int iColumnNo = pTable->m_tPriKey.iColumnNo[i];
-            if(i == 0)
-            {
-                snprintf(pDelSQL+strlen(pDelSQL),iLen-strlen(pDelSQL),"%s=:%s",\
-                    pTable->tColumn[iColumnNo].sName, pTable->tColumn[iColumnNo].sName);
-            }
-            else
-            {
-                snprintf(pDelSQL+strlen(pDelSQL),iLen-strlen(pDelSQL)," and %s=:%s",\
-                    pTable->tColumn[iColumnNo].sName, pTable->tColumn[iColumnNo].sName);
-            }
-        }
-        TADD_FUNC("Finish.");
-        return iRet;
-    }
+		printf("Cannot find Job %s\n",pJobName);
+		return -1;
+
+	}
+
+	TMdbJobThread* TMdbJobCtrl::GetJobThread()
+	{
+	    int i = 0;
+	    for(; i<MAX_THREAD_COUNTS;i++)
+	    {
+	        if(m_pJobThreadPool[i] != NULL)
+	        {
+	            if(m_pJobThreadPool[i]->GetTID() == -1)
+	            {
+	                return m_pJobThreadPool[i];
+	            }
+	        }
+	        else
+	        {
+	            m_pJobThreadPool[i] = new TMdbJobThread();
+	            return m_pJobThreadPool[i];
+	        }
+	    }
+
+	    if(i >= MAX_THREAD_COUNTS)
+	    {
+	        TADD_ERROR(-1,"thread pool = MAX_THREAD_COUNTS");
+	    }
+	    return NULL;
+	}
 //}
 

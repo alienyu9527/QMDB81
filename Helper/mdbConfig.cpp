@@ -2099,23 +2099,14 @@
 
 
         //设置表中的索引信息
-        m_pTable[iTableIndex]->iIndexCounts = 2;
+        m_pTable[iTableIndex]->iIndexCounts = 1;
 
         m_pTable[iTableIndex]->tIndex[0].Clear();
-        //strcpy(m_pTable[iTableID]->tIndex[0].sName, "dba_table_id");
-        SAFESTRCPY(m_pTable[iTableIndex]->tIndex[0].sName,sizeof(m_pTable[iTableIndex]->tIndex[0].sName),"dba_table_id");
+        SAFESTRCPY(m_pTable[iTableIndex]->tIndex[0].sName,sizeof(m_pTable[iTableIndex]->tIndex[0].sName),"dba_table_name");
         m_pTable[iTableIndex]->tIndex[0].m_iAlgoType = INDEX_HASH;
         m_pTable[iTableIndex]->tIndex[0].m_iIndexType = HT_Int;
         m_pTable[iTableIndex]->tIndex[0].iColumnNo[0] = 0;
         m_pTable[iTableIndex]->tIndex[0].iPriority = 1;
-
-        m_pTable[iTableIndex]->tIndex[1].Clear();
-        //strcpy(m_pTable[iTableID]->tIndex[1].sName, "dba_table_name");
-        SAFESTRCPY(m_pTable[iTableIndex]->tIndex[1].sName,sizeof(m_pTable[iTableIndex]->tIndex[1].sName),"dba_table_name");
-        m_pTable[iTableIndex]->tIndex[1].m_iAlgoType = INDEX_HASH;
-        m_pTable[iTableIndex]->tIndex[1].m_iIndexType = HT_Int;
-        m_pTable[iTableIndex]->tIndex[1].iColumnNo[0] = 1;
-        m_pTable[iTableIndex]->tIndex[1].iPriority = 1;
 
         //设置表中的主键信息
         m_pTable[iTableIndex]->m_tPriKey.iColumnCounts = 1;

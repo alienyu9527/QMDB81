@@ -37,9 +37,16 @@ using namespace std;
     	}
     	TMdbThreadBase* pThread = (TMdbThreadBase*)p;
     	pThread->svc();
+		pThread->Clean();
     	return 0;
     }
 
+	void TMdbThreadBase::Clean()
+    {
+        m_iTID = -1; 
+        m_lpVoid = NULL;  
+        m_iStack = -1;
+    }
 
     TMdbThreadBase::TMdbThreadBase()
     {
