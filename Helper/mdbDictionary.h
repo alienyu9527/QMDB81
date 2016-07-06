@@ -541,6 +541,8 @@ public:
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iConflictMgrPos;         //冲突管理区的pos
         int  iConflictIndexPos;     //冲突索引pos
+        int iMutexMgrPos;
+        int iMutexPos;
     };
 
 
@@ -858,15 +860,20 @@ public:
     SHAMEM_T iVarCharShmID[MAX_VARCHAR_SHM_ID];
     long long iVarCharShmKey[MAX_VARCHAR_SHM_ID];  //因为ShmID会随着系统的变化而变化，而Key是唯一的
 
-    //基础索引段
+    //HASH基础索引段
     int iBaseIndexShmCounts;          
     SHAMEM_T iBaseIndexShmID[MAX_SHM_ID];
     int iBaseIndexShmKey[MAX_SHM_ID]; //因为ShmID会随着系统的变化而变化，而Key是唯一的
     
-    //冲突索引段
+    //HASH冲突索引段
     int iConflictIndexShmCounts;          //冲突索引的个数
     SHAMEM_T iConflictIndexShmID[MAX_SHM_ID];
     int iConflictIndexShmKey[MAX_SHM_ID]; //因为ShmID会随着系统的变化而变化，而Key是唯一的
+
+	// HASH  锁段
+    int iHashMutexShmCnt;  //hash索引基础索引段个数
+    SHAMEM_T iHashMutexShmID[MAX_SHM_ID]; // hash索引基础索引段shmid
+    int iHashMutexShmKey[MAX_SHM_ID]; // hash索引基础索引段shmkey
 
     TMdbSyncArea m_arrSyncArea;//同步区
 

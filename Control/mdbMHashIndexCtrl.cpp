@@ -1722,19 +1722,19 @@
     int TMdbMHashIndexCtrl::CalcBaseMutexCount(int iBaseCont)
     {
         int iRet = 1;// at least 1
-        
-        if(iBaseCont < 100000)
-        {
-            iRet = 5000;
-        }
-        else if(iBaseCont>= 100000 && iBaseCont < 1000000)
-        {
-            iRet = 10000;
-        }
-        else if(iBaseCont >= 1000000)
-        {
-            iRet = 100000;
-        }
+				
+		if(iBaseCont < 9973)
+		{
+			iRet = iBaseCont;
+		}
+		else if(iBaseCont>= 9973 && iBaseCont < 99991)
+		{
+			iRet = 9973;
+		}
+		else if(iBaseCont >= 99991)
+		{
+			iRet = 99991;
+		}
         
         return iRet;
     }

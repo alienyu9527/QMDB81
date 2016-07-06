@@ -223,19 +223,27 @@
     int TMdbShmDSN::ReAttachIndex()
     {
         int iRet = 0;
-        //连接基础索引区
+        //连接hash基础索引区
         for(int i=0; i<m_pTMdbDSN->iBaseIndexShmCounts; ++i)
         {
             CHECK_RET(TMdbShm::AttachByID(m_pTMdbDSN->iBaseIndexShmID[i], m_pBaseIndexShmAddr[i]),
                       "Can't attach BaseIndexShm=%d(0x%0x).",m_pTMdbDSN->iBaseIndexShmID[i], m_pTMdbDSN->iBaseIndexShmID[i]);
             TADD_DETAIL("iBaseIndexShmID[%d]=[%d], ShmAddr=%p.", i, m_pTMdbDSN->iBaseIndexShmID[i], m_pBaseIndexShmAddr[i]);
         }
-        //连接冲突索引
+        //连接hash冲突索引
         for(int i=0; i<m_pTMdbDSN->iConflictIndexShmCounts; ++i)
         {
             CHECK_RET(TMdbShm::AttachByID(m_pTMdbDSN->iConflictIndexShmID[i], m_pConflictIndexShmAddr[i]),
                       "Can't attach ConflictIndexShm=%d(0x%0x).",m_pTMdbDSN->iConflictIndexShmID[i], m_pTMdbDSN->iConflictIndexShmID[i]);
             TADD_DETAIL("iConflictIndexShmID[%d]=[%d], ShmAddr=%p.", i, m_pTMdbDSN->iConflictIndexShmID[i], m_pConflictIndexShmAddr[i]);
+        }
+		
+		// 连接hash索引锁区
+        for(int i=0; i<m_pTMdbDSN->iHashMutexShmCnt; ++i)
+        {
+            CHECK_RET(TMdbShm::AttachByID(m_pTMdbDSN->iHashMutexShmID[i], m_pHashMutexShmAddr[i]),
+                      "Can't attach M-Hash MutexShm=%d(0x%0x).",m_pTMdbDSN->iMHashMutexShmID[i], m_pTMdbDSN->iMHashMutexShmID[i]);
+            TADD_DETAIL("iMHashMutexShmID[%d]=[%d], ShmAddr=%p.", i, m_pTMdbDSN->iMHashMutexShmID[i], m_pMHashMutexShmAddr[i]);
         }
 
         // 连接阶梯式索引基础索引区
@@ -732,16 +740,21 @@
             //数据块
             m_pTMdbDSN->iShmKey[i] = m_iMgrKey + 37*i + 1;
             m_pTMdbDSN->iShmID[i]  = INITVAl;
-            //基础索引
+			
+            //hash基础索引
             m_pTMdbDSN->iBaseIndexShmKey[i] = m_iMgrKey + 37*i + 2;
             m_pTMdbDSN->iBaseIndexShmID[i]  = INITVAl;
-            //冲突索引
+            //hash冲突索引
             m_pTMdbDSN->iConflictIndexShmKey[i] = m_iMgrKey + 37*i + 3;
             m_pTMdbDSN->iConflictIndexShmID[i]  = INITVAl;
-            // 阶梯式索引
+			//Hash Mutex
+			m_pTMdbDSN->iHashMutexShmKey[i] = m_iMgrKey + 37*i + 15;
+            m_pTMdbDSN->iHashMutexShmID[i] = INITVAl;
+			
+            // Mhash基础索引
             m_pTMdbDSN->iMHashBaseIdxShmKey[i] = m_iMgrKey + 37*i + 4;
             m_pTMdbDSN->iMHashBaseIdxShmID[i] = INITVAl;
-
+			//Mhash Mutex
             m_pTMdbDSN->iMHashMutexShmKey[i] = m_iMgrKey + 37*i + 5;
             m_pTMdbDSN->iMHashMutexShmID[i] = INITVAl;
             
@@ -1270,6 +1283,14 @@
     {
         if(iPos>=0 && iPos<MAX_SHM_ID)
             return  m_pConflictIndexShmAddr[iPos];
+        else
+            return NULL;
+    }
+
+	char* TMdbShmDSN::GetHashMutex(int iPos)
+    {
+        if(iPos>=0 && iPos<MAX_SHM_ID)
+            return  m_pHashMutexShmAddr[iPos];
         else
             return NULL;
     }

@@ -1219,6 +1219,7 @@
         iShmCounts = 0;
         iBaseIndexShmCounts = 0;
         iConflictIndexShmCounts = 0;
+		iHashMutexShmCnt = 0;
         iMHashBaseIdxShmCnt = 0;
         iMHashMutexShmCnt = 0;
         iMHashConfIdxShmCnt = 0;
@@ -1233,14 +1234,15 @@
             iBaseIndexShmID[i] = INITVAl;
             iConflictIndexShmID[i] = INITVAl;
             iMHashBaseIdxShmID[i] = INITVAl;
-            iMHashMutexShmID[i]=INITVAl;
+            iMHashMutexShmID[i]=INITVAl;			
+            iHashMutexShmID[i]=INITVAl;
             
             iShmKey[i] = INITVAl;   
             iBaseIndexShmKey[i]     = INITVAl;
             iConflictIndexShmKey[i] = INITVAl;
             iMHashBaseIdxShmKey[i] = INITVAl;
             iMHashMutexShmKey[i] = INITVAl;
-            
+            iHashMutexShmKey[i] = INITVAl;
         }
 
         iMhashConfMgrShmId = INITVAl;

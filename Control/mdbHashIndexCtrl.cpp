@@ -151,54 +151,68 @@
         int iRet = 0;
         TMdbIndexNode * pBaseNode = &(tTableHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
         tRowIndex.iPreIndexPos       = -1;
-        if(pBaseNode->tData.IsEmpty())
-        {
-            //基础索引链上没有值
-            TADD_DETAIL("Row can insert BaseIndex.");
-            pBaseNode->tData = rowID;
-            tRowIndex.iConflictIndexPos = -1;
-        }
-        else
-        {
-        	TMdbSingleTableIndexInfo* pTableIndexInfo = m_pLink->FindCurTableIndex(m_pAttachTable->sTableName);
-			ST_LINK_INDEX_INFO &tLinkIndexInfo = pTableIndexInfo->arrLinkIndex[iIndexPos];
 
-			int iTry = 3;
-			do
-			{
-				if(tLinkIndexInfo.iHashCFreeHeadPos>= 0)
-	            {
-	                //还有空闲冲突节点, 对冲突链进行头插
-	                int iFreePos = tLinkIndexInfo.iHashCFreeHeadPos;
-	                TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);//空闲冲突节点
-	                pFreeNode->tData = rowID;//放入数据
-	                tLinkIndexInfo.iHashCFreeHeadPos = pFreeNode->iNextPos;
-	                pFreeNode->iNextPos  = pBaseNode->iNextPos;
-	                pBaseNode->iNextPos  = iFreePos;
-	                tLinkIndexInfo.iHashCFreeNodeCounts --;//剩余节点数-1
-	                tRowIndex.iConflictIndexPos = iFreePos;//在冲突链上某位置
-	                break;
-	            }
-	            else
-	            {
-	            	//链接上的冲突节点不够，从表申请
-	            	iRet = GetFreeConflictNode(tLinkIndexInfo, tTableHashIndex);
+		int iMutexPos = tRowIndex.iBaseIndexPos % tTableHashIndex.pMutex->iMutexCnt;
+        TMutex* pMutex = &(tTableHashIndex.pMutexNode[iMutexPos]);
 
-					if(iRet!=0){iTry--;}
-					
-					//最多尝试三次，要是还申请不到，就报错
-					if(iTry < 0)
-					{
-		                TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
-		                           tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),
-		                           m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
-		                PrintIndexInfo(tTableHashIndex,0,false);
-		                iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
-						break;
-					}
-	            }
-			}while(1);	
+		
+		CHECK_RET(pMutex->Lock(true),"lock failed.");
+        do
+        {
+		    if(pBaseNode->tData.IsEmpty())
+		    {
+		        //基础索引链上没有值
+		        TADD_DETAIL("Row can insert BaseIndex.");
+		        pBaseNode->tData = rowID;
+		        tRowIndex.iConflictIndexPos = -1;
+		    }
+		    else
+		    {
+		    	TMdbSingleTableIndexInfo* pTableIndexInfo = m_pLink->FindCurTableIndex(m_pAttachTable->sTableName);
+				CHECK_OBJ(pTableIndexInfo);
+				
+				ST_LINK_INDEX_INFO &tLinkIndexInfo = pTableIndexInfo->arrLinkIndex[iIndexPos];
+
+				int iTry = 3;
+				do
+				{
+					if(tLinkIndexInfo.iHashCFreeHeadPos>= 0)
+		            {
+		                //还有空闲冲突节点, 对冲突链进行头插
+		                int iFreePos = tLinkIndexInfo.iHashCFreeHeadPos;
+		                TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);//空闲冲突节点
+		                pFreeNode->tData = rowID;//放入数据
+		                tLinkIndexInfo.iHashCFreeHeadPos = pFreeNode->iNextPos;
+		                pFreeNode->iNextPos  = pBaseNode->iNextPos;
+		                pBaseNode->iNextPos  = iFreePos;
+		                tLinkIndexInfo.iHashCFreeNodeCounts --;//剩余节点数-1
+		                tRowIndex.iConflictIndexPos = iFreePos;//在冲突链上某位置
+		                break;
+		            }
+		            else
+		            {
+		            	//链接上的冲突节点不够，从表申请
+		            	iRet = GetFreeConflictNode(tLinkIndexInfo, tTableHashIndex);
+
+						if(iRet!=0){iTry--;}
+						
+						//最多尝试三次，要是还申请不到，就报错
+						if(iTry < 0)
+						{
+			                TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
+			                           tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),
+			                           m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
+			                PrintIndexInfo(tTableHashIndex,0,false);
+			                iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
+							break;
+						}
+		            }
+				}while(1);	
+		    }
         }
+        while(0);
+        CHECK_RET(pMutex->UnLock(true), "unlock failed.");  
+		
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -622,6 +636,143 @@
         return 0;
     }
 
+	int TMdbHashIndexCtrl::CreateHashNewMutexShm(size_t iShmSize)
+    {
+        TADD_FUNC("Start.Size=[%lu].",iShmSize);
+        int iRet = 0;
+        if(MAX_SHM_ID == m_pMdbShmDsn->GetInfo()->iHashMutexShmCnt)
+        {
+            CHECK_RET(ERR_OS_NO_MEMROY,"can't create new shm,MAX_SHM_COUNTS[%d]",MAX_SHM_ID);
+        }
+        int iPos = m_pMdbDsn->iHashMutexShmCnt;
+        TADD_FLOW("Create mutexShm:[%d],mutex_key[0x%0x]",iPos,m_pMdbDsn->iHashMutexShmKey[iPos]);
+        CHECK_RET(TMdbShm::Create(m_pMdbDsn->iHashMutexShmKey[iPos], iShmSize, m_pMdbDsn->iHashMutexShmID[iPos]),
+                  " Can't Create mutexIndexShm errno=%d[%s].", errno, strerror(errno));
+        TADD_FLOW("Mutex_SHM_ID =[%d].SHM_SIZE=[%lu].",m_pMdbDsn->iHashMutexShmID[iPos],iShmSize);
+        TADD_NORMAL_TO_CLI(FMT_CLI_OK,"Create HashMutex IndexShm:[%d],size=[%luMB]",iPos,iShmSize/(1024*1024));
+        m_pMdbDsn->iHashMutexShmCnt ++;
+        CHECK_RET(m_pMdbShmDsn->ReAttachIndex(),"ReAttachIndex failed....");//对于新创建的shm获取新映射地址
+        //初始化索引区信息
+        TMdbHashMutexMgrInfo* pMutexMgr = (TMdbHashMutexMgrInfo*)m_pMdbShmDsn->GetHashMutex(iPos);// ->m_pBaseIndexShmAddr[iPos];
+        CHECK_OBJ(pMutexMgr);
+        pMutexMgr->iSeq = iPos;
+        int i = 0;
+        for(i = 0; i<MAX_MHASH_INDEX_COUNT; i++)
+        {
+            pMutexMgr->aBaseMutex[i].Clear();
+            pMutexMgr->tFreeSpace[i].Clear();
+        }
+        pMutexMgr->tFreeSpace[0].iPosAdd = sizeof(TMdbHashMutexMgrInfo);
+        pMutexMgr->tFreeSpace[0].iSize   = iShmSize - sizeof(TMdbHashMutexMgrInfo);
+
+        pMutexMgr->iCounts= 0;
+        pMutexMgr->iTotalSize   = iShmSize;
+        pMutexMgr->tMutex.Create();
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	int TMdbHashIndexCtrl::GetHashFreeMutexShm(MDB_INT64 iMutexSize,size_t iDataSize,ST_HASH_INDEX_INFO & stTableIndexInfo)
+    {
+        TADD_FUNC("Start.iMutexSize=[%lld].iDataSize=[%lu]",iMutexSize,iDataSize);
+        int iRet = 0;
+        if((size_t)iMutexSize > iDataSize - 10*1024*1024)
+        {
+            //所需空间太大一个内存块都不够放//预留10M空间
+            CHECK_RET(-1,"DataSize is[%luM],it's too small,must > [%lldM],please change it",
+                      iDataSize/1024/1024, iMutexSize/1024/1024);
+        }
+        bool bFind = false;
+        TMdbHashMutexMgrInfo* pMutexMgr     = NULL;
+        int i = 0;
+        for(i = 0; i < MAX_SHM_ID; i++)
+        {
+            pMutexMgr = (TMdbHashMutexMgrInfo*)m_pMdbShmDsn->GetHashMutex(i);
+            if(NULL ==  pMutexMgr ) //需要申请新的索引内存
+            {
+                CHECK_RET(CreateHashNewMutexShm(iDataSize),"CreateNewBIndexShm[%d]failed",i);
+                pMutexMgr = (TMdbHashMutexMgrInfo*)m_pMdbShmDsn->GetHashMutex(i);
+                CHECK_OBJ(pMutexMgr);
+            }
+            CHECK_RET(pMutexMgr->tMutex.Lock(true),"Lock Faild");
+            do
+            {
+                int j = 0;
+                TMdbHashBaseMutex* pMutex = NULL;
+                //搜寻可以放置索引信息的位置
+                for(j = 0; j<MAX_BASE_INDEX_COUNTS; j++)
+                {
+                    if('0' == pMutexMgr->aBaseMutex[j].cState)
+                    {
+                        //未创建的
+                        pMutex = &(pMutexMgr->aBaseMutex[j]);
+                        stTableIndexInfo.pBaseIndex->iMutexMgrPos= i;
+                        stTableIndexInfo.pBaseIndex->iMutexPos= j;
+                        stTableIndexInfo.iMutexPos= j;
+                        break;
+                    }
+                }
+                if(NULL == pMutex)
+                {
+                    break;   //没有空闲位置可以放索引信息
+                }
+                //搜寻是否还有空闲内存
+                for(j = 0; j<MAX_BASE_INDEX_COUNTS; j++)
+                {
+                    if(pMutexMgr->tFreeSpace[j].iPosAdd >0)
+                    {
+                        TMDBIndexFreeSpace& tFreeSpace = pMutexMgr->tFreeSpace[j];
+                        if(tFreeSpace.iSize >= (size_t)iMutexSize)
+                        {
+                            pMutex->cState = '2';//更改状态
+                            pMutex->iPosAdd   = tFreeSpace.iPosAdd;
+                            pMutex->iSize     = iMutexSize;
+                            if(tFreeSpace.iSize - iMutexSize > 0)
+                            {
+                                //还有剩余空间
+                                tFreeSpace.iPosAdd += iMutexSize;
+                                tFreeSpace.iSize   -= iMutexSize;
+								printf("Use Mutex size:%d,Left:%d,[%d][%d].\n",iMutexSize,tFreeSpace.iSize,i,j);
+                            }
+                            else
+                            {
+                                //该块空闲空间正好用光
+                                tFreeSpace.Clear();
+                            }
+                            CHECK_RET_BREAK(DefragIndexSpace(pMutexMgr->tFreeSpace),"DefragIndexSpace failed...");
+                        }
+                    }
+                }
+                CHECK_RET_BREAK(iRet,"iRet = [%d]",iRet);
+                if('2' != pMutex->cState)
+                {
+                    //没有空闲内存块放索引节点
+                    break;
+                }
+                else
+                {
+                    //申请到空闲内存块
+                    stTableIndexInfo.pMutex= pMutex;
+                    stTableIndexInfo.pMutexMgr = pMutexMgr;
+                    bFind = true;
+                    break;
+                }
+            }
+            while(0);
+            CHECK_RET(pMutexMgr->tMutex.UnLock(true),"UnLock Faild");
+            if(bFind)
+            {
+                break;   //找到
+            }
+        }
+        if(!bFind)
+        {
+            CHECK_RET(-1,"GetMHashFreeMutexShm failed....");
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
     /******************************************************************************
     * 函数名称	:  CreateNewBIndexShm
     * 函数描述	:  创建新的基础索引内存块
@@ -958,43 +1109,26 @@
         return iRet;
     }
 
-    /******************************************************************************
-    * 函数名称	:  AddTableIndex
-    * 函数描述	:  添加索引
-    * 输入		:  pTable - 表信息
-    * 输入		:  iDataSize - 最大可申请的内存区大小
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*int TMdbHashIndexCtrl::AddTableIndex(TMdbTable * pTable,size_t iDataSize)
+    int TMdbHashIndexCtrl::CalcBaseMutexCount(int iBaseCont)
     {
-        int iRet = 0;
-        CHECK_OBJ(pTable);
-        TADD_FLOW("AddTableIndex Table=[%s],Size=[%lu] start.", pTable->sTableName,iDataSize);
-        MDB_INT64 iBaseIndexSize     = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个基础索引需要的空间
-        MDB_INT64 iConflictIndexSize = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个冲突索引需要的空间
-        ST_TABLE_INDEX_INFO stTableIndex;
-        for(int i=0; i<pTable->iIndexCounts; ++i)
-        {
-            stTableIndex.Clear();
-            CHECK_RET(GetFreeBIndexShm(iBaseIndexSize, iDataSize,stTableIndex),"GetFreeBIndexShm failed..");
-            CHECK_RET(GetFreeCIndexShm(iConflictIndexSize, iDataSize,stTableIndex),"GetFreeCIndexShm failed...");
-            if('2' == stTableIndex.pBaseIndex->cState)
-            {
-                //找到空闲位置
-                SAFESTRCPY(stTableIndex.pBaseIndex->sName,sizeof(stTableIndex.pBaseIndex->sName),pTable->tIndex[i].sName);
-                CHECK_RET(InitBCIndex(stTableIndex,pTable),"InitBCIndex failed...");
-            }
-            else
-            {
-                CHECK_RET(-1,"not find pos for new index....");
-            }
-            TADD_FLOW("Index[%s]",pTable->tIndex[i].sName);
-        }
-        TADD_FLOW("AddTableIndex : Table=[%s] finish.", pTable->sTableName);
-        return iRet;
-    }*/
+		int iRet = 1;// at least 1
+				
+		if(iBaseCont < 9973)
+		{
+			iRet = iBaseCont;
+		}
+		else if(iBaseCont>= 9973 && iBaseCont < 99991)
+		{
+			iRet = 9973;
+		}
+		else if(iBaseCont >= 99991)
+		{
+			iRet = 99991;
+		}
+		
+		return iRet;
+
+    }
 
     int TMdbHashIndexCtrl::AddTableSingleIndex(TMdbTable * pTable,int iIndexPos, size_t iDataSize)
     {
@@ -1003,15 +1137,20 @@
         TADD_FLOW("AddTableIndex Table=[%s],Size=[%lu] start.", pTable->sTableName,iDataSize);
         MDB_INT64 iBaseIndexSize     = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个基础索引需要的空间
         MDB_INT64 iConflictIndexSize = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个冲突索引需要的空间
-        ST_HASH_INDEX_INFO stTableIndex;
+		int iMutexCount = CalcBaseMutexCount(pTable->iTabLevelCnts);
+		MDB_INT64 iMutexSize = iMutexCount * sizeof(TMutex);
+		ST_HASH_INDEX_INFO stTableIndex;
         stTableIndex.Clear();
         CHECK_RET(GetFreeBIndexShm(iBaseIndexSize, iDataSize,stTableIndex),"GetFreeBIndexShm failed..");
         CHECK_RET(GetFreeCIndexShm(iConflictIndexSize, iDataSize,stTableIndex),"GetFreeCIndexShm failed...");
-        if('2' == stTableIndex.pBaseIndex->cState)
+        CHECK_RET(GetHashFreeMutexShm(iMutexSize, iDataSize,stTableIndex),"GetHashFreeMutexShm failed..");
+		if('2' == stTableIndex.pBaseIndex->cState)
         {
             //找到空闲位置
             SAFESTRCPY(stTableIndex.pBaseIndex->sName,sizeof(stTableIndex.pBaseIndex->sName),pTable->tIndex[iIndexPos].sName);
-            CHECK_RET(InitBCIndex(stTableIndex,pTable),"InitBCIndex failed...");
+            CHECK_RET(InitBCIndex(stTableIndex,pTable),"InitBCIndex failed...");			
+            CHECK_RET(InitHashMutex(stTableIndex,pTable),"InitHashMutex failed...");
+            SAFESTRCPY(stTableIndex.pMutex->sName, sizeof(stTableIndex.pMutex->sName), pTable->tIndex[iIndexPos].sName);
         }
         else
         {
@@ -1023,41 +1162,32 @@
     }
 
 
-    /******************************************************************************
-    * 函数名称	:  CreateAllIndex
-    * 函数描述	:  创建所有索引shm ，基础索引+ 冲突索引
-    * 输入		:
-    * 输入		:
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*int TMdbHashIndexCtrl::CreateAllIndex(TMdbConfig &config)
+    int TMdbHashIndexCtrl::InitHashMutex(ST_HASH_INDEX_INFO & tTableIndex,TMdbTable * pTable)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        m_pMdbShmDsn = TMdbShmMgr::GetShmDSN(config.GetDSN()->sName);
-        m_pMdbDsn = m_pMdbShmDsn->GetInfo();
-        CHECK_OBJ(m_pMdbShmDsn);
-        CHECK_OBJ(m_pMdbDsn);
-        m_pMdbDsn->iBaseIndexShmCounts = m_pMdbDsn->iConflictIndexShmCounts = 0;//没有counts
-        int i = 0;
-        TMdbTable * pTable = NULL;
-        TMdbTable tTempTable;
-        for( i = 0; i<MAX_TABLE_COUNTS; i++)
-        {
-            //遍历所有table
-            pTable  = config.GetTableByPos(i);//m_pTable + i;
-            if(NULL != pTable)
-            {
-                memcpy(&tTempTable,pTable,sizeof(tTempTable));
-                tTempTable.ResetRecordCounts();//加载到内存中时记录数发生了改变
-                CHECK_RET(AddTableIndex(&tTempTable,config.GetDSN()->iDataSize),"AddTableIndex failed...");
-            }
-        }
+        //初始化基础索引
+        SAFESTRCPY(tTableIndex.pMutex->sTabName, sizeof(tTableIndex.pMutex->sTabName), pTable->sTableName);
+        tTableIndex.pMutex->cState   = '1';
+        tTableIndex.pMutex->iMutexCnt = tTableIndex.pMutex->iSize/sizeof(TMutex);
+        TMdbDateTime::GetCurrentTimeStr(tTableIndex.pMutex->sCreateTime);
+        InitMutexNode((TMutex*)((char *)tTableIndex.pMutexMgr+ tTableIndex.pMutex->iPosAdd),
+                      tTableIndex.pMutex->iSize);
+        tTableIndex.pMutexMgr->iCounts++;
         TADD_FUNC("Finish.");
         return iRet;
-    }*/
+    }
+
+	int TMdbHashIndexCtrl::InitMutexNode(TMutex* pNode,MDB_INT64 iSize)
+    {
+        MDB_INT64 iCount = iSize/sizeof(TMutex);
+        for(MDB_INT64 n=0; n<iCount; ++n)
+        {
+            pNode->Create();
+            ++pNode;
+        }
+        return 0;
+    }
 
     /******************************************************************************
     * 函数名称	:  GetTableByIndexName

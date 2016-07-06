@@ -76,9 +76,12 @@
         
     public:
         char * GetSyncAreaShm();//获取同步区共享内存
+        
         // get hash index
         char* GetBaseIndex(int iPos);
-        char* GetConflictIndex(int iPos);
+        char* GetConflictIndex(int iPos);	
+		char* GetHashMutex(int iPos);
+	
         // get m-hash index
         char* GetMHashBaseIndex(int iPos);
         char* GetMHashMutex(int iPos);		
@@ -155,6 +158,7 @@
         
         char* m_pBaseIndexShmAddr[MAX_SHM_ID];//基础索引地址
         char* m_pConflictIndexShmAddr[MAX_SHM_ID];//冲突索引地址
+        char* m_pHashMutexShmAddr[MAX_SHM_ID];
         
         char* m_pMHashBaseIndexShmAddr[MAX_SHM_ID]; // 阶梯式索引基础索引地址
         char* m_pMHashMutexShmAddr[MAX_SHM_ID]; // 阶梯式索引锁地址

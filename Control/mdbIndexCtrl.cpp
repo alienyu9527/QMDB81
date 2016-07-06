@@ -533,19 +533,30 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
                         TMdbConflictIndexMgrInfo *pCIndexMgr  = (TMdbConflictIndexMgrInfo *)pConflictIndexAddr;
                         CHECK_OBJ(pCIndexMgr);
 
+						
+						char* pMutexAddr = pMdbShmDsn->GetHashMutex(pBIndexMgr->tIndex[j].iMutexMgrPos);
+						TMdbHashMutexMgrInfo* pMutexMgr = (TMdbHashMutexMgrInfo*)pMutexAddr;
+						CHECK_OBJ(pMutexMgr);
+
                         m_arrTableIndex[i].bInit  = true;
                         m_arrTableIndex[i].iIndexPos  = i;
                         m_arrTableIndex[i].pIndexInfo = &(pTable->tIndex[i]);//保存index的信息
                         
                         m_arrTableIndex[i].m_HashIndexInfo.pBIndexMgr = pBIndexMgr;
                         m_arrTableIndex[i].m_HashIndexInfo.pCIndexMgr = pCIndexMgr;
-                        m_arrTableIndex[i].m_HashIndexInfo.iBaseIndexPos = j;
+						m_arrTableIndex[i].m_HashIndexInfo.pMutexMgr = pMutexMgr;
+
+						m_arrTableIndex[i].m_HashIndexInfo.iBaseIndexPos = j;
                         m_arrTableIndex[i].m_HashIndexInfo.iConflictIndexPos = pBIndexMgr->tIndex[j].iConflictIndexPos;
-                        m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex = &(pBIndexMgr->tIndex[j]);
+
+						m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex = &(pBIndexMgr->tIndex[j]);
                         m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex = &(pCIndexMgr->tIndex[pBIndexMgr->tIndex[j].iConflictIndexPos]);
-                        m_arrTableIndex[i].m_HashIndexInfo.pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->iPosAdd);
+                        m_arrTableIndex[i].m_HashIndexInfo.pMutex = &(pMutexMgr->aBaseMutex[pBIndexMgr->tIndex[j].iMutexPos]);						
+
+						m_arrTableIndex[i].m_HashIndexInfo.pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->iPosAdd);
                         m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
-                        
+                        m_arrTableIndex[i].m_HashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_HashIndexInfo.pMutex->iPosAdd);
+						
                         ++iFindIndexs;
                         break;
                     }
