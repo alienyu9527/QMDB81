@@ -101,6 +101,7 @@ void TMdbLocalLink::ShowRBUnits()
 		if(i>100)
 		{
 			printf("Only Show %d RBUnits.\n",iMaxShow);
+			break;
 		}
 		printf("[%d]--",i);
 		itor->Show();
@@ -198,7 +199,7 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 	iAffect = 0;
 	if(m_RBList.empty()) return;
 	
-	TADD_NORMAL("TMdbLocalLink::RollBack\n");
+	//TADD_NORMAL("TMdbLocalLink::RollBack\n");
 	
 	
 	//反向遍历
@@ -216,6 +217,16 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 		itor = m_RBList.erase(itor);
 	}
 }
+
+int  TMdbLocalLink::ReturnAllIndexNodeToTable(TMdbShmDSN * pShmDSN)
+{
+	int iRet = 0;
+	TMdbIndexCtrl tIndex;
+	CHECK_RET(tIndex.ReturnAllIndexNodeToTable(this, pShmDSN),"ReturnAllIndexNodeToTable failed.");
+	return iRet;
+
+}
+
 
 TMdbSingleTableIndexInfo*  TMdbLocalLink::FindCurTableIndex(const char* sTableName)
 {
@@ -598,6 +609,7 @@ int TMdbLinkCtrl::UnRegLocalLink(TMdbLocalLink *& pLocalLink)
     CHECK_OBJ(pLocalLink);
     CHECK_RET(m_pDsn->tMutex.Lock(true,&(m_pDsn->tCurTime)), "lock failed.");//加锁
     pLocalLink->RollBack(m_pShmDsn);
+	pLocalLink->ReturnAllIndexNodeToTable(m_pShmDsn);
     pLocalLink->Clear();
     pLocalLink = NULL;
     CHECK_RET(m_pDsn->tMutex.UnLock(true),"unlock failed.");//加锁
@@ -742,7 +754,8 @@ int TMdbLinkCtrl::ClearInvalidLink()
             false == TMdbOS::IsProcExistByPopen(itor->iPID))
         {        
             TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itor->iPID,itor->iTID); 
-			itor->RollBack(m_pShmDsn);
+			itor->RollBack(m_pShmDsn);			
+			itor->ReturnAllIndexNodeToTable(m_pShmDsn);
             itor->Clear();
         }
     }
@@ -812,7 +825,9 @@ int TMdbLinkCtrl::ClearAllLink()
     {
         if(itorLocal->iPID > 0)
         {        
-            TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itorLocal->iPID,itorLocal->iTID); 
+            TADD_NORMAL("Clear Link=[PID=%d,TID=%d].",itorLocal->iPID,itorLocal->iTID);
+			itorLocal->RollBack(m_pShmDsn);			
+			itorLocal->ReturnAllIndexNodeToTable(m_pShmDsn);
             itorLocal->Clear();
         }
     }

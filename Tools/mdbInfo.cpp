@@ -138,6 +138,7 @@
             for(; itor != m_pShmDSN->m_LocalLinkList.end(); ++itor)
             {
                 TMdbLocalLink *pLocalLink = &(*itor);
+				
                 if(pLocalLink->iPID >= 0)
                 {
                     pLocalLink->Show(m_bMore);

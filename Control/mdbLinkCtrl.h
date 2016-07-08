@@ -167,7 +167,7 @@ public:
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();
 	void ShowIndexInfo();	
-	void ReturnIndexNodeToTable();
+	int ReturnAllIndexNodeToTable(TMdbShmDSN * pShmDSN);
 	
 	TMdbSingleTableIndexInfo*  FindCurTableIndex(const char* sTableName);
 	

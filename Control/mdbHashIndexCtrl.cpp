@@ -303,10 +303,9 @@
 			CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
 			
 		}
-		else
-		{
-			return iRet;
-		}
+
+
+		return iRet;
 
 	}
 
@@ -314,6 +313,8 @@
 	int  TMdbHashIndexCtrl::ReturnAllIndexNodeToTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
 	{
 		int iRet = 0;
+
+		if(tLinkIndexInfo.iHashCFreeNodeCounts <=0) return iRet;
 		
 		CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
 
@@ -330,14 +331,9 @@
 		}
 		
 		pFreeNode->iNextPos = iFreePosOfTable;
-
 		
-		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
-		
-
+		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");		
 		return iRet;
-
-
 	}
 	
     /******************************************************************************
