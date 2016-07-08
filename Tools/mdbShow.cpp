@@ -82,8 +82,8 @@ struct ST_SHOW_PARAM
     bool bPrintLock;
     bool bPrintRouting;//是否打印路由信息
     bool bPrintNotLoadFromDB;//表不从数据库加载的附加配置信息
-    char sLinkTid[256];
-	long lTid;
+    char sLinkPid[256];
+	int  iPid;
 	
     ST_SHOW_PARAM()
     {
@@ -100,9 +100,9 @@ struct ST_SHOW_PARAM
         memset(sJob, 0, sizeof(sJob));
         memset(sUserName,0,sizeof(sUserName));
 		
-		sLinkTid[0] = '0';
-		sLinkTid[1] = 0;
-		lTid = 0;
+		sLinkPid[0] = '0';
+		sLinkPid[1] = 0;
+		iPid = 0;
 		
         bMore = false;
         bShowDsn = false;
@@ -137,7 +137,7 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
     clp.set_check_condition("-k", 0);//显示锁信息
     clp.set_check_condition("-f", 0);//显示路由备份信息
     clp.set_check_condition("-o", 0);//表不从数据库加载的附加配置信息
-    clp.set_check_condition("-T", 0, 1);//表不从数据库加载的附加配置信息
+    clp.set_check_condition("-P", 0, 1);//表不从数据库加载的附加配置信息
     
     if(!clp.check())
     {
@@ -194,11 +194,11 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
             CHECK_IF_ALL(args,stShowParam.sSeq);
             continue;
         }
-		if(opt == "-T")
+		if(opt == "-P")
         {            
-            SAFESTRCPY(stShowParam.sLinkTid,sizeof(stShowParam.sLinkTid),args[0].c_str());
-            stShowParam.sLinkTid[strlen(stShowParam.sLinkTid)]='\0';
-            stShowParam.lTid = atol(stShowParam.sLinkTid);
+            SAFESTRCPY(stShowParam.sLinkPid,sizeof(stShowParam.sLinkPid),args[0].c_str());
+            stShowParam.sLinkPid[strlen(stShowParam.sLinkPid)]='\0';
+            stShowParam.iPid = atoi(stShowParam.sLinkPid);
             continue;
         }
         /*if(opt == "-Q")
@@ -356,15 +356,15 @@ int main(int argc, char* argv[])
     {
         if(TMdbNtcStrFunc::StrNoCaseCmp(stShowParam.sLink, "local") == 0)
         {
-            info.PrintLink(1, stShowParam.lTid);
+            info.PrintLink(1, stShowParam.iPid);
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(stShowParam.sLink, "remote") == 0)
         {
-            info.PrintLink(2, stShowParam.lTid);
+            info.PrintLink(2, stShowParam.iPid);
         }
         else
         {
-            info.PrintLink(0,stShowParam.lTid);
+            info.PrintLink(0,stShowParam.iPid);
         }
     }
     if (stShowParam.bPrintNotLoadFromDB)//

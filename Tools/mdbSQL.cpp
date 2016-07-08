@@ -731,6 +731,7 @@ int TMdbRichSQL::ExecuteSQL(ST_KEYWORD * pCmd,const char * sSQL)
     char sTemp[4096] = {0};
     SAFESTRCPY(sTemp,sizeof(sTemp),sSQL);
     TMdbNtcStrFunc::ToUpper(sTemp);
+	/*
     if(TMdbNtcStrFunc::FindString(sTemp,"WHERE",0) == -1 
         && TMdbNtcStrFunc::FindString(sTemp,"INSERT",0) == -1 
         && TMdbNtcStrFunc::FindString(sTemp,"SELECT",0) == -1)
@@ -738,6 +739,7 @@ int TMdbRichSQL::ExecuteSQL(ST_KEYWORD * pCmd,const char * sSQL)
         printf("you should use 'where' condition.\n");
         return 0;
     }
+    */
     CHECK_OBJ(pCmd);
     CHECK_OBJ(sSQL);
     CHECK_OBJ((m_pQuery));

@@ -65,6 +65,7 @@ class TMdbLocalLink;
 
 
 		int SetLinkInfo(TMdbLocalLink* pLink);
+		int ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * pMdbShmDsn);
 		
         int AttachDsn(TMdbShmDSN * pMdbShmDsn);
         int AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable);

@@ -132,6 +132,12 @@
         return iRet;
     }
 
+	
+	void TMdbExecuteEngine::SetLink(TMdbLocalLink* pLocalLink)
+	{
+		m_pLocalLink = pLocalLink;
+	}
+	
 	bool TMdbExecuteEngine::IsUseTrans()
 	{
 		return m_bCanRollBack && m_pTable->bRollBack;
@@ -498,6 +504,7 @@
 		{
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.SetLinkInfo error.");
 			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetInfo()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
 			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetInfo()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
 			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetInfo()->sName);
@@ -2418,7 +2425,7 @@
 					CHECK_RET(-1,"Data already be removed,table:%s,rowid:%d",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);				
 				}
 
-				printf("Table %s,Lock Row %d OK\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
+				//printf("Table %s,Lock Row %d OK\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
 	
 				pNode->iSessionID = m_pLocalLink->iSessionID;
 			}

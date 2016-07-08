@@ -40,6 +40,7 @@
         {
             return m_iRowsAffected;    //获取影响的记录数
         }
+		void SetLink(TMdbLocalLink* pLocalLink);
         void SetRollback(bool bCanRollback);
         int GetOneRowData(void *pStruct,int* Column);//获取一列数据信息
 		int GetOneRowData(TMdbColumnAddr* pTColumnAddr);

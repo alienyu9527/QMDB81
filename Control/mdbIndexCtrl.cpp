@@ -458,6 +458,7 @@ int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
 
 		//begin  拷贝索引部分信息
 		strncpy(pLink->m_AllTableIndexInfo[iPos].sTableName, m_pAttachTable->sTableName, MAX_NAME_LEN);
+		printf("Link [%d][%ld] add Table [%s]\n",pLink->iPID,pLink->iTID,m_pAttachTable->sTableName);
 		for(int j=0; j<MAX_INDEX_COUNTS; j++)
 		{
 			if(m_arrTableIndex[j].bInit)
@@ -482,6 +483,45 @@ int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
 	m_tTrieIndex.SetLink(pLink);
 	return iRet;
 }
+
+
+int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * pMdbShmDsn)
+{
+	int iRet = 0;
+	for(int i=0; i< MAX_TABLE_COUNTS; i++)
+	{
+		if(0 == pLink->m_AllTableIndexInfo[i].sTableName[0]) continue;
+		
+		TMdbTable * pTable = pMdbShmDsn->GetTableByName(pLink->m_AllTableIndexInfo[i].sTableName);
+
+		CHECK_RET(AttachTable(pMdbShmDsn,pTable),"AttachTable %s Failed.",pLink->m_AllTableIndexInfo[i].sTableName);
+
+		for(int j=0; j<MAX_INDEX_COUNTS; j++)
+		{
+			ST_LINK_INDEX_INFO & tLinkIndexInfo = pLink->m_AllTableIndexInfo[i].arrLinkIndex[j];
+			if(tLinkIndexInfo.bInit == false) continue;
+
+			if(tLinkIndexInfo.iAlgoType == INDEX_HASH)
+			{
+				m_tHashIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_HashIndexInfo);
+			}
+			else if(pLink->m_AllTableIndexInfo[i].arrLinkIndex[j].iAlgoType == INDEX_M_HASH)
+			{
+				//m_tMHashIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_MHashIndexInfo);
+			}
+			else if(pLink->m_AllTableIndexInfo[i].arrLinkIndex[j].iAlgoType == INDEX_TRIE)
+			{
+				//m_tTrieIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_TrieIndexInfo);
+			}
+			
+		}
+
+	}
+
+	return iRet;
+
+}
+
 
 int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
     {
@@ -993,7 +1033,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
                 TADD_ERROR(iError,"CalcIndexValue(iError=%d) failed.",iError);
                 return -1;
             }
-            iRet = m_tHashIndex.DeleteIndexNode(tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
+            iRet = m_tHashIndex.DeleteIndexNode(iIndexPos,tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
         {

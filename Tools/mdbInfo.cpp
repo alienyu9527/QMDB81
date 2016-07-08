@@ -128,7 +128,7 @@
     * 返回值    :  无
     * 作者      :  li.shugang
     *******************************************************************************/
-    void TMdbInfo::PrintLink(int iFlag, unsigned long lTid)
+    void TMdbInfo::PrintLink(int iFlag, int iPid)
     {
         if(m_pDsn == NULL)
             return;
@@ -142,7 +142,7 @@
                 {
                     pLocalLink->Show(m_bMore);
 					
-					if(lTid && lTid == pLocalLink->iTID)
+					if(iPid && iPid == pLocalLink->iPID)
 					{
 						pLocalLink->ShowRBUnits();					
 						pLocalLink->ShowIndexInfo();

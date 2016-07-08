@@ -109,6 +109,16 @@ class TMdbSingleTableIndexInfo
 	public:
 		TMdbSingleTableIndexInfo();
 		
+		void Clear()
+		{
+			sTableName[0]=0;
+			for(int i=0;i<MAX_INDEX_COUNTS;i++)
+			{
+				arrLinkIndex[i].Clear();
+			}
+
+		}
+		
 	public:
 		char  sTableName[MAX_NAME_LEN];
 		ST_LINK_INDEX_INFO	 arrLinkIndex[MAX_INDEX_COUNTS];
@@ -122,8 +132,8 @@ class TRBRowUnit
 		TRBRowUnit(){}
 		~TRBRowUnit(){}
 		void Show();
-		int Commit(TMdbShmDSN * pShmDSN);
-		int RollBack(TMdbShmDSN * pShmDSN);
+		int Commit(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int RollBack(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		
 	public:
 	 	TMdbTable*  pTable;
@@ -133,12 +143,12 @@ class TRBRowUnit
 
 	private:		
 		const char* GetSQLName();		
-		int CommitInsert(TMdbShmDSN * pShmDSN);
-		int CommitUpdate(TMdbShmDSN * pShmDSN);
-		int CommitDelete(TMdbShmDSN * pShmDSN);
-		int RollBackInsert(TMdbShmDSN * pShmDSN);
-		int RollBackUpdate(TMdbShmDSN * pShmDSN);
-		int RollBackDelete(TMdbShmDSN * pShmDSN);
+		int CommitInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int CommitUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int CommitDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int RollBackInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int RollBackUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int RollBackDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		int UnLockRow(char* pDataAddr, TMdbShmDSN * pShmDSN);
 };
 
@@ -156,7 +166,9 @@ public:
 	void RollBack(TMdbShmDSN * pShmDSN);
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();
-	void ShowIndexInfo();
+	void ShowIndexInfo();	
+	void ReturnIndexNodeToTable();
+	
 	TMdbSingleTableIndexInfo*  FindCurTableIndex(const char* sTableName);
 	
 public:

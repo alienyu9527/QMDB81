@@ -65,51 +65,65 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jin.shaohua
     *******************************************************************************/
-    int TMdbHashIndexCtrl::DeleteIndexNode(TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndexInfo,TMdbRowID& rowID)
+    int TMdbHashIndexCtrl::DeleteIndexNode(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndexInfo,TMdbRowID& rowID)
     {
         TADD_FUNC("rowID[%d|%d]",rowID.GetPageID(),rowID.GetDataOffset());
         int iRet = 0;
-        CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
-        CHECK_RET(FindRowIndexCValue(tHashIndexInfo, tRowIndex,rowID),"FindRowIndexCValue Failed");//查找冲突索引值
-        TMdbIndexNode * pBaseNode = &(tHashIndexInfo.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
-        TMdbIndexNode * pDataNode = NULL;
-        if(false == tRowIndex.IsCurNodeInConflict())
-        {//基础链上
-            pDataNode = pBaseNode;
-        }
-        else
-        {//冲突链上
-            pDataNode = &(tHashIndexInfo.pConflictIndexNode[tRowIndex.iConflictIndexPos]);
-        }
-        TADD_DETAIL("pDataNode,rowid[%d|%d],NextPos[%d]",
-                            pDataNode->tData.GetPageID(),pDataNode->tData.GetDataOffset(),pDataNode->iNextPos);
-        //判断rowid是否正确
-        if(pDataNode->tData == rowID)
-        {
-            if(tRowIndex.iConflictIndexPos < 0)
-            {//基础链上直接清理下
-                TADD_DETAIL("Row in BaseIndex.");
-                pDataNode->tData.Clear();//只做下清理就可以了
-            }
-            else
-            {//冲突链上
-                TMdbIndexNode * pPreNode = tRowIndex.IsPreNodeInConflict()?&(tHashIndexInfo.pConflictIndexNode[tRowIndex.iPreIndexPos]):pBaseNode;//获取前置节点
-                pPreNode->iNextPos  = pDataNode->iNextPos;// 跳过该节点
-                //将节点删除
-                pDataNode->iNextPos = tHashIndexInfo.pConflictIndex->iFreeHeadPos;
-                tHashIndexInfo.pConflictIndex->iFreeHeadPos = tRowIndex.iConflictIndexPos;
-                tHashIndexInfo.pConflictIndex->iFreeNodeCounts ++;//剩余节点数-1
-                pDataNode->tData.Clear();
-            }
-        }
-        else
-        {//error
-            TADD_WARNING("not find indexnode to delete....index[%d|%d],rowid[%d|%d]",
-                         tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
-            PrintIndexInfo(tHashIndexInfo,1,false);
-        }
 
-        CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"Unlock failed.");
+		TMdbIndexNode * pBaseNode = &(tHashIndexInfo.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
+	    TMdbIndexNode * pDataNode = NULL;
+		int iMutexPos = tRowIndex.iBaseIndexPos % tHashIndexInfo.pMutex->iMutexCnt;
+        TMutex* pMutex = &(tHashIndexInfo.pMutexNode[iMutexPos]);
+		
+		CHECK_RET(pMutex->Lock(true),"lock failed.");
+        do
+        {
+	        CHECK_RET_BREAK(FindRowIndexCValue(tHashIndexInfo, tRowIndex,rowID),"FindRowIndexCValue Failed");//查找冲突索引值
+
+	        if(false == tRowIndex.IsCurNodeInConflict())
+	        {//基础链上
+	            pDataNode = pBaseNode;
+	        }
+	        else
+	        {//冲突链上
+	            pDataNode = &(tHashIndexInfo.pConflictIndexNode[tRowIndex.iConflictIndexPos]);
+	        }
+	        TADD_DETAIL("pDataNode,rowid[%d|%d],NextPos[%d]",pDataNode->tData.GetPageID(),pDataNode->tData.GetDataOffset(),pDataNode->iNextPos);
+	        //判断rowid是否正确
+	        if(pDataNode->tData == rowID)
+	        {
+	            if(tRowIndex.iConflictIndexPos < 0)
+	            {//基础链上直接清理下
+	                TADD_DETAIL("Row in BaseIndex.");
+	                pDataNode->tData.Clear();//只做下清理就可以了
+	            }
+	            else//冲突链上
+	            {
+		            TMdbSingleTableIndexInfo* pTableIndexInfo = m_pLink->FindCurTableIndex(m_pAttachTable->sTableName);
+					CHECK_OBJ_BREAK(pTableIndexInfo);
+					
+					ST_LINK_INDEX_INFO &tLinkIndexInfo = pTableIndexInfo->arrLinkIndex[iIndexPos];
+	                TMdbIndexNode * pPreNode = tRowIndex.IsPreNodeInConflict()?&(tHashIndexInfo.pConflictIndexNode[tRowIndex.iPreIndexPos]):pBaseNode;//获取前置节点
+	                pPreNode->iNextPos  = pDataNode->iNextPos;// 跳过该节点
+	                
+	                //将节点删除,还给链接
+	                pDataNode->iNextPos = tLinkIndexInfo.iHashCFreeHeadPos;
+	                tLinkIndexInfo.iHashCFreeHeadPos = tRowIndex.iConflictIndexPos;
+	                tLinkIndexInfo.iHashCFreeNodeCounts++;
+	                pDataNode->tData.Clear();
+
+					CHECK_RET(ReturnConflictNodeToTable(tLinkIndexInfo, tHashIndexInfo),"ReturnConflictNodeToTable Failed");
+	            }
+	        }
+	        else
+	        {//error
+	            TADD_WARNING("not find indexnode to delete....index[%d|%d],rowid[%d|%d]",tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
+	            PrintIndexInfo(tHashIndexInfo,0,false);
+	        }
+        }
+		while(0);		
+		CHECK_RET(pMutex->UnLock(true),"lock failed.");
+
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -128,7 +142,7 @@
         TADD_FUNC("Startrow[%d|%d]",tRowId.GetPageID(),tRowId.GetDataOffset());
         int iRet = 0;
 
-        CHECK_RET(DeleteIndexNode( tOldRowIndex,tHashInfo,tRowId),"DeleteIndexNode failed ,tOldRowIndex[%d|%d],row[%d|%d]",
+        CHECK_RET(DeleteIndexNode(iIndexPos,tOldRowIndex,tHashInfo,tRowId),"DeleteIndexNode failed ,tOldRowIndex[%d|%d],row[%d|%d]",
                   tOldRowIndex.iBaseIndexPos,tOldRowIndex.iConflictIndexPos,tRowId.GetPageID(),tRowId.GetDataOffset());//先删除
         CHECK_RET(InsertIndexNode(iIndexPos,tNewRowIndex,tHashInfo,tRowId),"InsertIndexNode failed ,tNewRowIndex[%d|%d],row[%d|%d]",
                   tNewRowIndex.iBaseIndexPos,tNewRowIndex.iConflictIndexPos,tRowId.GetPageID(),tRowId.GetDataOffset());//再增加
@@ -192,7 +206,7 @@
 		            else
 		            {
 		            	//链接上的冲突节点不够，从表申请
-		            	iRet = GetFreeConflictNode(tLinkIndexInfo, tTableHashIndex);
+		            	iRet = ApplyConflictNodeFromTable(tLinkIndexInfo, tTableHashIndex);
 
 						if(iRet!=0){iTry--;}
 						
@@ -217,12 +231,12 @@
         return iRet;
     }
 
-    int TMdbHashIndexCtrl::GetFreeConflictNode(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
+    int TMdbHashIndexCtrl::ApplyConflictNodeFromTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
     {
     	int iRet = 0;
 		//tTableHashIndex 属于表级别的公共资源，需要加锁保护
         CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
-		int iAskNodeNum = 100;
+		int iAskNodeNum = GetCApplyNum(m_pAttachTable->iTabLevelCnts);
 
 		if(tTableHashIndex.pConflictIndex->iFreeHeadPos < 0) 
 		{
@@ -262,6 +276,69 @@
 	}
 
 
+	
+	int TMdbHashIndexCtrl::ReturnConflictNodeToTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
+	{
+		int iRet = 0;
+		int iNum = GetCApplyNum(m_pAttachTable->iTabLevelCnts);
+		//只有链接上存在过多的节点，才会归还部分
+		if(tLinkIndexInfo.iHashCFreeNodeCounts > 2* iNum)
+		{			
+			CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
+			int iReturnNum = iNum;
+			int iFreePosOfTable = tTableHashIndex.pConflictIndex->iFreeHeadPos;			
+			tTableHashIndex.pConflictIndex->iFreeHeadPos = tLinkIndexInfo.iHashCFreeHeadPos;
+			TMdbIndexNode * pFreeNode = NULL;
+			
+			//将链表的前面iReturnNum个节点归还
+			for(int i=0; i<iReturnNum; i++)
+			{
+				pFreeNode = &(tTableHashIndex.pConflictIndexNode[tLinkIndexInfo.iHashCFreeHeadPos]);
+				tLinkIndexInfo.iHashCFreeHeadPos = pFreeNode->iNextPos;
+				tLinkIndexInfo.iHashCFreeNodeCounts --;
+			}
+			pFreeNode->iNextPos = iFreePosOfTable;
+			tTableHashIndex.pConflictIndex->iFreeNodeCounts +=iReturnNum;
+			
+			CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
+			
+		}
+		else
+		{
+			return iRet;
+		}
+
+	}
+
+	
+	int  TMdbHashIndexCtrl::ReturnAllIndexNodeToTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
+	{
+		int iRet = 0;
+		
+		CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
+
+		int iFreePosOfTable = tTableHashIndex.pConflictIndex->iFreeHeadPos;			
+		tTableHashIndex.pConflictIndex->iFreeHeadPos = tLinkIndexInfo.iHashCFreeHeadPos;
+		TMdbIndexNode * pFreeNode = NULL;
+		
+		while(tLinkIndexInfo.iHashCFreeNodeCounts > 0)
+		{
+			pFreeNode = &(tTableHashIndex.pConflictIndexNode[tLinkIndexInfo.iHashCFreeHeadPos]);
+			tLinkIndexInfo.iHashCFreeHeadPos = pFreeNode->iNextPos;
+			tLinkIndexInfo.iHashCFreeNodeCounts --;
+			tTableHashIndex.pConflictIndex->iFreeNodeCounts++;
+		}
+		
+		pFreeNode->iNextPos = iFreePosOfTable;
+
+		
+		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
+		
+
+		return iRet;
+
+
+	}
 	
     /******************************************************************************
     * 函数名称	:  FindRowIndexCValue
@@ -1129,6 +1206,27 @@
 		return iRet;
 
     }
+
+	//冲突索引，每次申请的数量
+	int TMdbHashIndexCtrl::GetCApplyNum(int iBaseCont)
+	{
+		int iRet = 10;
+
+		if(iBaseCont <= 20000)
+		{
+			iRet = 50;
+		}
+		else if(iBaseCont > 20000 && iBaseCont < 100000)
+		{
+			iRet = 80;
+		}
+		else
+		{
+			iRet = 100;
+		}
+
+		return iRet;
+	}
 
     int TMdbHashIndexCtrl::AddTableSingleIndex(TMdbTable * pTable,int iIndexPos, size_t iDataSize)
     {

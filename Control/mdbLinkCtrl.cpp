@@ -51,6 +51,11 @@ void TMdbLocalLink::Clear()
 	memset(sProcessName,0,sizeof(sProcessName));
 
 	iRBAddrOffset = 0;
+
+	for(int i=0;i<MAX_TABLE_COUNTS;i++)
+	{
+		m_AllTableIndexInfo[i].Clear();
+	}
 }	 
 //是否是当前线程的链接
 bool TMdbLocalLink::IsCurrentThreadLink()
@@ -148,7 +153,7 @@ void TMdbLocalLink::Print()
 int TMdbLocalLink::AddNewRBRowUnit(TRBRowUnit* pRBRowUnit)
 {
 	int iRet = 0;
-	TADD_NORMAL("TMdbLocalLink::AddNewRBRowUnit\n");
+	//TADD_NORMAL("TMdbLocalLink::AddNewRBRowUnit\n");
 	TShmList<TRBRowUnit>::iterator itorNew =  m_RBList.insert(m_RBList.end());
 	if(itorNew != m_RBList.end())
 	{//分配成功
@@ -171,13 +176,13 @@ void TMdbLocalLink::Commit(TMdbShmDSN * pShmDSN)
 	iAffect = 0;
 	if(m_RBList.empty()) return;
 	
-	TADD_NORMAL("TMdbLocalLink::Commit\n");
+	//TADD_NORMAL("TMdbLocalLink::Commit\n");
 		
 	//正向遍历
 	TShmList<TRBRowUnit>::iterator itorB = m_RBList.begin();
 	while(!m_RBList.empty())
 	{		
-		if(itorB->Commit(pShmDSN)!=0)
+		if(itorB->Commit(pShmDSN,this)!=0)
 		{
 			m_RBList.clear();
 			break; 
@@ -201,7 +206,7 @@ void  TMdbLocalLink::RollBack(TMdbShmDSN * pShmDSN)
 	while(!m_RBList.empty())
 	{
 		--itor; 
-		if(itor->RollBack(pShmDSN)!=0)
+		if(itor->RollBack(pShmDSN,this)!=0)
 		{
 			m_RBList.clear();
 			break; 
@@ -233,7 +238,7 @@ int TRBRowUnit::UnLockRow(char* pDataAddr,TMdbShmDSN * pShmDSN)
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pDataAddr -1;
 
 	CHECK_RET(pPageNode->tMutex.UnLock(true),"PageNode UnLock Failed.");
-	printf("Table %s,UnLock Row %d\n",pTable->sTableName,iRealRowID);
+	//printf("Table %s,UnLock Row %d\n",pTable->sTableName,iRealRowID);
 		
 	return iRet;
 }
@@ -261,26 +266,26 @@ const char* TRBRowUnit::GetSQLName()
 	return "unkown";
 }
 
-int TRBRowUnit::Commit(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::Commit(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet = 0;
 	switch(SQLType)
 	{
 		case TK_INSERT:
-			CHECK_RET(CommitInsert(pShmDSN),"CommitInsert failed");
+			CHECK_RET(CommitInsert(pShmDSN,pLocalLink),"CommitInsert failed");
 			break;
 		case TK_UPDATE:
-			CHECK_RET(CommitUpdate(pShmDSN),"CommitUpdate failed");
+			CHECK_RET(CommitUpdate(pShmDSN,pLocalLink),"CommitUpdate failed");
 			break;
 		case TK_DELETE:
-			CHECK_RET(CommitDelete(pShmDSN),"CommitDelete failed");
+			CHECK_RET(CommitDelete(pShmDSN,pLocalLink),"CommitDelete failed");
 			break;
 		default:
 			break;
 	}	
 	return iRet;
 }
-int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet = 0;
 	TMdbTableWalker tWalker;
@@ -308,7 +313,7 @@ int TRBRowUnit::CommitInsert(TMdbShmDSN * pShmDSN)
 	return iRet;
 }
 
-int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet=0;
 	TMdbTableWalker tWalker;
@@ -334,6 +339,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	CHECK_RET(tMdbFlushTrans.MakeBuf(((TMdbPage *)tWalker.m_pCurPage)->m_iPageLSN,iTimeStamp),"Make ReoBuf failed.");
 	
 	TMdbExecuteEngine tEngine;
+	tEngine.SetLink(pLocalLink);
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
@@ -348,7 +354,7 @@ int TRBRowUnit::CommitDelete(TMdbShmDSN * pShmDSN)
 	return iRet;
 }	
 
-int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {	
 	int iRet=0;
 	
@@ -393,6 +399,7 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 	char* pPage = tWalker.GetPageAddr();	
 	CHECK_OBJ(pPage);		
 	TMdbExecuteEngine tEngine;
+	tEngine.SetLink(pLocalLink);
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,RealRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
@@ -409,26 +416,26 @@ int TRBRowUnit::CommitUpdate(TMdbShmDSN * pShmDSN)
 }
 
 
-int TRBRowUnit::RollBack(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::RollBack(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet = 0;
 	switch(SQLType)
 	{
 		case TK_INSERT:
-			CHECK_RET(RollBackInsert(pShmDSN),"RollBackInsert failed");
+			CHECK_RET(RollBackInsert(pShmDSN,pLocalLink),"RollBackInsert failed");
 			break;
 		case TK_UPDATE:
-			CHECK_RET(RollBackUpdate(pShmDSN),"RollBackUpdate failed");
+			CHECK_RET(RollBackUpdate(pShmDSN,pLocalLink),"RollBackUpdate failed");
 			break;
 		case TK_DELETE:
-			CHECK_RET(RollBackDelete( pShmDSN),"RollBackDelete failed");
+			CHECK_RET(RollBackDelete( pShmDSN,pLocalLink),"RollBackDelete failed");
 			break;
 		default:
 			break;
 	}	
 	return iRet;
 }
-int TRBRowUnit::RollBackInsert(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::RollBackInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet=0;
 	
@@ -443,13 +450,14 @@ int TRBRowUnit::RollBackInsert(TMdbShmDSN * pShmDSN)
 	CHECK_OBJ(pPage);
 	
 	TMdbExecuteEngine tEngine;
+	tEngine.SetLink(pLocalLink);
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,rowID,pShmDSN,pTable),"ExecuteDelete failed.");
 
 	return iRet;
 }
 
-int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet = 0;
 	
@@ -468,7 +476,7 @@ int TRBRowUnit::RollBackDelete(TMdbShmDSN * pShmDSN)
 }
 
 
-int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
+int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink)
 {
 	int iRet=0;
 	
@@ -497,7 +505,8 @@ int TRBRowUnit::RollBackUpdate(TMdbShmDSN * pShmDSN)
 	char* pPage = tWalker.GetPageAddr();
 	CHECK_OBJ(pPage);
 	
-	TMdbExecuteEngine tEngine;
+	TMdbExecuteEngine tEngine;	
+	tEngine.SetLink(pLocalLink);
 	//删除索引->删除varchar->删除内存
 	CHECK_RET(tEngine.ExecuteDelete(pPage,pDataAddr,VirtualRowID,pShmDSN,pTable),"ExecuteDelete failed.");
 	
