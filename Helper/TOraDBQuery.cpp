@@ -1001,10 +1001,11 @@ void  TOraDBField::LoadFromFile(const char *fileName) throw (TOraDBException)
         nActual = nTry = (remainder > MDB_MAX_LOB_BUFFER_LENGTH) ? MDB_MAX_LOB_BUFFER_LENGTH : remainder;
 
         if (fread((void *)buf, (size_t)nTry, (size_t)1, fileHandle) != (size_t)1)
-            {
+        {
+            fclose(fileHandle);
             TADD_ERROR(ERROR_UNKNOWN,"[%s:%d] TOraDBDatabase::LoadFromFile()  MDB_ERR_MEM_BUFFER_IO",__FILE__,__LINE__);
             throw TOraDBException(fParentQuery->fSqlStmt, MDB_ERR_MEM_BUFFER_IO, name, fileName, __LINE__);
-            }
+        }
 
         fParentQuery->fErrorNo = OCILobWrite(fParentQuery->db->hDBSvc, fParentQuery->hErr, 
             hBlob, &nActual, offset, (dvoid *) buf, (ub4) nTry, OCI_ONE_PIECE, (dvoid *)0,

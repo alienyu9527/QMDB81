@@ -33,9 +33,10 @@ class TMdbLocalLink;
         TMdbIndex* pIndexInfo;//记录索引信息
         int  iIndexPos;//第几个index
         ST_HASH_INDEX_INFO m_HashIndexInfo;
-        ST_MHASH_INDEX_INFO m_MHashIndexInfo;
+        ST_MHASH_INDEX_INFO m_MHashIndexInfo;     
 		ST_TRIE_INDEX_INFO m_TrieIndexInfo;
         
+
 
         void Clear()
         {
@@ -46,7 +47,7 @@ class TMdbLocalLink;
             m_MHashIndexInfo.Clear();
             m_TrieIndexInfo.Clear();
         }
-
+		
     };
 
     class TMdbIndexCtrl

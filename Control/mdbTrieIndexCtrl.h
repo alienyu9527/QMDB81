@@ -107,7 +107,7 @@
 			iSeq = 0;
 			iIndexCounts = 0;
 			iTotalSize = 0;
-			for(int i = 0; i <MAX_BRIE_INDEX_COUNT; i++ )
+			for(int i = 0; i <MAX_TRIE_INDEX_COUNT; i++ )
 			{
 				tIndex[i].Clear();
 				tFreeSpace[i].Clear();
@@ -116,9 +116,9 @@
 	public:
 		int iSeq;		  //第几个共享内存段
 		TMutex tMutex;	  //管理区共享锁
-		TMdbTrieRootIndex tIndex[MAX_BRIE_INDEX_COUNT]; //基础索引信息
+		TMdbTrieRootIndex tIndex[MAX_TRIE_INDEX_COUNT]; //基础索引信息
 		int iIndexCounts;  //已有索引数
-		TMDBIndexFreeSpace tFreeSpace[MAX_BRIE_INDEX_COUNT];//空闲空间
+		TMDBIndexFreeSpace tFreeSpace[MAX_TRIE_INDEX_COUNT];//空闲空间
 		MDB_INT64 iTotalSize;	//总大小
 	};
 
@@ -151,7 +151,7 @@
         void Clear()
         {
             iIndexCounts = 0;
-            for(int i = 0; i <MAX_BRIE_INDEX_COUNT; i++ )
+            for(int i = 0; i <MAX_TRIE_INDEX_COUNT; i++ )
             {
                 tIndex[i].Clear();
             }
@@ -159,7 +159,7 @@
             iTotalBlocks = 0;
         }
     public:
-        TMdbTrieBranchIndex tIndex[MAX_BRIE_INDEX_COUNT]; //冲突索引信息
+        TMdbTrieBranchIndex tIndex[MAX_TRIE_INDEX_COUNT]; //冲突索引信息
         int iIndexCounts;  //已有索引数
         int iFreeBlockId; // 空闲链首节点
         int iTotalBlocks; // 已有冲突索引内存块个数
@@ -197,7 +197,7 @@
         void Clear()
         {
             iIndexCounts = 0;
-            for(int i = 0; i <MAX_BRIE_INDEX_COUNT; i++ )
+            for(int i = 0; i <MAX_TRIE_INDEX_COUNT; i++ )
             {
                 tIndex[i].Clear();
             }
@@ -205,7 +205,7 @@
             iTotalBlocks = 0;
         }
     public:
-        TMdbTrieConflictIndex tIndex[MAX_BRIE_INDEX_COUNT]; //冲突索引信息
+        TMdbTrieConflictIndex tIndex[MAX_TRIE_INDEX_COUNT]; //冲突索引信息
         int iIndexCounts;  //已有索引数
         int iFreeBlockId; // 空闲链首节点
         int iTotalBlocks; // 已有冲突索引内存块个数

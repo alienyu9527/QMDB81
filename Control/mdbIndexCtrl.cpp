@@ -522,8 +522,7 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 
 }
 
-
-int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
+	int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
     {
         int iRet = 0;
         TADD_FUNC("AttachTable(%s) : Start.", pTable->sTableName);
@@ -678,7 +677,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
 
 	int  TMdbIndexCtrl::AttachTrieIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,int& iFindIndexs)
     {
-        for(int n=0; n<MAX_BRIE_SHMID_COUNT; ++n)
+        for(int n=0; n<MAX_TRIE_SHMID_COUNT; ++n)
         {
             TADD_DETAIL("Attach (%s) trie Index : Shm-ID no.[%d].", pTable->sTableName, n);
             char * pRootIndexAddr = pMdbShmDsn->GetTrieRootIndex(n);
@@ -693,7 +692,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
             for(int i=0; i<pTable->iIndexCounts; ++i)
             {
                 TADD_DETAIL("Trie , tIndex[%d].sName=[%s].", i, pTable->tIndex[i].sName);
-                for(int j=0; j<MAX_BRIE_INDEX_COUNT; ++j)
+                for(int j=0; j<MAX_TRIE_INDEX_COUNT; ++j)
                 {
                     //比较索引名称,如果相同，则把索引地址记录下来
                     if((0 == TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName,pMTrieRootIndexMgr->tIndex[j].sTabName))
@@ -981,6 +980,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
                 return -1;
             }
             
+
             iRet = m_tHashIndex.InsertIndexNode(iIndexPos,tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1052,6 +1052,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
 			iRet = m_tTrieIndex.DeleteIndexNode(sTrieWord,stTableIndex.m_TrieIndexInfo, rowID);
 		}
 
+
         //对于处于building状态的索引，找不到索引节点为合理的,不抛出错误
 		if(iRet!=0  && stTableIndex.pIndexInfo->bBuilding==true)
 		{
@@ -1103,6 +1104,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
             TMdbRowIndex tNewRowIndex;
             tNewRowIndex.Clear();
             tNewRowIndex.iBaseIndexPos = llNewValue;
+            
             
             iRet = m_tHashIndex.UpdateIndexNode(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
             
@@ -1365,6 +1367,7 @@ int TMdbIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
         m_pMdbDsn = pMdbShmDsn->GetInfo();
         CHECK_OBJ(m_pMdbDsn);
         CHECK_RET(m_tHashIndex.AttachDsn(pMdbShmDsn),"hash attach failed...");
+
         CHECK_RET(m_tMHashIndex.AttachDsn(pMdbShmDsn),"mhash attach failed...");
         CHECK_RET(m_tTrieIndex.AttachDsn(pMdbShmDsn),"trie attach failed...");
         return iRet;
@@ -1436,18 +1439,15 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
             continue;
 
         TMdbBaseIndexMgrInfo *pBIndexMgr = (TMdbBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-        for(int j=0; j<MAX_BASE_INDEX_COUNTS; ++j)
+
+        for(int j=0; j<MAX_BASE_INDEX_COUNTS,iFindIndexs<pTable->iIndexCounts; ++j)
         {
             if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
             {
                 iFindIndexs++;
                 SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-            }
-            if(iFindIndexs == pTable->iIndexCounts)
-            {
-                return iRet;
-            }
-            
+
+			}
         }
         if(iFindIndexs == pTable->iIndexCounts)
         {
@@ -1469,20 +1469,14 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
         CHECK_OBJ(pMHashConfMgr);
         TMdbMHashLayerIndexMgrInfo* pMHashLayerMgr = pMdbShmDsn->GetMHashLayerMgr();
         CHECK_OBJ(pMHashLayerMgr);
-        for(int j=0; j<MAX_MHASH_INDEX_COUNT; ++j)
+        for(int j=0; j<MAX_MHASH_INDEX_COUNT,iFindIndexs<pTable->iIndexCounts; ++j)
         {
             //比较索引名称,如果相同，则把锁地址和索引地址记录下来
             if(0 == TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName,pMHashBIndexMgr->tIndex[j].sTabName))
             {
                 ++iFindIndexs;
                 SAFESTRCPY(pMHashBIndexMgr->tIndex[j].sTabName,sizeof(pMHashBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-                
             }
-            if(iFindIndexs == pTable->iIndexCounts)
-            {
-                return iRet;
-            }
-            
         }
         
         if(iFindIndexs == pTable->iIndexCounts)
@@ -1491,23 +1485,19 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
         }
     }  
 
-	for(int n=0; n<MAX_BRIE_SHMID_COUNT; ++n)
+	for(int n=0; n<MAX_TRIE_SHMID_COUNT; ++n)
     {
         char * pBaseIndexAddr = pMdbShmDsn->GetTrieRootIndex(n);
         if(pBaseIndexAddr == NULL)
             continue;
 
         TMdbTrieRootIndexMgrInfo *pBIndexMgr = (TMdbTrieRootIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-        for(int j=0; j<MAX_BRIE_INDEX_COUNT; ++j)
+        for(int j=0; j<MAX_TRIE_INDEX_COUNT,iFindIndexs<pTable->iIndexCounts; ++j)
         {
             if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
             {
                 iFindIndexs++;
                 SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-            }
-            if(iFindIndexs == pTable->iIndexCounts)
-            {
-                return iRet;
             }
             
         }
@@ -1519,6 +1509,7 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
         
     }
 
+
     if(iFindIndexs != pTable->iIndexCounts)
     {
         TADD_ERROR(-1,"AttachTable(%s) : iFindIndexs[%d] < pTable->iIndexCounts[%d].",pTable->sTableName,iFindIndexs, pTable->iIndexCounts);
@@ -1526,6 +1517,7 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
     }
     return iRet;
 }
+
 
 bool TMdbIndexCtrl::CheckHashConflictIndexFull()
 {
@@ -1547,8 +1539,16 @@ bool TMdbIndexCtrl::CheckHashConflictIndexFull()
 		{
 			continue;
 		}
+
+		TMdbSingleTableIndexInfo* pCurInfo = m_pLink->FindCurTableIndex(m_pAttachTable->sTableName);
+		if(!pCurInfo)
+		{
+			TADD_ERROR(-1,"table[%s] not found on link.",m_pAttachTable->sTableName);
+        	return false;
+		}
 		
-        if(m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iFreeHeadPos < 0)
+        if(m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iFreeHeadPos < 0 && 
+			pCurInfo->arrLinkIndex[i].iHashCFreeNodeCounts <=0 )
         {
             TADD_ERROR(-1,"table[%s] index[%s] has no conflict index node,record-counts[%d] is too small",
                 m_pAttachTable->sTableName,m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->sName,m_pAttachTable->iRecordCounts);

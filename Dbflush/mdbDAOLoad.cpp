@@ -1249,9 +1249,9 @@ int TMdbDAOLoad::CheckFieldExist()
     {
         TADD_ERROR(ERROR_UNKNOWN,"Unkown error ,SQL=[%s].",m_sCkFieldSQL);
         return ERROR_UNKNOWN;
-    }
-    return iRet;
+    }	
     TADD_FUNC("Finish.");
+    return iRet;
 }
 bool TMdbDAOLoad::CheckRecord(TMdbQuery * pQMDBQuery,TMDBDBQueryInterface* pOraQuery)
 {
@@ -1276,8 +1276,8 @@ bool TMdbDAOLoad::CheckRecord(TMdbQuery * pQMDBQuery,TMDBDBQueryInterface* pOraQ
         bFlag = true;
         break;
     }
-    return bFlag;
     TADD_FUNC("Finish.");
+    return bFlag;
 }
 
 bool TMdbDAOLoad::CheckAsStringRecord(TMdbQuery * pQMDBQuery,TMDBDBQueryInterface* pOraQuery)

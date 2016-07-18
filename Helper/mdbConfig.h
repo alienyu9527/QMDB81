@@ -1117,7 +1117,8 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
     	*******************************************************************************/
     	bool CheckRepeatTableName(const char* pTableName);
     	int CheckColumPosIsContinuous(TMdbTable* pTable);
-
+		
+		int CheckIndexValid(TMdbIndex& tIndex);
 
         int LoadTableSpaceAlterInfo(const char* psSysFilePath);
 

@@ -50,6 +50,7 @@ m_pStartPage(NULL)
 	m_pTrieConfIndex = NULL;
     m_pTrieBranchIndex = NULL;	
 	m_bStopScanTrie = true;
+	memset(m_sTrieWord,0,sizeof(m_sTrieWord));
 	
 }
 /******************************************************************************
@@ -286,9 +287,9 @@ int TMdbTableWalker::WalkByPage(int iStartPageID)
 *******************************************************************************/
 bool TMdbTableWalker::NextByPage()
 {	
-	int iRet = 0; 
 	while(NULL != m_pCurPage)
 	{	
+		int iRet = 0; 
 		//加读锁
 		CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char*)m_pCurPage, m_pMdbTable->bReadLock, m_pMdbTable->bWriteLock),"TMdbTableWalker::m_mdbPageCtrl.Attach faild");
 	    CHECK_RET_BREAK(m_mdbPageCtrl.RLock(),"TMdbTableWalker::PageCtrl.RLock() failed.");
@@ -766,6 +767,7 @@ bool TMdbTableWalker::NextByPage()
         
         char* pAddr = NULL;
 
+ 
         TMdbTrieBlock* pHeadBlock = GetTrieBlockById(iHeadBlock, bConf);
         if(pHeadBlock == NULL)
         {
@@ -782,13 +784,16 @@ bool TMdbTableWalker::NextByPage()
                 if(iIndexNodeId >= pTmpBlock->iStartNode && iIndexNodeId <= pTmpBlock->iEndNode)
                 {
                     //计算出相应的地址
+
                     
                     if(bConf)
                     {
+
                         pAddr = m_pShmDSN->GetTrieConfShmAddr(pTmpBlock->iShmID);
                     }
                     else
                     {
+
                         pAddr = m_pShmDSN->GetTrieBranchShmAddr(pTmpBlock->iShmID);
                     }
 
@@ -810,6 +815,7 @@ bool TMdbTableWalker::NextByPage()
                     }
                     else
                     {
+
                         pTmpBlock = GetTrieBlockById(pTmpBlock->iNextBlock,bConf);
                     }
                 }
@@ -821,7 +827,7 @@ bool TMdbTableWalker::NextByPage()
         }
         return pAddr;
     }
+    
 
-	
 //}
 

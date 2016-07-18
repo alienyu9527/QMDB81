@@ -109,7 +109,7 @@
 
         int iPos = 0;
         bool bFree = false;
-        for(int i = 0; i < MAX_BRIE_INDEX_COUNT; i++)
+        for(int i = 0; i < MAX_TRIE_INDEX_COUNT; i++)
         {
             if('0' != pBranchMgr->tIndex[i].cState){continue;}
             iPos = i;
@@ -144,7 +144,7 @@
 
         int iPos = 0;
         bool bFree = false;
-        for(int i = 0; i < MAX_BRIE_INDEX_COUNT; i++)
+        for(int i = 0; i < MAX_TRIE_INDEX_COUNT; i++)
         {
             if('0' != pConflictMgr->tIndex[i].cState){continue;}
             iPos = i;
@@ -173,9 +173,9 @@
     {
         TADD_FUNC("Start.Size=[%lu].",iShmSize);
         int iRet = 0;
-        if(MAX_BRIE_SHMID_COUNT == m_pMdbShmDsn->GetInfo()->iTrieRootIdxShmCnt)
+        if(MAX_TRIE_SHMID_COUNT == m_pMdbShmDsn->GetInfo()->iTrieRootIdxShmCnt)
         {
-            CHECK_RET(ERR_OS_NO_MEMROY,"can't create new TrieRoot shm,MAX_SHM_COUNTS[%d]",MAX_BRIE_SHMID_COUNT);
+            CHECK_RET(ERR_OS_NO_MEMROY,"can't create new TrieRoot shm,MAX_SHM_COUNTS[%d]",MAX_TRIE_SHMID_COUNT);
         }
         int iPos = m_pMdbDsn->iTrieRootIdxShmCnt;
         TADD_FLOW("Create TrieRootIndexShm:[%d],base_key[0x%0x]",iPos,m_pMdbDsn->iTrieRootIdxShmKey[iPos]);
@@ -190,7 +190,7 @@
         CHECK_OBJ(pRootIndexMgr);
         pRootIndexMgr->iSeq = iPos;
         int i = 0;
-        for(i = 0; i<MAX_BRIE_INDEX_COUNT; i++)
+        for(i = 0; i<MAX_TRIE_INDEX_COUNT; i++)
         {
             pRootIndexMgr->tIndex[i].Clear();
             pRootIndexMgr->tFreeSpace[i].Clear();
@@ -220,7 +220,7 @@
         bool bFind = false;
         TMdbTrieRootIndexMgrInfo* pRootIndexMgr     = NULL;
         int i = 0;
-        for(i = 0; i < MAX_BRIE_SHMID_COUNT; i++)
+        for(i = 0; i < MAX_TRIE_SHMID_COUNT; i++)
         {
             pRootIndexMgr = (TMdbTrieRootIndexMgrInfo*)m_pMdbShmDsn->GetTrieRootIndex(i);
             if(NULL ==  pRootIndexMgr ) //需要申请新的索引内存
@@ -235,7 +235,7 @@
                 int j = 0;
                 TMdbTrieRootIndex * pRootIndex = NULL;
                 //搜寻可以放置索引信息的位置
-                for(j = 0; j<MAX_BRIE_INDEX_COUNT; j++)
+                for(j = 0; j<MAX_TRIE_INDEX_COUNT; j++)
                 {
                     if('0' == pRootIndexMgr->tIndex[j].cState)
                     {
@@ -250,7 +250,7 @@
                     break;   //没有空闲位置可以放索引信息
                 }
                 //搜寻是否还有空闲内存
-                for(j = 0; j<MAX_BRIE_INDEX_COUNT; j++)
+                for(j = 0; j<MAX_TRIE_INDEX_COUNT; j++)
                 {
                     if(pRootIndexMgr->tFreeSpace[j].iPosAdd >0)
                     {
@@ -346,7 +346,7 @@
 			int iPos = GetFreeBranchPos();
 			if(iPos < 0)
 			{
-				CHECK_RET(iPos,"Can't Create new trie conflict shm,MAX=[%d].",MAX_BRIE_INDEX_COUNT);
+				CHECK_RET(iPos,"Can't Create new trie conflict shm,MAX=[%d].",MAX_TRIE_INDEX_COUNT);
 			}
 			iRet = TMdbShm::Create(m_pMdbDsn->iTrieBranchIdxShmKey[iPos], iBranchSize+8, m_pMdbDsn->iTrieBranchIdxShmID[iPos]);
 			if(iRet != 0)
@@ -416,7 +416,7 @@
             int iPos = GetFreeConfPos();
             if(iPos < 0)
             {
-                CHECK_RET(iPos,"Can't Create new trie conflict shm,MAX=[%d].",MAX_BRIE_INDEX_COUNT);
+                CHECK_RET(iPos,"Can't Create new trie conflict shm,MAX=[%d].",MAX_TRIE_INDEX_COUNT);
             }
             iRet = TMdbShm::Create(m_pMdbDsn->iTrieConfIdxShmKey[iPos], iConflictSize+8, m_pMdbDsn->iTrieConfIdxShmID[iPos]);
             if(iRet != 0)
@@ -453,9 +453,9 @@
         int i,j;
         //先按从小到大排序，并且将无用的节点(iposAdd < 0)排到后面
         TMDBIndexFreeSpace tTempSapce;
-        for(i = 0; i<MAX_BRIE_INDEX_COUNT; i++)
+        for(i = 0; i<MAX_TRIE_INDEX_COUNT; i++)
         {
-            for(j = i; j<MAX_BRIE_INDEX_COUNT; j++)
+            for(j = i; j<MAX_TRIE_INDEX_COUNT; j++)
             {
                 if((tFreeSpace[i].iPosAdd > tFreeSpace[j].iPosAdd && tFreeSpace[j].iPosAdd>0)
                         || tFreeSpace[i].iPosAdd == 0)
@@ -467,7 +467,7 @@
             }
         }
         //查看相邻的节点是否可以合并
-        for(i = 0; i<MAX_BRIE_INDEX_COUNT - 1;)
+        for(i = 0; i<MAX_TRIE_INDEX_COUNT - 1;)
         {
             if(tFreeSpace[i].iPosAdd == 0)
             {
@@ -478,7 +478,7 @@
                 //可以合并，并停留在这个节点
                 TADD_DETAIL("FreeSpace[%d] and [%d] can merge.",i,i+1);
                 tFreeSpace[i].iSize += tFreeSpace[i+1].iSize;
-                if(i+2 == MAX_BRIE_INDEX_COUNT)
+                if(i+2 == MAX_TRIE_INDEX_COUNT)
                 {
                     tFreeSpace[i+1].Clear();
                 }
@@ -486,8 +486,8 @@
                 {
                     //将后来的节点前移
                     memmove(&(tFreeSpace[i+1]),&(tFreeSpace[i+2]),
-                            sizeof(TMDBIndexFreeSpace)*(MAX_BRIE_INDEX_COUNT-i-2));
-                    tFreeSpace[MAX_BRIE_INDEX_COUNT - 1].Clear();
+                            sizeof(TMDBIndexFreeSpace)*(MAX_TRIE_INDEX_COUNT-i-2));
+                    tFreeSpace[MAX_TRIE_INDEX_COUNT - 1].Clear();
                 }
             }
             else if(tFreeSpace[i].iPosAdd + tFreeSpace[i].iSize > tFreeSpace[i+1].iPosAdd &&
@@ -1292,7 +1292,7 @@
     {
         TADD_FUNC("Start.");
         int i = 0;
-        for(; i<MAX_BRIE_SHMID_COUNT; i++)
+        for(; i<MAX_TRIE_SHMID_COUNT; i++)
         {
             if(m_pMdbDsn->iTrieBranchIdxShmID[i] == INITVAl)
             {
@@ -1311,7 +1311,7 @@
     {
         TADD_FUNC("Start.");
         int i = 0;
-        for(; i<MAX_BRIE_SHMID_COUNT; i++)
+        for(; i<MAX_TRIE_SHMID_COUNT; i++)
         {
             if(m_pMdbDsn->iTrieConfIdxShmID[i] == INITVAl)
             {

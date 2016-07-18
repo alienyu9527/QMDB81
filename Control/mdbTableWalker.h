@@ -93,8 +93,8 @@
         int iBranchPos;
         int iChildIdx; //记录走到哪一个孩子节点了
     };
-	
-
+    
+    
     /*
     ** mdbTable遍历类,根据索引来遍历表或者全表遍历
     */
@@ -104,6 +104,7 @@
     	TMdbTableWalker();
     	~TMdbTableWalker();
     	int AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * m_pMdbTable);//连接表
+
         int WalkByIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue);
     	bool Next();//下一个
     	inline char * GetDataAddr(){	return m_pDataAddr;}//获取数据地址
@@ -117,6 +118,7 @@
     	char* GetAddressRowID(TMdbRowID* pRowID, int &iDataSize, bool bGetPageAddr = false);
 		
     protected:
+
         // hash 索引遍历
         int WalkByHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue);
         bool NextByHash();
@@ -124,6 +126,7 @@
         // m-hash索引遍历
         int WalkByMHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue); 
         bool NextByMHash();
+
         char* GetAddrByMhashIndexNodeId(int iHeadBlock,int iIndexNodeId, int iNodeSize, bool bConf);
         TMdbMhashBlock* GetMhashBlockById(int iBlockID, bool bConf);
 

@@ -17,6 +17,7 @@
 		<dir name="${base.dir}/Helper/tinyxml2.cpp"/>
 		<dir name="${base.dir}/Helper/string_ex.cpp"/>
 		<dir name="${base.dir}/Interface/mdbNosqlQuery.cpp"/>
+		<dir name="${base.dir}/Helper/Lemon.c"/>
 	</exclude>
 	<throw_allow>
 		<path name="${base.dir}/Helper"/>

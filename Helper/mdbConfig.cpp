@@ -3529,6 +3529,7 @@
     *******************************************************************************/
     int TMdbConfig::LoadTableIndex(TMdbTable* pTable,MDBXMLElement* pMDB)
     {
+    	int iRet = 0;
         //TADD_FUNC("TMdbConfig::LoadTableIndex(table=%s) : Start.", pTable->sTableName);
         pTable->iIndexCounts = 0;
 
@@ -3580,14 +3581,6 @@
                 }
             }
 
-            if(pTable->tIndex[iIndexCounts].m_iAlgoType != INDEX_HASH
-                && pTable->tIndex[iIndexCounts].m_iAlgoType != INDEX_M_HASH
-                && pTable->tIndex[iIndexCounts].m_iAlgoType != INDEX_TRIE)
-            {
-                TADD_ERROR(ERR_TAB_INDEX_INVALID_TYPE,"TMdbConfig::LoadTableIndex() : Table=[%s] too many Index,Max=[%d].",
-                    pTable->sTableName, MAX_INDEX_COUNTS);
-                return ERR_TAB_INDEX_INVALID_TYPE;
-            }
 
             int iCPos = pTable->tIndex[iIndexCounts].iColumnNo[0];
             if(pTable->tIndex[iIndexCounts].iColumnNo[1] > -1)
@@ -3604,12 +3597,8 @@
             }
 
 			
-			if (pTable->tIndex[iIndexCounts].m_iAlgoType  == INDEX_TRIE \
-				&&  pTable->tIndex[iIndexCounts].m_iIndexType != HT_Char)
-			{
-				TADD_ERROR(ERR_TAB_INDEX_INVALID_TYPE, "index[%s] is invalid: trie only supports string column", pTable->tIndex[iIndexCounts].sName);
-				return  ERR_TAB_INDEX_INVALID_TYPE;
-			}
+			CHECK_RET(CheckIndexValid(pTable->tIndex[iIndexCounts]),"CheckIndexValid Failed.");
+
 
             ++pTable->iIndexCounts;
             if(pTable->iIndexCounts >= MAX_INDEX_COUNTS)
@@ -3623,10 +3612,28 @@
 
         //pTable->iExpandRecords = pTable->iExpandRecords * pTable->iIndexCounts;
 
-        return 0;
+        return iRet;
     }
 
+	int TMdbConfig::CheckIndexValid(TMdbIndex& tIndex)
+	{
+		int iRet = 0;
+		if(tIndex.m_iAlgoType != INDEX_HASH && 
+			tIndex.m_iAlgoType != INDEX_M_HASH && 
+			tIndex.m_iAlgoType != INDEX_TRIE)
+		{
+		    TADD_ERROR(ERR_TAB_INDEX_INVALID_TYPE,"TMdbConfig::LoadTableIndex() : InValid IndexType %d,IndexName=[%s].",
+		        tIndex.m_iAlgoType, tIndex.sName);
+		    return ERR_TAB_INDEX_INVALID_TYPE;
+		}
 
+		if (tIndex.m_iAlgoType  == INDEX_TRIE &&  tIndex.m_iIndexType != HT_Char)
+		{
+			TADD_ERROR(ERR_TAB_INDEX_INVALID_TYPE, "index[%s] is invalid: trie only supports string column", tIndex.sName);
+			return  ERR_TAB_INDEX_INVALID_TYPE;
+		}
+		return iRet;
+	}
     /******************************************************************************
     * 函数名称	:  LoadTablePrimaryKey()
     * 函数描述	:  上载表相关的主键信息

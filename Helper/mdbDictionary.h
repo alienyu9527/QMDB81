@@ -56,8 +56,8 @@
 #define MAX_MHASH_INDEX_COUNT 1000
 #define MAX_MHASH_SHMID_COUNT 1000
 
-#define MAX_BRIE_INDEX_COUNT  100
-#define MAX_BRIE_SHMID_COUNT 100
+#define MAX_TRIE_INDEX_COUNT  100
+#define MAX_TRIE_SHMID_COUNT 100
 
 #define MAX_TRIE_WORD_LEN    256
 
@@ -145,6 +145,7 @@
             //是否是合法的dataOffset
             bool IsValidDataOffset(int iDataOffset)
             {
+ 
                 return true == (iDataOffset < m_iFreeOffSet && iDataOffset >= (int)sizeof(TMdbPage) + (int)sizeof(TMdbPageNode));
             }
             bool bNeedToMoveToFreeList(){return (m_iFreeSize * 4 >= m_iPageSize)?true:false;};//是否空闲
@@ -267,8 +268,8 @@
 	{
 		INDEX_HASH = 0,     //hash索引
 		INDEX_M_HASH    = 1,     //multistep hash index
-		INDEX_TRIE = 2,     //trie索引
-		INDEX_UNKOWN 
+		INDEX_TRIE = 2,     //trie索引		INDEX_UNKOWN 
+		INDEX_UNKOWN = 3
 	};
 
 	// 表的记录数级别
@@ -860,11 +861,13 @@ public:
     SHAMEM_T iVarCharShmID[MAX_VARCHAR_SHM_ID];
     long long iVarCharShmKey[MAX_VARCHAR_SHM_ID];  //因为ShmID会随着系统的变化而变化，而Key是唯一的
 
+
     //HASH基础索引段
     int iBaseIndexShmCounts;          
     SHAMEM_T iBaseIndexShmID[MAX_SHM_ID];
     int iBaseIndexShmKey[MAX_SHM_ID]; //因为ShmID会随着系统的变化而变化，而Key是唯一的
     
+
     //HASH冲突索引段
     int iConflictIndexShmCounts;          //冲突索引的个数
     SHAMEM_T iConflictIndexShmID[MAX_SHM_ID];
@@ -904,8 +907,8 @@ public:
 
 	//Trie 树Root索引段
     int iTrieRootIdxShmCnt;  
-    SHAMEM_T iTrieRootIdxShmID[MAX_BRIE_SHMID_COUNT]; 
-    int iTrieRootIdxShmKey[MAX_BRIE_SHMID_COUNT]; 
+    SHAMEM_T iTrieRootIdxShmID[MAX_TRIE_SHMID_COUNT]; 
+    int iTrieRootIdxShmKey[MAX_TRIE_SHMID_COUNT]; 
 	
 
 	//Trie 树分支索引段
@@ -913,19 +916,18 @@ public:
     int iTrieBranchMgrShmKey;
 
     int iTrieBranchIdxShmCnt;  
-    SHAMEM_T iTrieBranchIdxShmID[MAX_BRIE_SHMID_COUNT]; 
-    int iTrieBranchIdxShmKey[MAX_BRIE_SHMID_COUNT]; 
+    SHAMEM_T iTrieBranchIdxShmID[MAX_TRIE_SHMID_COUNT]; 
+    int iTrieBranchIdxShmKey[MAX_TRIE_SHMID_COUNT]; 
 
 	//Trie 冲突索引段
     SHAMEM_T iTrieConfMgrShmId; // 阶梯式索引冲突索引管理区shmid
     int iTrieConfMgrShmKey; // 阶梯式索引冲突索引管理区shmkey
 
     int iTrieConfIdxShmCnt;  // 阶梯式索引阶梯索引段个数
-    SHAMEM_T iTrieConfIdxShmID[MAX_BRIE_SHMID_COUNT]; // 阶梯式索引阶梯索引段shmid
-    int iTrieConfIdxShmKey[MAX_BRIE_SHMID_COUNT];   // 阶梯式索引阶梯索引段shmkey
+    SHAMEM_T iTrieConfIdxShmID[MAX_TRIE_SHMID_COUNT]; // 阶梯式索引阶梯索引段shmid
+    int iTrieConfIdxShmKey[MAX_TRIE_SHMID_COUNT];   // 阶梯式索引阶梯索引段shmkey
 
 	
-
  
     char sStorageDir[MAX_PATH_NAME_LEN];//文件存储位置
     char sDataStore[MAX_PATH_NAME_LEN]; //文件影像的位置

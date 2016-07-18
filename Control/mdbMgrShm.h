@@ -141,8 +141,8 @@
 		
 		int InitTrieBranchBlock(int iPos, char*& pAddr);	
 		int InitTrieConfBlock(int iPos, char*& pAddr);	
-		TMdbTrieBlock* TMdbShmDSN::GetTrieConfBlockById(int iBlockID);
-		TMdbTrieBlock* TMdbShmDSN::GetTrieBranchBlockById(int iBlockID);
+		TMdbTrieBlock* GetTrieConfBlockById(int iBlockID);
+		TMdbTrieBlock* GetTrieBranchBlockById(int iBlockID);
 		char* GetTrieBranchShmAddr(SHAMEM_T iShmID);			
 		char* GetTrieConfShmAddr(SHAMEM_T iShmID);
 
@@ -165,12 +165,13 @@
         char* m_pMHashConfIndexShmAddr[MAX_MHASH_SHMID_COUNT]; // 阶梯式索引冲突索引地址
         char* m_pMHashLayerIndexShmAddr[MAX_MHASH_SHMID_COUNT]; // 阶梯式索引阶梯索引地址
 
-		char* m_pTrieRootIndexShmAddr[MAX_BRIE_SHMID_COUNT]; //树形索引基础索引地址
-        char* m_pTrieBranchIndexShmAddr[MAX_BRIE_SHMID_COUNT]; // 树形索引冲突索引地址
-        char* m_pTrieConfIndexShmAddr[MAX_BRIE_SHMID_COUNT]; // 树形索引冲突索引地址
+		char* m_pTrieRootIndexShmAddr[MAX_TRIE_SHMID_COUNT]; //树形索引基础索引地址
+        char* m_pTrieBranchIndexShmAddr[MAX_TRIE_SHMID_COUNT]; // 树形索引冲突索引地址
+        char* m_pTrieConfIndexShmAddr[MAX_TRIE_SHMID_COUNT]; // 树形索引冲突索引地址
 
         int*  m_pOtherShmID[MAX_SHM_ID];
         char* m_pOtherShmAddr[MAX_SHM_ID];
+
 	 	int * m_pVarcharShmID[MAX_VARCHAR_SHM_ID];
 	 	char* m_pVarcharShmAddr[MAX_VARCHAR_SHM_ID];
         TMdbDSN *m_pTMdbDSN;   //管理区信息
@@ -203,6 +204,7 @@
         TShmList<TMdbMhashBlock> m_MhashConfList; // 阶梯式索引冲突索引块链表
         TShmList<TMdbMhashBlock> m_MhashLayerList; // 阶梯式索引阶梯索引块链表
 
+	
 		TShmList<TMdbTrieBlock> m_TrieBranchList; // 树形索引树节点索引块链表
         TShmList<TMdbTrieBlock> m_TrieConfList; // 树形索引冲突索引块链表
         

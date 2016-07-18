@@ -455,7 +455,7 @@
 
             }
 
-			for(int i = 0; i < MAX_BRIE_SHMID_COUNT; ++i)
+			for(int i = 0; i < MAX_TRIE_SHMID_COUNT; ++i)
             {
 
 				if(m_pTrieRootIndexShmAddr[i] != NULL)
@@ -738,38 +738,43 @@
         for(i=0; i<MAX_SHM_ID; ++i)
         {
             //数据块
+
             m_pTMdbDSN->iShmKey[i] = m_iMgrKey + 37*i + 1;
             m_pTMdbDSN->iShmID[i]  = INITVAl;
-			
-            //hash基础索引
+
+
+            //基础索引
             m_pTMdbDSN->iBaseIndexShmKey[i] = m_iMgrKey + 37*i + 2;
             m_pTMdbDSN->iBaseIndexShmID[i]  = INITVAl;
-            //hash冲突索引
+
+            //冲突索引
             m_pTMdbDSN->iConflictIndexShmKey[i] = m_iMgrKey + 37*i + 3;
             m_pTMdbDSN->iConflictIndexShmID[i]  = INITVAl;
-			//Hash Mutex
-			m_pTMdbDSN->iHashMutexShmKey[i] = m_iMgrKey + 37*i + 15;
-            m_pTMdbDSN->iHashMutexShmID[i] = INITVAl;
-			
-            // Mhash基础索引
+
+            // 阶梯式索引
             m_pTMdbDSN->iMHashBaseIdxShmKey[i] = m_iMgrKey + 37*i + 4;
             m_pTMdbDSN->iMHashBaseIdxShmID[i] = INITVAl;
-			//Mhash Mutex
+
+
             m_pTMdbDSN->iMHashMutexShmKey[i] = m_iMgrKey + 37*i + 5;
             m_pTMdbDSN->iMHashMutexShmID[i] = INITVAl;
             
         }  
 
         m_pTMdbDSN->iMhashConfMgrShmId = INITVAl;
+
         m_pTMdbDSN->iMhashConfMgrShmKey = m_iMgrKey+6;
 
         m_pTMdbDSN->iMhashLayerMgrShmId = INITVAl;
+
         m_pTMdbDSN->iMhashLayerMgrShmKey = m_iMgrKey+7;
 
         for(i = 0; i < MAX_MHASH_SHMID_COUNT; ++i)
         {
+
             m_pTMdbDSN->iMHashConfIdxShmKey[i] = m_iMgrKey + 37*i + 8;
             m_pTMdbDSN->iMHashConfIdxShmID[i] = INITVAl;
+
 
             m_pTMdbDSN->iMHashLayerIdxShmKey[i] = m_iMgrKey + 37*i + 9;
             m_pTMdbDSN->iMHashLayerIdxShmID[i] = INITVAl;
@@ -783,7 +788,7 @@
         m_pTMdbDSN->iTrieConfMgrShmKey = m_iMgrKey+11;
 
 
-        for(i = 0; i < MAX_BRIE_SHMID_COUNT; ++i)
+        for(i = 0; i < MAX_TRIE_SHMID_COUNT; ++i)
         {
             m_pTMdbDSN->iTrieRootIdxShmKey[i] = m_iMgrKey + 37*i + 12;
             m_pTMdbDSN->iTrieRootIdxShmID[i] = INITVAl;
@@ -876,7 +881,7 @@
 
         m_pTMdbDSN->iLocalPort = config.GetDSN()->iLocalPort; //对应的LocalPort
         m_pTMdbDSN->iPeerPort  = config.GetDSN()->iPeerPort;  //对应的iPeerPort
-        //m_pTMdbDSN->iAgentPort = config.GetInfo()->iAgentPort; //代理端口
+
         for(int i = 0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
 			m_pTMdbDSN->iAgentPort[i] = config.GetDSN()->iAgentPort[i];
@@ -885,7 +890,7 @@
 			
 		}
         m_pTMdbDSN->m_iDataSize = config.GetDSN()->iDataSize;
-        //m_pTMdbDSN->iMonitorPort = config.GetInfo()->iMonitorPort; //本地监听端口
+
         m_pTMdbDSN->iLogLevel = config.GetDSN()->iLogLevel; //日志级别
         //设置主备同步、Oracle同步开关
         m_pTMdbDSN->m_iOraRepCounts = config.GetDSN()->iOraRepCounts;
@@ -1175,7 +1180,7 @@
 
 	char* TMdbShmDSN::GetTrieBranchShmAddr(SHAMEM_T iShmID)
 	   {
-		   for(int i = 0; i < MAX_BRIE_SHMID_COUNT; ++i)
+		   for(int i = 0; i < MAX_TRIE_SHMID_COUNT; ++i)
 		   {
 			   if(iShmID == m_pTMdbDSN->iTrieBranchIdxShmID[i] && m_pTrieBranchIndexShmAddr[i])
 			   {
@@ -1183,14 +1188,14 @@
 			   }
 		   }
 	
-		   for(int i=0; i<MAX_BRIE_SHMID_COUNT; ++i)
+		   for(int i=0; i<MAX_TRIE_SHMID_COUNT; ++i)
 		   {
 			   if(-1 == m_pTMdbDSN->iTrieBranchIdxShmID[i] || !m_pTrieBranchIndexShmAddr[i])
 			   {
 				   int iRet = TMdbShm::AttachByID(iShmID, m_pTrieBranchIndexShmAddr[i]);
 				   if(iRet != 0)
 				   {
-					   TADD_ERROR(ERR_OS_ATTACH_SHM,"Can't attach iShmID=%d(0x).", iShmID, iShmID);
+					   TADD_ERROR(ERR_OS_ATTACH_SHM,"Can't attach iShmID=%d(0x%x).", iShmID,iShmID);
 					   return NULL;
 				   }
 				   m_pTMdbDSN->iTrieBranchIdxShmID[i] = iShmID;
@@ -1202,7 +1207,7 @@
 	
 	   char* TMdbShmDSN::GetTrieConfShmAddr(SHAMEM_T iShmID)
 	   {
-		   for(int i = 0; i < MAX_BRIE_SHMID_COUNT; ++i)
+		   for(int i = 0; i < MAX_TRIE_SHMID_COUNT; ++i)
 		   {
 			   if(iShmID == m_pTMdbDSN->iTrieConfIdxShmID[i] && m_pTrieConfIndexShmAddr[i])
 			   {
@@ -1210,14 +1215,14 @@
 			   }
 		   }
 	
-		   for(int i=0; i<MAX_BRIE_SHMID_COUNT; ++i)
+		   for(int i=0; i<MAX_TRIE_SHMID_COUNT; ++i)
 		   {
 			   if(-1 == m_pTMdbDSN->iTrieConfIdxShmID[i] || !m_pTrieConfIndexShmAddr[i])
 			   {
 				   int iRet = TMdbShm::AttachByID(iShmID, m_pTrieConfIndexShmAddr[i]);
 				   if(iRet != 0)
 				   {
-					   TADD_ERROR(ERR_OS_ATTACH_SHM,"Can't attach iShmID=%d(0x).", iShmID, iShmID);
+					   TADD_ERROR(ERR_OS_ATTACH_SHM,"Can't attach iShmID=%d(0x%x).", iShmID, iShmID);
 					   return NULL;
 				   }
 				   m_pTMdbDSN->iTrieConfIdxShmID[i] = iShmID;
@@ -1339,7 +1344,7 @@
 
 	char* TMdbShmDSN::GetTrieRootIndex(int iPos)
     {
-        if(iPos>=0 && iPos<MAX_BRIE_SHMID_COUNT)
+        if(iPos>=0 && iPos<MAX_TRIE_SHMID_COUNT)
             return  m_pTrieRootIndexShmAddr[iPos];
         else
             return NULL;
@@ -1608,7 +1613,7 @@
         //链接到共享内存上面
         TMdbTrieConflictIndexMgrInfo* pConfMgr = GetTrieConfMgr();
         CHECK_OBJ(pConfMgr);
-        pConfMgr->Clear();
+        pConfMgr->Clear();
 
         if(TMdbShm::IsShmExist(m_pTMdbDSN->iTrieBranchMgrShmKey,sizeof(TMdbTrieRootIndexMgrInfo),m_pTMdbDSN->iTrieBranchMgrShmId))
         {//共享内存已存在
@@ -1620,7 +1625,7 @@
         //链接到共享内存上面
         TMdbTrieBranchIndexMgrInfo* pBranchMgr = GetTrieBranchMgr();
         CHECK_OBJ(pBranchMgr);
-        pBranchMgr->Clear();
+        pBranchMgr->Clear();
 
         
         TADD_FUNC("Finish.");
@@ -2349,6 +2354,7 @@
         }
         return NULL;
     }
+
 
 	//?
 	TMdbTrieBlock* TMdbShmDSN::GetTrieBranchBlockById(int iBlockID)

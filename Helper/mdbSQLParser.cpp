@@ -1210,7 +1210,7 @@ int TMdbSqlParser::GetWhereIndex(std::vector< ST_INDEX_VALUE > & vIndexValue,ST_
     TADD_FUNC("Finish.vIndex.size=[%d],vIndexColumn.size=[%d]",vIndexValue.size(),vIndexColumn.size());
     return iRet;
 }
-
+//最长匹配不进行相等判断，需要做特殊处理
 int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr)
 {
 	TADD_FUNC("Start.");
@@ -1228,8 +1228,8 @@ int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr)
 			printf("Where %s set LPM\n",pstExpr->pExprValue->pColumn->sName);
 		}
 	}
+	return iRet;
 }
-
 /******************************************************************************
 * 函数名称	:  GetSubWhereIndex
 * 函数描述	:  获取子where条件中的index

@@ -1265,7 +1265,7 @@
 		iTrieConfMgrShmId = INITVAl;
 		iTrieConfMgrShmKey = INITVAl;
 		
-		for(int i =0 ; i < MAX_BRIE_SHMID_COUNT; ++i)
+		for(int i =0 ; i < MAX_TRIE_SHMID_COUNT; ++i)
         {
             iTrieBranchIdxShmID[i] = INITVAl;
             iTrieBranchIdxShmKey[i] = INITVAl;

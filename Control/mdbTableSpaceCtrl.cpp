@@ -748,9 +748,9 @@
                 TMdbConfig * pConfig = TMdbConfigMgr::GetMdbConfig(pDsn->sName);
                 CHECK_OBJ(pConfig);
                 CHECK_RET(m_pShmDSN->CreateNewDataShm(*pConfig),"CreateNewDataShm[%s] failed.",pDsn->sName);
-                if(NULL == pHead)
+				pHead = (TMdbShmHead*)m_pShmDSN->GetDataShm(i);
+				if(NULL == pHead)
                 {
-                	pHead = (TMdbShmHead*)m_pShmDSN->GetDataShm(i);
                     CHECK_RET(ERR_OS_NO_MEMROY,"GetNewShm failed,pos=%d ",i);
                 }
                 TADD_DETAIL("TS[%s]create new data shm:[%d]", m_pTMdbTableSpace->sName,i);
