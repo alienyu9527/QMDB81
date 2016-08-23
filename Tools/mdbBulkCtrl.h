@@ -60,9 +60,13 @@ public:
 	TMdbBuckOutData();
 	~TMdbBuckOutData();
 	
-	int Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,
-            const char *sTableName,const char* pOraSQLFile=NULL);
+	int Init(TMdbShmDSN * pShmDSN,int iExptType,const char*pDumpFile,
+            const char *sTableName,const char* sTsFormat,const char* sFilterToken, const char* sStrQuote,const char* pSQLFile=NULL);
 	int ExportData();
+	bool FilterTable(TMdbTable* pTable);
+	int ExportDataForAllTable();
+
+	int FormateDate(char* sMdbDate,char* sFormatDate );
 private:
 	int WriteTextFileFromMdb(TMdbTable *pMdbTable);
     int WriteTextFileFromOra(TMdbTable *pMdbTable);
@@ -75,7 +79,12 @@ public:
 	TMdbTable*      m_pMdbTable;
 	char            m_sSelectSQL[MAX_SQL_LEN*4];//sql
     int             m_iDataSrc;//数据源0--mdb，1--ora
-    
+    char            m_sTsFormat[MAX_NAME_LEN];
+	char			m_sFilterToken[2];
+	char			m_sStrQuote[2];
+	bool			m_bAllTable;
+	char			m_sFileName[MAX_PATH_FILE];
+	TMdbShmDSN*     m_pShmDSN;
 };
 
 //导入
@@ -85,7 +94,7 @@ public:
 	TMdbBuckInData();
 	~TMdbBuckInData();
 
-	int Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,const char *sTableName);
+	int Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,const char *sTableName,const char* sTsFormat,const char* sFilterToken, const char* sStrQuote);
 	int ImportData();
 private:
 	int ImportTextFile();
@@ -93,12 +102,15 @@ private:
 	bool IsBlobTable(TMdbTable *pMdbTable);
     int ParseData(const char* pData);
     int ParseDataPlus(const char* pData);    //字符串中带逗号的处理
+    int ParseDateStamp(char* pBegin,int iColumnIndex );
 private:
 	TMdbConnectCtrl     m_tConnCtrl;
 	TMdbTable*          m_pMdbTable;
 	FILE*               m_pFile;
 	char                m_sInsertSQL[MAX_SQL_LEN];
-    
+	char            	m_sTsFormat[MAX_NAME_LEN];
+    char				m_sFilterToken[2];
+	char				m_sStrQuote[2];
 };
 
 class TMdbBulkCtrl
@@ -108,8 +120,8 @@ public:
 	~TMdbBulkCtrl();
 	
 	int Init(const char*pDsn);
-	int ExportData(const char*pDumpFile,const char *sTableName,const char* pOraSQLFile=NULL);
-	int ImportData(const char*pDumpFile,const char *sTableName);
+	int ExportData(int iExptType,const char*pDumpFile,const char *sTableName,const char* sTsFormat,const char* sFilterToken, const char* sStrQuote,const char* pOraSQLFile=NULL);
+	int ImportData(const char*pDumpFile,const char *sTableName,const char* sTsFormat,const char* sFilterToken, const char* sStrQuote);
 private:
 	TMdbDSN*        m_pDsn;  
 	TMdbShmDSN*     m_pShmDSN;

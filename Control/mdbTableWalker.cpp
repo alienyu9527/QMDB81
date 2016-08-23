@@ -26,6 +26,7 @@ m_pShmDSN(NULL),
 m_pMdbDSN(NULL),
 m_pTableSpace(NULL),
 m_pMdbTable(NULL),
+m_iSqlType(TK_SELECT),
 m_iDataSize(0),
 m_pDataAddr(NULL),
 m_pNextDataAddr(NULL),
@@ -36,9 +37,10 @@ m_pStartPage(NULL)
 	m_tNextRowIDData.Clear();
 	m_tCurRowIDData.Clear();
 	m_iNextIndexPos = -1;
-    m_bScanAll = false;
 	m_iCurWalkIndexAlgo = 0;
 	m_pConflictIndex = NULL;
+	m_pReposConfIndex = NULL;
+	m_bWalkByRePosIndex = false;
 	m_pMHashBaseIdx = NULL;
 	m_tMHashRowIdx.Clear();
 	m_iScanPageType = TYPE_SCAN_PAGE_FREE;
@@ -76,7 +78,7 @@ TMdbTableWalker::~TMdbTableWalker()
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
-int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable)
+int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iSqlType)
 {
 	int iRet = 0;
     StopWalk();
@@ -89,6 +91,7 @@ int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable)
 	CHECK_OBJ(m_pMdbDSN);
 	m_pTableSpace = m_pShmDSN->GetTableSpaceAddrByName(pMdbTable->m_sTableSpace);
 	CHECK_OBJ(m_pTableSpace);
+	m_iSqlType = iSqlType;
     m_tTSCtrl.Init(pShmDSN->GetInfo()->sName,pMdbTable->m_sTableSpace);
 	TADD_FUNC("Finish.AttachTable [%s] ",pMdbTable->sTableName);
 	return iRet;
@@ -105,8 +108,15 @@ int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable)
         switch(m_iCurWalkIndexAlgo)
         {
             case INDEX_HASH:
-                iRet = WalkByHashIndex(pIndexInfo, lIndexValue);
-                break;
+				if(pIndexInfo->pIndexInfo->IsRedirectIndex())
+				{
+                	iRet = WalkByRePosHashIndex(pIndexInfo, lIndexValue);
+				}
+				else
+				{
+                	iRet = WalkByHashIndex(pIndexInfo, lIndexValue);
+				}
+				break;
             case INDEX_M_HASH:
                 iRet = WalkByMHashIndex(pIndexInfo, lIndexValue);
                 break;
@@ -140,7 +150,11 @@ int TMdbTableWalker::StopWalk()
 	m_pStartPage = NULL;
 	m_iPagePos = 0;
 	m_iCurWalkIndexAlgo = INDEX_UNKOWN;
-	
+
+	m_pConflictIndex = NULL;
+    m_pReposConfIndex = NULL;
+    m_bWalkByRePosIndex = false;
+
 	m_pMHashBaseIdx = NULL;
 	m_tMHashRowIdx.Clear();
 		
@@ -149,7 +163,7 @@ int TMdbTableWalker::StopWalk()
     m_pTrieBranchIndex = NULL;
 	m_bStopScanTrie = true;
 
-	m_bScanAll =false;
+
 	m_iScanPageType = TYPE_SCAN_PAGE_FREE;
 	m_iAffect = 0;
 	m_iFirstFullPageID = -1;
@@ -181,7 +195,14 @@ int TMdbTableWalker::StopWalk()
 
         if(m_iCurWalkIndexAlgo == INDEX_HASH)
         {
-            bRet = NextByHash();
+        	if(m_bWalkByRePosIndex)
+        	{
+            	bRet = NextByRePosIndex();
+			}
+			else
+			{
+            	bRet = NextByHash();
+			}
         }
         else if(m_iCurWalkIndexAlgo == INDEX_M_HASH)
         {
@@ -248,6 +269,12 @@ char* TMdbTableWalker::GetAddressRowID(TMdbRowID* pRowID, int &iDataSize, bool b
     if(NULL != pAddr)
     {
         TMdbPage * pPage = (TMdbPage * )pAddr;
+        /*
+        if(false == pPage->IsValidDataOffset(pRowID->iDataOffset))
+        {//data offset不合法
+            TADD_ERROR("iDataOffset[%d] is not valid,page[%s]",pRowID->iDataOffset,pPage->ToString().c_str());
+        }
+        */
         m_pCurPage = (TMdbPage *)pAddr;
         iDataSize = pPage->m_iRecordSize;
         pAddr = pAddr + m_pCurPage->RecordPosToDataOffset(pRowID->GetDataOffset());
@@ -343,8 +370,11 @@ bool TMdbTableWalker::NextByPage()
         int iRet = 0;
         TADD_DETAIL("walk by hash index.");
 
+        //long long lValue = 0;
         m_tCurRowIDData.Clear();
-                
+        
+        //CHECK_RET(CalcMemValueHash(*pIndexValue, lValue),"calc mem hash value failed.");
+        
         m_tNextRowIDData =  pIndexInfo->m_HashIndexInfo.pBaseIndexNode[lIndexValue].tData;
         m_iNextIndexPos =  pIndexInfo->m_HashIndexInfo.pBaseIndexNode[lIndexValue].iNextPos; 
         m_pConflictIndex = pIndexInfo->m_HashIndexInfo.pConflictIndexNode;
@@ -353,6 +383,22 @@ bool TMdbTableWalker::NextByPage()
         return iRet;
 
     }
+
+	int TMdbTableWalker::WalkByRePosHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo,long long lIndexValue)
+	{
+	    int iRet = 0;
+	    
+	    m_tCurRowIDData.Clear();
+	    m_tNextRowIDData = pIndexInfo->m_HashIndexInfo.pBaseIndexNode[lIndexValue].tData;
+	    m_iNextIndexPos = pIndexInfo->m_HashIndexInfo.pBaseIndexNode[lIndexValue].iNextPos;
+	    m_pReposConfIndex = pIndexInfo->m_HashIndexInfo.pReConfNode;//冲突索引
+	    m_bWalkByRePosIndex = true;
+	    TADD_FUNC("Finish.next RowIdData[%d|%d] next pos=[%d].",
+	        m_tNextRowIDData.GetPageID(),
+	        m_tNextRowIDData.GetDataOffset(),
+	        m_iNextIndexPos);
+	return iRet; 
+	}
 
     
 
@@ -408,6 +454,47 @@ bool TMdbTableWalker::NextByPage()
         TADD_FUNC("Finish[false],out of while.");
         return false;
     }
+
+	bool TMdbTableWalker::NextByRePosIndex()
+	{
+	    TADD_FUNC("Start.");
+	    m_pDataAddr = NULL;//初始化为NULL
+	    TMdbReIndexNode* pTempIndexNode = NULL;
+	    do
+	    {//获取数据
+	        //if(m_tNextRowIDData.iPageID >= 0)
+	        if(false == m_tNextRowIDData.IsEmpty())
+	        {//根据rowID取到真实数据的地址
+	            TADD_DETAIL("m_tNextRowIDData.iPageID=%d, m_tRowIDData.iNum=%d.", 
+	            m_tNextRowIDData.GetPageID(), m_tNextRowIDData.GetDataOffset());
+	            m_pDataAddr     = GetAddressRowID(&m_tNextRowIDData, m_iDataSize, true);
+	            m_tCurRowIDData = m_tNextRowIDData;
+	        }
+	        if(NULL == m_pDataAddr && m_iNextIndexPos < 0)
+	        {//链遍历结束
+	            StopWalk();//做一些清理工作
+	            TADD_FUNC("Finish[false].");
+	            return false;
+	        }
+	        if(m_iNextIndexPos < 0)
+	        {//没有下一个节点
+	            m_tNextRowIDData.Clear();
+	        }
+	        else
+	        {//有下一个节点
+	            pTempIndexNode   = &(m_pReposConfIndex[m_iNextIndexPos]);
+	            m_tNextRowIDData = pTempIndexNode->tData;
+	            m_iNextIndexPos  = pTempIndexNode->iNextPos;
+	        }
+	        if(NULL != m_pDataAddr)
+	        {//获取到数据
+	            TADD_FUNC("Finish[true].");
+	            return true;
+	        }
+	    }while(1);
+	    TADD_FUNC("Finish[false],out of while.");
+	    return false;
+	}
 
     int TMdbTableWalker::WalkByMHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue)
     {
@@ -589,6 +676,12 @@ bool TMdbTableWalker::NextByPage()
 			StopWalk();
 			return false;
 		}
+		
+		bool bFullMatch = m_iSqlType == TK_SELECT ?  false: true;
+		if(bFullMatch)
+		{
+			return NextByTrieFullMatch();
+		}
 	
 		TMdbTrieIndexNode* pRoot = m_pTrieRootNode;
 		TMdbTrieIndexNode* pCur = pRoot;
@@ -606,24 +699,38 @@ bool TMdbTableWalker::NextByPage()
 		{
 		    for(;;++cPos)
 		    {
-		    	CHECK_OBJ(pCur);
+		    	iChildPos = -1;
 
-				//没到结尾符，存在一下个孩子节点
-				if(m_sTrieWord[cPos])
+				//字符串到达末端，需要回溯查找
+				if(m_sTrieWord[cPos]==0)
+				{	
+					if(false == NextByTrieLookBack(pCur))
+					{
+						StopWalk();
+						return false;
+					}
+					else
+					{
+						return true;
+					}
+				}
+				
+				//只有数字字符是合法的
+				if( isdigit(m_sTrieWord[cPos]))
 				{
 			    	iChrIndex = m_sTrieWord[cPos] - '0';
 					iChildPos = pCur->m_iChildrenPos[iChrIndex];
 				}
 
 				//没有数据
-				if( (pCur == pRoot)&&(-1==iChildPos) )
+				if( (pCur == pRoot) && (-1==iChildPos) )
 				{
 					StopWalk();
 					return false;
 				}
 
-				//没有孩子节点了
-				if( ((-1 == iChildPos) || (m_sTrieWord[cPos]==0)) && (pCur != pRoot))
+				//索引到达末端，没有孩子节点了
+				if( (-1 == iChildPos)  && (pCur != pRoot))
 				{
 					m_tCurRowIDData = pCur->m_NodeInfo.m_tRowId;
 					m_iNextIndexPos = pCur->m_NodeInfo.m_iNextConfPos;
@@ -638,20 +745,32 @@ bool TMdbTableWalker::NextByPage()
 						}
 						return m_pDataAddr? true:false;
 					}
+					else
+					{
+						if(false == NextByTrieLookBack(pCur))
+						{
+							StopWalk();
+							return false;
+						}
+					}
 					
-					//分支节点没有数据,跳出循环，前往stpe2
-					break;
+					//没有冲突节点
+					if(m_iNextIndexPos < 0)
+					{
+						//go to step2
+						break;
+					}
 				}
 								
 				pChild = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iChildPos ,sizeof(TMdbTrieIndexNode),false);				
-				CHECK_OBJ(pChild);
+				if(NULL == pChild){break;}
 				pCur = pChild;
 			}
 		}
 
 
 		//step2  到冲突链上找数据
-		if(m_iNextIndexPos > 0)
+		if(m_iNextIndexPos >= 0)
 		{
 			TMdbTrieConfIndexNode* pConflictNode = (TMdbTrieConfIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieConfIndex->iHeadBlockId, m_iNextIndexPos ,sizeof(TMdbTrieConfIndexNode),true);
 			CHECK_OBJ(pConflictNode);
@@ -663,7 +782,7 @@ bool TMdbTableWalker::NextByPage()
 			}
 		}
 
-		
+
 		//冲突链没有数据了			
 		if(m_iNextIndexPos < 0)
 		{
@@ -674,6 +793,130 @@ bool TMdbTableWalker::NextByPage()
 		
 		return m_pDataAddr? true:false;	
     }
+
+	bool TMdbTableWalker::NextByTrieLookBack(TMdbTrieIndexNode* pCur)
+	{
+		if(m_bStopScanTrie) return false;
+		if(NULL == pCur ) return false;
+
+		TMdbTrieIndexNode* pFather = NULL;
+
+		for(int iCurPos = pCur->m_iCurPos; ;iCurPos>=0)
+		{
+			pFather = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iCurPos ,sizeof(TMdbTrieIndexNode),false);				
+			if(pFather ==NULL)
+			{
+				return false;
+			}			
+			printf("Trie Look back %c\n",pFather->m_ch);
+			m_tCurRowIDData = pFather->m_NodeInfo.m_tRowId;
+			m_iNextIndexPos = pFather->m_NodeInfo.m_iNextConfPos;
+			if(!m_tCurRowIDData.IsEmpty())
+			{
+				m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+				if(m_iNextIndexPos < 0)
+				{
+					//停止遍历
+					m_bStopScanTrie = true;
+				}
+				return m_pDataAddr? true:false;
+			}
+			iCurPos = pFather->m_iFatherPos;
+		}
+
+		return false;
+		
+	}
+
+	
+	bool TMdbTableWalker::NextByTrieFullMatch()
+	{
+		TMdbTrieIndexNode* pRoot = m_pTrieRootNode;
+		TMdbTrieIndexNode* pCur = pRoot;
+		TMdbTrieIndexNode* pChild = NULL;
+
+		int cPos = 0;
+		int iChrIndex = 0;
+		int iChildPos = -1;
+
+		if (m_sTrieWord[0]== 0) return false;
+
+
+		//step1   到树枝上找数据
+		if(m_iNextIndexPos < 0)
+		{
+		    for(;;++cPos)
+		    {
+		    	iChildPos = -1;
+
+				//字符串到达末端,此时pCur 就是需要的节点
+				if(m_sTrieWord[cPos]==0)
+				{	
+					m_tCurRowIDData = pCur->m_NodeInfo.m_tRowId;
+					m_iNextIndexPos = pCur->m_NodeInfo.m_iNextConfPos;					
+					if(!m_tCurRowIDData.IsEmpty())
+					{
+						m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+						if(m_iNextIndexPos < 0)
+						{
+							//停止遍历
+							m_bStopScanTrie = true;
+						}
+						return m_pDataAddr? true:false;
+					}
+				}
+				
+				//只有数字字符是合法的
+				if( isdigit(m_sTrieWord[cPos]))
+				{
+			    	iChrIndex = m_sTrieWord[cPos] - '0';
+					iChildPos = pCur->m_iChildrenPos[iChrIndex];
+				}
+				else
+				{
+					StopWalk();
+					return false;
+				}
+
+				//索引树到头了
+				if( -1 == iChildPos )
+				{
+					StopWalk();
+					return false;
+				}				
+								
+				pChild = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iChildPos ,sizeof(TMdbTrieIndexNode),false);				
+				if(NULL == pChild){break;}
+				pCur = pChild;
+			}
+		}
+
+
+		//step2  到冲突链上找数据
+		if(m_iNextIndexPos >= 0)
+		{
+			TMdbTrieConfIndexNode* pConflictNode = (TMdbTrieConfIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieConfIndex->iHeadBlockId, m_iNextIndexPos ,sizeof(TMdbTrieConfIndexNode),true);
+			CHECK_OBJ(pConflictNode);
+			m_tCurRowIDData = pConflictNode->m_NodeInfo.m_tRowId;
+			m_iNextIndexPos = pConflictNode->m_NodeInfo.m_iNextConfPos;
+			if(!m_tCurRowIDData.IsEmpty())
+			{
+				m_pDataAddr = GetAddressRowID(&m_tCurRowIDData, m_iDataSize, true);
+			}
+		}
+
+
+		//冲突链没有数据了			
+		if(m_iNextIndexPos < 0)
+		{
+			//停止遍历
+			m_bStopScanTrie = true;
+
+		}
+		
+		return m_pDataAddr? true:false;	
+
+	}
 
 	TMdbMhashBlock* TMdbTableWalker::GetMhashBlockById(int iBlockID, bool bConf)
     {
@@ -767,7 +1010,6 @@ bool TMdbTableWalker::NextByPage()
         
         char* pAddr = NULL;
 
- 
         TMdbTrieBlock* pHeadBlock = GetTrieBlockById(iHeadBlock, bConf);
         if(pHeadBlock == NULL)
         {
@@ -779,21 +1021,17 @@ bool TMdbTableWalker::NextByPage()
         {
             TMdbTrieBlock* pTmpBlock = pHeadBlock;
             while(pTmpBlock!=NULL)
-            {
-                TADD_DETAIL("iStartNode=[%d],iEndNode=[%d],iBlockId=[%d],iNextBlock=[%d]",pTmpBlock->iStartNode, pTmpBlock->iEndNode, pTmpBlock->iBlockId,pTmpBlock->iNextBlock);
+            {                TADD_DETAIL("iStartNode=[%d],iEndNode=[%d],iBlockId=[%d],iNextBlock=[%d]",pTmpBlock->iStartNode, pTmpBlock->iEndNode, pTmpBlock->iBlockId,pTmpBlock->iNextBlock);
                 if(iIndexNodeId >= pTmpBlock->iStartNode && iIndexNodeId <= pTmpBlock->iEndNode)
                 {
                     //计算出相应的地址
-
                     
                     if(bConf)
                     {
-
                         pAddr = m_pShmDSN->GetTrieConfShmAddr(pTmpBlock->iShmID);
                     }
                     else
                     {
-
                         pAddr = m_pShmDSN->GetTrieBranchShmAddr(pTmpBlock->iShmID);
                     }
 
@@ -815,7 +1053,6 @@ bool TMdbTableWalker::NextByPage()
                     }
                     else
                     {
-
                         pTmpBlock = GetTrieBlockById(pTmpBlock->iNextBlock,bConf);
                     }
                 }
@@ -828,6 +1065,5 @@ bool TMdbTableWalker::NextByPage()
         return pAddr;
     }
     
-
 //}
 

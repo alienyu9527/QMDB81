@@ -219,7 +219,7 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jiang.lili
     *******************************************************************************/
-    int TMdbServerClient::SendStatChange(int iHostID, /*QuickMDB::*/EMdbRepState eState)
+    int TMdbServerClient::SendStatChange(int iHostID, EMdbRepState eState)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -241,7 +241,7 @@
         return iRet;
     }
 
-    int TMdbServerClient::DealRepServerCmd(/*QuickMDB::*/TRepNTCMsg &tMsg)
+    int TMdbServerClient::DealRepServerCmd(TRepNTCMsg &tMsg)
     {
         int iRet = 0;
         TADD_FUNC("Start.");
@@ -868,7 +868,7 @@
         char sMsg[MAX_REP_SEND_MSG_LEN];
         snprintf(sMsg, MAX_REP_SEND_MSG_LEN, "%d|%d", iHostID, m_iHeartbeatWarning);
         //发送注册返回信息
-        if (pWinntcpHelper->SendPacket(/*QuickMDB::*/MDB_SYNC_EVENT, E_MDB_REGIST_ANS, sMsg, strlen(sMsg)))
+        if (pWinntcpHelper->SendPacket(MDB_SYNC_EVENT, E_MDB_REGIST_ANS, sMsg, strlen(sMsg)))
         {
             TADD_NORMAL("Send Register answer to host[%d] OK.", iHostID);
         }
@@ -946,7 +946,7 @@
         CHECK_RET(m_pConfig->GetRoutingRequestData(iHostID, MAX_REP_SEND_BUF_LEN, sMsg), "GetRoutingRequestData failed.");
 
         //发送路由请求信息
-        pWinntcpHelper->SendPacket(/*QuickMDB::*/MDB_SYNC_EVENT, E_MDB_ROUTING_REQUEST_ANS, sMsg, strlen(sMsg));
+        pWinntcpHelper->SendPacket(MDB_SYNC_EVENT, E_MDB_ROUTING_REQUEST_ANS, sMsg, strlen(sMsg));
 
         TADD_FUNC("Finish.");
         return iRet;
@@ -1004,7 +1004,7 @@
 
         TADD_NORMAL("Send Msg back.");
         //发送查询信息
-        if (pWinntcpHelper->SendPacket(/*QuickMDB::*/MDB_SYNC_EVENT, E_SVR_ROUTING_INOF_ANS, sSendBuf, strlen(sSendBuf)))
+        if (pWinntcpHelper->SendPacket(MDB_SYNC_EVENT, E_SVR_ROUTING_INOF_ANS, sSendBuf, strlen(sSendBuf)))
         {
             TADD_NORMAL("Send Msg OK.");
         }
@@ -1049,7 +1049,7 @@
         char sMsg[MAX_REP_SEND_BUF_LEN];
         sMsg[0] = '\0';
         CHECK_RET(m_pConfig->GetConfigData(sMsg), "GetConfigData failed.");
-        pWinntcpHelper->SendPacket(/*QuickMDB::*/MDB_SYNC_EVENT, E_REP_SYNC_CONFIG_REQUEST_ANS, sMsg, strlen(sMsg));
+        pWinntcpHelper->SendPacket(MDB_SYNC_EVENT, E_REP_SYNC_CONFIG_REQUEST_ANS, sMsg, strlen(sMsg));
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -1068,7 +1068,7 @@
         char sMsg[MAX_REP_SEND_BUF_LEN];
         sMsg[0] = '\0';
         CHECK_RET(m_pMonitor->GetStateData(sMsg, MAX_REP_SEND_BUF_LEN), "GetStateData failed.");
-        pWinntcpHelper->SendPacket(/*QuickMDB::*/MDB_SYNC_EVENT, E_REP_SYNC_STATE_REQUEST_ANS, sMsg, strlen(sMsg));
+        pWinntcpHelper->SendPacket(MDB_SYNC_EVENT, E_REP_SYNC_STATE_REQUEST_ANS, sMsg, strlen(sMsg));
 
         TADD_FUNC("Finish.");
         return iRet;
@@ -1081,7 +1081,7 @@
 
         for (unsigned int i = 0; i<m_arClientHost.size(); i++)
         {
-            if (iPort == m_arClientHost[i].m_iPort &&/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(sIP, m_arClientHost[i].m_strIP.c_str()) == 0)
+            if (iPort == m_arClientHost[i].m_iPort &&TMdbNtcStrFunc::StrNoCaseCmp(sIP, m_arClientHost[i].m_strIP.c_str()) == 0)
             {
                 m_arClientHost[i].m_iHostID = iHostID;
                 TADD_FUNC("Finish.");
@@ -1100,7 +1100,7 @@
 
         for (unsigned int i = 0; i<m_arClientHost.size(); i++)
         {
-            if (iPort == m_arClientHost[i].m_iPort &&/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(sIP, m_arClientHost[i].m_strIP.c_str()) == 0)
+            if (iPort == m_arClientHost[i].m_iPort &&TMdbNtcStrFunc::StrNoCaseCmp(sIP, m_arClientHost[i].m_strIP.c_str()) == 0)
             {
                 return m_arClientHost[i].m_iHostID;
             }
@@ -1118,7 +1118,7 @@
         std::vector<TMdbRepHost>::iterator itor = m_arClientHost.begin();
         for (; itor != m_arClientHost.end(); ++itor)
         {
-            if (iPort == itor->m_iPort &&/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(sIP, itor->m_strIP.c_str()) == 0)
+            if (iPort == itor->m_iPort &&TMdbNtcStrFunc::StrNoCaseCmp(sIP, itor->m_strIP.c_str()) == 0)
             {
                 m_arClientHost.erase(itor);
                 return iRet;
@@ -1284,7 +1284,7 @@
         int iRet = 0;
         if (TMdbNtcShareMem::CheckExist(MDB_SERVER_SHM_NAME, ENV_QMDB_HOME_NAME))
         {
-            TMdbNtcShareMem *pShmMgr = new TMdbNtcShareMem(MDB_SERVER_SHM_NAME, 0, ENV_QMDB_HOME_NAME);
+            TMdbNtcShareMem *pShmMgr = new(std::nothrow) TMdbNtcShareMem(MDB_SERVER_SHM_NAME, 0, ENV_QMDB_HOME_NAME);
             CHECK_OBJ(pShmMgr);
             if (pShmMgr->IsOK())
             {

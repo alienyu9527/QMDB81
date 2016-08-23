@@ -19,16 +19,17 @@ int main(int argc, char* argv[])
 {   
     //Process::SetProcessSignal();
     int iRet = 0;
-    if(argc != 2 || strcmp(argv[1],"-h")==0||strcmp(argv[1],"-H")==0)
+    if(argc != 3 || strcmp(argv[1],"-h")==0||strcmp(argv[1],"-H")==0)
     {
         printf("-------\n"
         		" Usage:\n"
-        		"   %s <sDsn> \n"
+        		"   %s <sDsn> <iRepHostID>\n"
         		"   %s [ -H | -h ] \n"
         		" Example:\n" 
-        		"   %s ocs\n"              
+        		"   %s ocs 1\n"              
         		" Note:\n"
         		"     <sDsn>: data source\n"
+        		"     <iRepHostID>: shard buck-up host id\n"
         		"     -H|-h Print Help.\n"
         		"-------\n",argv[0],argv[0],argv[0]);
         return 0;
@@ -41,13 +42,14 @@ int main(int argc, char* argv[])
     
     char sName[MAX_NAME_LEN];
     memset(sName, 0, sizeof(sName));
-    sprintf(sName, "%s %s", argv[0], argv[1]);
+	int iHostID = atoi(argv[2]);
+    sprintf(sName, "%s %s %d", argv[0], argv[1], iHostID);
     TADD_START(argv[1], sName, 0,false ,true);
     
     try
     {
         TRepClient tRepClient;
-        CHECK_RET(tRepClient.Init(argv[1]), "mdbRepClient init failed.");
+        CHECK_RET(tRepClient.Init(argv[1], iHostID), "mdbRepClient init failed.");
         CHECK_RET(tRepClient.Start(), "mdbRepClient run failed.");
     }
     catch(TMdbException& e)

@@ -99,6 +99,7 @@
 
 	
         int SyncSAResouce(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);//同步[同步区]信息
+        int SyncSBBAResouce(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo);
     private:
         int SyncLocalLink(TMdbQuery * pQuery[]);//同步本地链接
         int SyncRemoteLink(TMdbQuery * pQuery[]);//同步远程链接

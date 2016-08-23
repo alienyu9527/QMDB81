@@ -10,18 +10,20 @@ isAll='Y'
 ###############
 
 
-ALL_DIR="Common App Control Helper Interface Tools Dbflush Replication Agent"
+ALL_DIR="Common App Control Helper Interface Tools Dbflush Replication Agent Redis"
 
 if [ "$isAll" = "Y" ]
 then
     for cur_dir in $ALL_DIR
     do
-        echo "Cleaning $HOME_DIR/$cur_dir ..."
-        echo " "
-        cd $HOME_DIR
-        cd $cur_dir
-        make clean
-        echo " "
+        if [ -d "$HOME_DIR/$cur_dir" ];then
+        	echo "Cleaning $HOME_DIR/$cur_dir ..."
+        	echo " "
+        	cd $HOME_DIR
+        	cd $cur_dir
+        	make clean
+        	echo " "
+        fi
     done
 
 fi 

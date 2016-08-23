@@ -292,7 +292,7 @@ bool TMdbWinntTcpProtocol::GenerateMsgInfo(TMdbPeerInfo* pPeerInfo, const char* 
         bRet = TMdbWinntTcpProtocol::CheckMsgHead(pWinntTcpMsg->oMsgHead);
         if(!bRet)
         {
-            /*QuickMDB::*/TMdbNtcStringBuffer sErrorInfo;
+            TMdbNtcStringBuffer sErrorInfo;
             sErrorInfo.Snprintf(64, "CheckMsgHead failed! event[%u], bodylength[%u]\n", pWinntTcpMsg->oMsgHead.event, pWinntTcpMsg->oMsgHead.len);
             pPeerInfo->Disconnect(sErrorInfo);
             break;

@@ -221,4 +221,22 @@ int TMdbMutexCtrl::RenewSyncAreaMutex(int iType)
 }
 
 
+int TMdbMutexCtrl::RenewShardBakBufAreaMutex(int iType)
+{
+    int iRet = 0;
+    CHECK_OBJ(m_pShmDsn);
+	for(int i = 0; i<MAX_SHM_ID; i++)
+	{
+		TMdbOnlineRepMemQueue* pQueue = (TMdbOnlineRepMemQueue*)m_pShmDsn->GetShardBakBufAreaShm(i);
+	    if(NULL != pQueue )
+	    {
+	        CHECK_RET(RenewOneMutex(pQueue->tPushMutex),"RenewOneMutex failed.");
+	        CHECK_RET(RenewOneMutex(pQueue->tPopMutex),"RenewOneMutex failed.");
+	        TADD_NORMAL("Renew [%s] mutex ok",m_pShmDsn->GetInfo()->m_arrShardBakBufArea.m_sName);
+	    }
+	}
+    
+    return iRet;
+}
+
 //}

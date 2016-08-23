@@ -524,6 +524,8 @@ void TMdbField::AsBlobBuffer(unsigned char *buffer, int &iBufferLen) throw (TMdb
     }
 }
 
+char* TMdbField::AsRealStr(){return m_pMemValue->sValue;}
+long long TMdbField::AsRealnt(){return m_pMemValue->lValue;}
 /******************************************************************************
 * 函数名称	:  ClearDataBuf
 * 函数描述	:  清空数据
@@ -600,7 +602,7 @@ TMdbQuery::TMdbQuery(TMdbDatabase *pTMdbDatabase,int iSQLFlag)
     }
     m_bSetSQL     = false;
     //memset(m_pszSQL,0x00,sizeof(m_pszSQL));
-	m_pszSQL = new char[MAX_SQL_LEN];
+	m_pszSQL = new(std::nothrow) char[MAX_SQL_LEN];
 	if(m_pszSQL == NULL)
 	{
 		ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_pszSQL,"Mem Not Enough.");
@@ -654,7 +656,7 @@ TMdbQuery::~TMdbQuery()
     SAFE_DELETE(m_pMdbSqlParser);
     SAFE_DELETE(m_pExecuteEngine);
     SAFE_DELETE(m_pDDLExecuteEngine);
-	SAFE_DELETE(m_pszSQL);
+	SAFE_DELETE_ARRAY(m_pszSQL);
     TADD_FUNC("Finish.");
 }
 
@@ -732,7 +734,7 @@ int TMdbQuery::CheckAndSetSql(const char * sSqlStatement) throw (TMdbException)
     if(sqlLen >= m_iSQLBuffLen)
 	{
 		SAFE_DELETE(m_pszSQL);
-		m_pszSQL = new char[sqlLen + 100];
+		m_pszSQL = new(std::nothrow) char[sqlLen + 100];
 		if(m_pszSQL == NULL)
 		{
 			ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_pszSQL,"Mem Not Enough.");
@@ -779,7 +781,7 @@ int TMdbQuery::InitSqlBuff(bool & bFirstSet)
 {
     if(m_pszSQL == NULL)
 	{
-		m_pszSQL = new char[MAX_SQL_LEN];
+		m_pszSQL = new(std::nothrow) char[MAX_SQL_LEN];
 		if(m_pszSQL == NULL)
 		{
 			ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_pszSQL,"Mem Not Enough.");
@@ -851,6 +853,35 @@ bool TMdbQuery::DealTableVersion()
 	}
 }
 
+int TMdbQuery::ParseSQLForRollback(char* sSqlStatement)
+{
+
+	int iRet = 0;
+	 if(0 == sSqlStatement[0])
+	 {
+	     TADD_ERROR(ERR_SQL_INVALID,"sSQL is NULL.");
+		 return ERR_SQL_INVALID;
+	 }
+
+	  //结尾添加';' 不然解析失败
+	  TMdbNtcStrFunc::Trim(sSqlStatement,' ');
+	  size_t iLen = strlen(sSqlStatement);
+	  if(';' != sSqlStatement[iLen-1])
+	  {
+	        sSqlStatement[iLen] = ';';
+	        sSqlStatement[iLen + 1] = '\0';
+	  }
+
+	  
+	  CHECK_RET(m_pMdbSqlParser->SetDB(m_pMdb->GetShmDsn(),m_pMdb->m_pConfig),
+				"%s",m_pMdbSqlParser->m_tError.GetErrMsg());
+	  
+	  CHECK_RET(m_pMdbSqlParser->ParseSQL(sSqlStatement),
+				"%s",m_pMdbSqlParser->m_tError.GetErrMsg());
+
+	  return iRet;
+		
+}
 
 /******************************************************************************
 * 函数名称	: SetSQL
@@ -883,7 +914,12 @@ void TMdbQuery::SetSQL(const char *sSqlStatement,MDB_INT32 iFlag,int iPreFetchRo
     if(true == IsNeedToCheckSQLRepeat(bFirstSet,iFlag))
     {
     	char * sTempSQL = NULL;
-	    sTempSQL = new char[m_iSQLBuffLen];
+	    sTempSQL = new(std::nothrow) char[m_iSQLBuffLen];
+		if(sTempSQL ==  NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new sTempSQL");
+			ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"can't create new sTempSQL");
+		}
 		memset(sTempSQL, 0, m_iSQLBuffLen);
 		SAFESTRCPY(sTempSQL,m_iSQLBuffLen,m_pszSQL);
 		
@@ -3169,7 +3205,7 @@ TMdbSequenceMgr::TMdbSequenceMgr()
 
 TMdbColumnAddr::TMdbColumnAddr()
 {
-	memset(this,0,sizeof(this));
+	memset(this,0,sizeof(*this));
 }
 
 TMdbColumnAddr::~TMdbColumnAddr()

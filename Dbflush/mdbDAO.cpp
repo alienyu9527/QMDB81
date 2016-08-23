@@ -174,7 +174,7 @@
 					delete m_pSelDBLink;
 					m_pSelDBLink = NULL;
 				}
-				m_pSelDBLink = new TMdbDatabase();
+				m_pSelDBLink = new(std::nothrow) TMdbDatabase();
 				if(pShmDSN == NULL) break;
 				TMdbDSN * pDsn = pShmDSN->GetInfo();
 				if(m_pSelDBLink->ConnectAsMgr(pDsn->sName) == false)
@@ -443,7 +443,7 @@
         }
 
 		#ifdef DB_MYSQL
-		PushData(tLCR, pNodeDao[pNodeDao[0]->iCount], pNodeDao[0]->iCount);
+		CHECK_RET(PushData(tLCR, pNodeDao[pNodeDao[0]->iCount], pNodeDao[0]->iCount),"PushData failed");
 		pNodeDao[0]->iCount++;
     	pDAOBase = pNodeDao[pNodeDao[0]->iCount-1]->pDAO;
         CHECK_OBJ(pDAOBase);
@@ -539,7 +539,7 @@
 						#ifdef DB_MYSQL
                     	for(int k = 0; k < MAX_MYSQL_ARRAY_SIZE; k++)
                 		{
-							m_tTableDAO[i].pNodeDAO[j][k] = new TMdbNodeDAO();
+							m_tTableDAO[i].pNodeDAO[j][k] = new(std::nothrow) TMdbNodeDAO();
 	                        if(m_tTableDAO[i].pNodeDAO[j][k] == NULL)
 	                        {
 	                            TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -549,7 +549,7 @@
 	                        m_tTableDAO[i].pNodeDAO[j][k]->iOper = tLCR.m_iSqlType;
 							if(m_tTableDAO[i].pNodeDAO[j][k]->sSQL == NULL)
 							{
-								m_tTableDAO[i].pNodeDAO[j][k]->sSQL = new char[MAX_SQL_LEN];
+								m_tTableDAO[i].pNodeDAO[j][k]->sSQL = new(std::nothrow) char[MAX_SQL_LEN];
 								if(m_tTableDAO[i].pNodeDAO[j][k]->sSQL == NULL)
 								{
 									TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -562,7 +562,13 @@
 							{
 								SAFESTRCPY(m_tTableDAO[i].pNodeDAO[j][k]->sSQL,MAX_SQL_LEN,tLCR.m_sSQL);
 								m_tTableDAO[i].pNodeDAO[j][k]->dataColCount = tLCR.m_vColms.size()+tLCR.m_vWColms.size();
-		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO = new TMdbDAOBase();
+		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO = new(std::nothrow) TMdbDAOBase();
+								if(m_tTableDAO[i].pNodeDAO[j][k]->pDAO == NULL)
+								{
+									TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new TMdbDAOBase");
+									return NULL;
+
+								}
 		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO->SetSQL(tLCR.m_sSQL);
 							}
 							else
@@ -571,12 +577,17 @@
 								GetSQL(tLCR, k, sSQL);
 								//SAFESTRCPY(m_tTableDAO[i].pNodeDAO[j][k]->sSQL,sizeof(m_tTableDAO[i].pNodeDAO[j][k]->sSQL),sSQL);
 								m_tTableDAO[i].pNodeDAO[j][k]->dataColCount = m_tTableDAO[i].pNodeDAO[j][0]->dataColCount*k;
-		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO = new TMdbDAOBase();
+		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO = new(std::nothrow) TMdbDAOBase();
+								if(m_tTableDAO[i].pNodeDAO[j][k]->pDAO == NULL)
+								{
+									TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new TMdbDAOBase");
+									return NULL;
+								}
 		                        m_tTableDAO[i].pNodeDAO[j][k]->pDAO->SetSQL(sSQL);
 							}
                 		}
 						#elif DB_ORACLE
-						m_tTableDAO[i].pNodeDAO[j][0] = new TMdbNodeDAO();
+						m_tTableDAO[i].pNodeDAO[j][0] = new(std::nothrow) TMdbNodeDAO();
                         if(m_tTableDAO[i].pNodeDAO[j][0] == NULL)
                         {
                             TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -586,7 +597,7 @@
                         m_tTableDAO[i].pNodeDAO[j][0]->iOper = tLCR.m_iSqlType;
 						if(m_tTableDAO[i].pNodeDAO[j][0]->sSQL == NULL)
 						{
-							m_tTableDAO[i].pNodeDAO[j][0]->sSQL = new char[MAX_SQL_LEN];
+							m_tTableDAO[i].pNodeDAO[j][0]->sSQL = new(std::nothrow) char[MAX_SQL_LEN];
 							if(m_tTableDAO[i].pNodeDAO[j][0]->sSQL == NULL)
 							{
 								TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -595,7 +606,12 @@
 						}
 						//memset(m_tTableDAO[i].pNodeDAO[j][0]->sSQL, 0, MAX_SQL_LEN);
                         SAFESTRCPY(m_tTableDAO[i].pNodeDAO[j][0]->sSQL,MAX_SQL_LEN,tLCR.m_sSQL);
-                        m_tTableDAO[i].pNodeDAO[j][0]->pDAO = new TMdbDAOBase();
+                        m_tTableDAO[i].pNodeDAO[j][0]->pDAO = new(std::nothrow) TMdbDAOBase();
+						if(m_tTableDAO[i].pNodeDAO[j][0]->pDAO == NULL)
+						{
+							TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
+                            return NULL;
+						}
                         m_tTableDAO[i].pNodeDAO[j][0]->pDAO->SetSQL(tLCR.m_sSQL);
 						#endif
                         TADD_FUNC("TMdbDAO::CreateDAO() : Finish(Create[%d,%d] OK).", i, j);
@@ -617,7 +633,7 @@
 				#ifdef DB_MYSQL
             	for(int k = 0; k < MAX_MYSQL_ARRAY_SIZE; k++)
         		{
-					m_tTableDAO[i].pNodeDAO[0][k] = new TMdbNodeDAO();
+					m_tTableDAO[i].pNodeDAO[0][k] = new(std::nothrow) TMdbNodeDAO();
                     if(m_tTableDAO[i].pNodeDAO[0][k] == NULL)
                     {
                         TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -627,7 +643,7 @@
                     m_tTableDAO[i].pNodeDAO[0][k]->iOper = tLCR.m_iSqlType;
 					if(m_tTableDAO[i].pNodeDAO[0][k]->sSQL == NULL)
 					{
-						m_tTableDAO[i].pNodeDAO[0][k]->sSQL = new char[MAX_SQL_LEN];
+						m_tTableDAO[i].pNodeDAO[0][k]->sSQL = new(std::nothrow) char[MAX_SQL_LEN];
 						if(m_tTableDAO[i].pNodeDAO[0][k]->sSQL == NULL)
 						{
 							TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -640,7 +656,12 @@
 					{
 						SAFESTRCPY(m_tTableDAO[i].pNodeDAO[0][k]->sSQL,MAX_SQL_LEN,tLCR.m_sSQL);
 						m_tTableDAO[i].pNodeDAO[0][k]->dataColCount = tLCR.m_vColms.size()+tLCR.m_vWColms.size();
-                        m_tTableDAO[i].pNodeDAO[0][k]->pDAO = new TMdbDAOBase();
+                        m_tTableDAO[i].pNodeDAO[0][k]->pDAO = new(std::nothrow) TMdbDAOBase();
+						if(m_tTableDAO[i].pNodeDAO[0][k]->pDAO == NULL)
+						{
+							TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
+                    		return NULL;
+						}
                         m_tTableDAO[i].pNodeDAO[0][k]->pDAO->SetSQL(tLCR.m_sSQL);
 					}
                     else
@@ -649,12 +670,17 @@
 						GetSQL(tLCR, k, sSQL);
 						//SAFESTRCPY(m_tTableDAO[i].pNodeDAO[0][k]->sSQL,sizeof(m_tTableDAO[i].pNodeDAO[0][k]->sSQL),sSQL);
 						m_tTableDAO[i].pNodeDAO[0][k]->dataColCount = m_tTableDAO[i].pNodeDAO[0][0]->dataColCount*k;
-                        m_tTableDAO[i].pNodeDAO[0][k]->pDAO = new TMdbDAOBase();
+                        m_tTableDAO[i].pNodeDAO[0][k]->pDAO = new(std::nothrow) TMdbDAOBase();
+						if(m_tTableDAO[i].pNodeDAO[0][k]->pDAO == NULL)
+						{
+							TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
+                    		return NULL;
+						}
                         m_tTableDAO[i].pNodeDAO[0][k]->pDAO->SetSQL(sSQL);
                 	}
         		}
 				#elif DB_ORACLE
-				m_tTableDAO[i].pNodeDAO[0][0] = new TMdbNodeDAO();
+				m_tTableDAO[i].pNodeDAO[0][0] = new(std::nothrow) TMdbNodeDAO();
                 if(m_tTableDAO[i].pNodeDAO[0][0] == NULL)
                 {
                     TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -664,7 +690,7 @@
                 m_tTableDAO[i].pNodeDAO[0][0]->iOper = tLCR.m_iSqlType;
 				if(m_tTableDAO[i].pNodeDAO[0][0]->sSQL == NULL)
 				{
-					m_tTableDAO[i].pNodeDAO[0][0]->sSQL = new char[MAX_SQL_LEN];
+					m_tTableDAO[i].pNodeDAO[0][0]->sSQL = new(std::nothrow) char[MAX_SQL_LEN];
 					if(m_tTableDAO[i].pNodeDAO[0][0]->sSQL == NULL)
 					{
 						TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -673,7 +699,12 @@
 				}
 				//memset(m_tTableDAO[i].pNodeDAO[0][0]->sSQL, 0, MAX_SQL_LEN);
                 SAFESTRCPY(m_tTableDAO[i].pNodeDAO[0][0]->sSQL,MAX_SQL_LEN,tLCR.m_sSQL);
-                m_tTableDAO[i].pNodeDAO[0][0]->pDAO = new TMdbDAOBase();
+                m_tTableDAO[i].pNodeDAO[0][0]->pDAO = new(std::nothrow) TMdbDAOBase();
+				if(m_tTableDAO[i].pNodeDAO[0][0]->pDAO == NULL)
+				{
+					TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
+                    return NULL;
+				}
                 m_tTableDAO[i].pNodeDAO[0][0]->pDAO->SetSQL(tLCR.m_sSQL);
 				#endif
                 TADD_FUNC("TMdbDAO::CreateDAO() : Finish(Create[%d,%d] OK).", i, 0);
@@ -795,7 +826,8 @@
 	            TMdbColumn * pColumn = pTable->GetColumnByName(itor->m_sColmName.c_str());
 				if(pNodeDao->m_tData[iPos] == NULL)
 				{
-					pNodeDao->m_tData[iPos] = new TMdbData();
+					pNodeDao->m_tData[iPos] = new(std::nothrow) TMdbData();
+					CHECK_OBJ(pNodeDao->m_tData[iPos]);
 				}
 	            pNodeDao->m_tData[iPos]->iLen  = pColumn->iColumnLen;
 	            pNodeDao->m_tData[iPos]->iType = pColumn->iDataType;
@@ -819,7 +851,8 @@
             TMdbColumn * pColumn = pTable->GetColumnByName(itor->m_sColmName.c_str());
 			if(pNodeDao->m_tData[iPos] == NULL)
 			{
-				pNodeDao->m_tData[iPos] = new TMdbData();
+				pNodeDao->m_tData[iPos] = new(std::nothrow) TMdbData();
+				CHECK_OBJ(pNodeDao->m_tData[iPos]);
 			}
             pNodeDao->m_tData[iPos]->iLen  = pColumn->iColumnLen;
             pNodeDao->m_tData[iPos]->iType = pColumn->iDataType;
@@ -844,7 +877,8 @@
 	            TMdbColumn * pColumn = pTable->GetColumnByName(itor->m_sColmName.c_str());
 				if(pNodeDao->m_tData[iPos] == NULL)
 				{
-					pNodeDao->m_tData[iPos] = new TMdbData();
+					pNodeDao->m_tData[iPos] = new(std::nothrow) TMdbData();
+					CHECK_OBJ(pNodeDao->m_tData[iPos]);
 				}
 	            pNodeDao->m_tData[iPos]->iLen  = pColumn->iColumnLen;
 	            pNodeDao->m_tData[iPos]->iType = pColumn->iDataType;

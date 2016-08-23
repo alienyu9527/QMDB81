@@ -422,8 +422,8 @@ extern "C" TThreadLog* gpLogInstance;      //单个实例
 #define SAFE_DELETE_ARRAY(_obj) if(NULL != _obj){delete[] _obj;_obj=NULL;}
 //判断指针是否为空，若为空，报错并返回错误码
 #define CHECK_OBJ(_obj) if(NULL == _obj){TADD_ERROR_CODE(ERR_APP_PARAM_INVALID, #_obj" is null"); return ERR_APP_PARAM_INVALID;}
-//判断指针是否为空，若为空，报错并返回错误码
 #define CHECK_OBJ_BREAK(_obj) if(NULL == _obj){TADD_ERROR_CODE(ERR_APP_PARAM_INVALID, #_obj" is null"); iRet = ERR_APP_PARAM_INVALID;break;}
+
 //判断_ret值，若不为0，则报错并break
 #define CHECK_RET_BREAK(_ret,...) if((iRet = _ret)!=0){TADD_ERROR(_ret,__VA_ARGS__);break;}
 //安全close指针

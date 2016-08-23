@@ -2,8 +2,8 @@
 # Application DIRs & APPs #
 ###########################
 MDB_DIR="Helper Common  App Control  Interface Tools Dbflush Replication Agent"
-
-
+REDIS_DIR=
+REDIS_LIB=
 #################
 # Default Value #
 #################
@@ -73,6 +73,12 @@ do
 			COMPILE_MODE="RELEASE"
     fi;
     
+    if [ "$1" = "redis" ]
+    then
+			REDIS_FLAG='-D_REDIS'
+			REDIS_DIR="Redis"
+			REDIS_LIB="-L$HOME_DIR/Redis -lmdbRedis"
+    fi;
     #####################
     #make libary only   #
     #####################
@@ -162,6 +168,11 @@ if [ "$isMakeThirdParty" = "Y" ];then
 	fi
 fi
 
+if [ "$PLATFORM" != "LINUX" ];then
+	REDIS_FLAG=
+	REDIS_DIR=
+	REDIS_LIB=
+fi
 
 echo SRCHOME = $HOME_DIR  >./Makefile.incl.platform
 echo PLATFORM = $PLATFORM >>./Makefile.incl.platform
@@ -171,6 +182,8 @@ echo DATABASE = $DATABASE >>./Makefile.incl.platform
 echo THRID_PARTY_FLAG = $THRID_PARTY_FLAG >>./Makefile.incl.platform
 echo THRID_PARTY_INC = $THRID_PARTY_INC >>./Makefile.incl.platform
 echo THRID_PARTY_LIB = $THRID_PARTY_LIB >>./Makefile.incl.platform
+echo REDIS_FLAG = $REDIS_FLAG >>./Makefile.incl.platform
+echo REDIS_LIB = $REDIS_LIB >>./Makefile.incl.platform
 
 if [ ! -d "$QuickMDB_HOME/bin" ]
      then 
@@ -190,7 +203,7 @@ fi
 echo ${VERSION_TIME}>$QuickMDB_HOME/bin/${VERSION_FILE}
 if [ "$isMake" = "Y" ]
 then
-        for mdb_dir in $MDB_DIR
+        for mdb_dir in $MDB_DIR $REDIS_DIR
         do
                 echo "Making $HOME_DIR/$mdb_dir ..."
                 echo " "

@@ -542,6 +542,9 @@
 
 		//同步区
         CHECK_RET(SyncSAResouce(pQuery,stResourceInfo),"SyncSAResouce failed.");
+
+		//分片备份链路缓存区
+		CHECK_RET(SyncSBBAResouce(pQuery,stResourceInfo),"SyncSBBAResouce failed.");
         #if 0
         //主备同步缓存
         CHECK_RET(SyncRepAreaResource(pQuery,stResourceInfo),"SyncRepAreaResource falsed.");
@@ -1133,6 +1136,47 @@
         CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
         return iRet;
     }
+
+	/******************************************************************************
+	* 函数名称	:  SyncSBBAResouce
+	* 函数描述	:  同步[同步区]信息
+	* 输入		:
+	* 输出		:
+	* 返回值	:  0 - 成功!0 -失败
+	* 作者		:  jin.shaohua
+	*******************************************************************************/
+	int TMdbSysTableSync::SyncSBBAResouce(TMdbQuery * pQuery[],ST_RESOURCE_INFO & stResourceInfo)
+	{
+		int iRet = 0;
+		TMdbShardBakBufArea &tSBBA = m_pDsn->m_arrShardBakBufArea;
+		for(int i = 0; i<MAX_SHM_ID; i++)
+		{
+			TMdbOnlineRepMemQueue* pQueue = (TMdbOnlineRepMemQueue*)m_pShmDSN->GetShardBakBufAreaShm(i);
+			if(pQueue == NULL)
+			{
+				continue;
+			}
+			long iLeftSize = 0;
+			if(pQueue->iPushPos >= pQueue->iCleanPos)
+			{
+				iLeftSize = (pQueue->iTailPos - pQueue->iStartPos) - (pQueue->iPushPos - pQueue->iCleanPos);
+			}
+			else
+			{
+				iLeftSize = (pQueue->iCleanPos - pQueue->iPushPos);
+			}
+			stResourceInfo.Clear();
+			
+			stResourceInfo.iMemId =   tSBBA.m_iShmID[i];
+			stResourceInfo.llMemKey = tSBBA.m_iShmKey[i];
+			stResourceInfo.llMemSize =tSBBA.m_iShmSize*1024*1024; 
+			stResourceInfo.llMemLeft  = iLeftSize;
+			SAFESTRCPY(stResourceInfo.sMemType,sizeof(stResourceInfo.sMemType),tSBBA.m_sName);
+			CHECK_RET(GeneralSyncResource(pQuery,stResourceInfo),"GeneralSyncResource falsed.");
+		}
+		
+		return iRet;
+	}
 
     /******************************************************************************
     * 函数名称	:  SyncLocalLink

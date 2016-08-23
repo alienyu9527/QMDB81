@@ -88,14 +88,14 @@ MDB_UINT32 TMdbTrafficCtrl::GetAllowSendBytes(TMdbTrafficInfo* pTrafficInfo, MDB
     return uiRet;
 }
 
-struct TMdbPeerEventMonitor:public /*QuickMDB::*/TMdbNtcBaseObject
+struct TMdbPeerEventMonitor:public TMdbNtcBaseObject
 {
     TMdbSharedPtr<TMdbPeerInfo> pPeerInfo;
     MDB_UINT16 events;
 };
 
-///*QuickMDB::*/TMdbNtcQueue TMdbTrafficCtrl::g_oSuspendMonitorPeerQueue(true, false);
-/*QuickMDB::*/TMdbNtcQueue TMdbTrafficCtrl::g_oSuspendMonitorPeerQueue;
+//TMdbNtcQueue TMdbTrafficCtrl::g_oSuspendMonitorPeerQueue(true, false);
+TMdbNtcQueue TMdbTrafficCtrl::g_oSuspendMonitorPeerQueue;
 
 void TMdbTrafficCtrl::ResumePeerTraffic()
 {
@@ -144,7 +144,7 @@ void TMdbTrafficCtrl::SuspendPeerTraffic(TMdbSharedPtr<TMdbPeerInfo>& pPeerInfo,
     g_oSuspendMonitorPeerQueue.Push(pEventMonitor);
 }
 
-/*QuickMDB::*/TMdbNtcThreadLock TMdbPacketInfo::ms_oSpinLock;
+TMdbNtcThreadLock TMdbPacketInfo::ms_oSpinLock;
 MDB_ZF_IMPLEMENT_OBJECT(TMdbPacketInfo, TMdbNtcBaseObject);
 TMdbPacketInfo::TMdbPacketInfo(MDB_UINT32 uiLength /* = 0 */)
 {
@@ -325,9 +325,9 @@ TMdbSendPackets::~TMdbSendPackets()
     Clear();
 }
 
-MDB_ZF_IMPLEMENT_OBJECT(TMdbServerInfo, /*QuickMDB::*/TMdbNtcServerSocket)
+MDB_ZF_IMPLEMENT_OBJECT(TMdbServerInfo, TMdbNtcServerSocket)
 TMdbServerInfo::TMdbServerInfo(const char* pszServerHost /* = NULL */, int iServerPort /* = 0 */,
-                         TMdbProtocol* pProtocol /* = NULL */, const /*QuickMDB::*/TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */)
+                         TMdbProtocol* pProtocol /* = NULL */, const TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */)
 {
     if(pszServerHost)
     {
@@ -688,7 +688,7 @@ bool TMdbPeerInfo::Shutdown()
     return bRet;
 }
 
-bool TMdbPeerInfo::Disconnect(/*QuickMDB::*/TMdbNtcStringBuffer sReason /* = "" */, bool bPasvClose /* = false */)
+bool TMdbPeerInfo::Disconnect(TMdbNtcStringBuffer sReason /* = "" */, bool bPasvClose /* = false */)
 {
     bool bRet = Shutdown();
     if(bRet)
@@ -738,7 +738,7 @@ void TMdbPeerInfo::SetMsgHandleMode(bool bDetached)
     if(bDetached)
     {
         m_uiPeerFlag = (MDB_UINT16)(m_uiPeerFlag|MDB_NTC_PEER_MSG_DETACHED_FLAG);
-        if(m_pRecvMsgQueue == NULL) m_pRecvMsgQueue = new /*QuickMDB::*/TMdbNtcQueue;
+        if(m_pRecvMsgQueue == NULL) m_pRecvMsgQueue = new TMdbNtcQueue;
     }
     else
     {

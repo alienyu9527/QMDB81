@@ -457,6 +457,11 @@
         m_sPosBuf[1] ='1';
 
         m_pPkBuf = new(std::nothrow) char[m_iPkLen+1];
+		if(m_pPkBuf == NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pPkBuf");
+			return ERR_OS_NO_MEMROY;
+		}
         memset(m_pPkBuf, 0, m_iPkLen+1);
         m_pPkBuf[iPkLen] ='\n';
 
@@ -527,7 +532,7 @@
         fprintf(m_pFile, "%s", strPK.c_str());
 
         //在下一个主键位置填写-1
-        iOffSet = m_lCurMaxPos*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1);
+        iOffSet = static_cast<size_t>(m_lCurMaxPos*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1));
         CHECK_RET(fseek(m_pFile, iOffSet, SEEK_SET), "fseek failed, error = %d", errno);
         if (fwrite(m_sPosBuf, MDB_DATA_CHECK_MAX_POS_LEN, 1, m_pFile) !=1)//记录主键值
         {
@@ -550,6 +555,12 @@
         long long  llValue = GetHashValue(strPK);
         size_t iOffSet = -1;
         char* sValue = new(std::nothrow) char[m_iPkLen];
+		if(sValue == NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create sValue");
+			return false;
+
+		}
         memset(sValue, 0, m_iPkLen);
 
         while(1)
@@ -741,7 +752,7 @@
             {
                 CHECK_RET(-1, "Connect to DSN[%s] failed.", m_pCheckConfig->m_tCheckInfo.m_strDsn.c_str());
             }
-            m_pLocalQuery = new TMdbQuery(m_pLocalMdb, 0);
+            m_pLocalQuery = new(std::nothrow) TMdbQuery(m_pLocalMdb, 0);
             CHECK_OBJ(m_pLocalQuery);
 
             if (m_pCheckConfig->m_tDsn.m_eType == E_DSN_ORACLE)
@@ -2615,6 +2626,11 @@ bool TMdbCheckDataMgr::m_bDetail = false;
         {
             //连接本地mdb
             m_pDatabase = new(std::nothrow) TMdbDatabase();
+			if(m_pDatabase == NULL)
+			{
+				TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pDatabase");
+				return ERR_OS_NO_MEMROY;
+			}
             if (!m_pDatabase->ConnectAsMgr(m_pCheckConfig->m_tCheckInfo.m_strDsn.c_str()))
             {
                 TADD_ERROR(ERROR_UNKNOWN,"Cannot connect to DSN[%s]", m_pCheckConfig->m_tCheckInfo.m_strDsn.c_str());

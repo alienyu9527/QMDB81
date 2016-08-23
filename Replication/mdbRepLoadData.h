@@ -16,7 +16,7 @@
 
 //namespace QuickMDB
 //{
-    class TMdbRepLoadThread:public /*QuickMDB::*/TMdbNtcThread
+    class TMdbRepLoadThread:public TMdbNtcThread
     {
     public:
         TMdbRepLoadThread(TMdbRepDataClient *pClient=NULL);
@@ -57,14 +57,15 @@
         int LoadData();
         // 与配置服务端未连接状态下加载数据
         int LoadDataNoSvr();
+		int LoadDataForReLoadTool(char* sTblName);
 
     private:
         int ConnectRepHosts();//创建从所有备机加载数据的线程
         int DisConnectRepHosts();//断开与所有备机的连接
         int DealLeftFile();//处理本机遗留数据
-        int LoadDataFromRep();//从备机加载数据
+        int LoadDataFromRep(bool bTool=false, char* sTblName=NULL);//从备机加载数据
 
-        int CreateLoadThreads();//为每个路由创建或者分配加载的线程
+        int CreateLoadThreads(bool bTool=false,char* sTblName=NULL);//为每个路由创建或者分配加载的线程
 
     private:
         bool IsFileOutOfDate(time_t tTime);//文件是否过期
@@ -87,7 +88,7 @@
         const TMdbShmRep *m_pShmRep;//路由信息共享内存
 
         TMdbRepDataClient **m_arpLoadClient;
-        /*QuickMDB::*/TMdbNtcAutoArray m_arThread;
+        TMdbNtcAutoArray m_arThread;
          std::string m_strDsn;//dsn名称
 
          TMdbConfig* m_pMdbCfg;

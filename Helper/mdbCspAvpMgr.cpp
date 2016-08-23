@@ -69,7 +69,9 @@
     	       itor->second->Clear();
     		return itor->second;
     	}
-    	TMdbCspParser * pNewParser = new TMdbCspParser();
+    	TMdbCspParser * pNewParser = new(std::nothrow) TMdbCspParser();
+		if(pNewParser == NULL)
+			return NULL;
     	if(pNewParser->Init(iCspParserType,bRequest) != 0)
     	{//初始化失败，没有该类型的avp
     		SAFE_DELETE(pNewParser);

@@ -17,6 +17,7 @@
 #include "Control/mdbJobCtrl.h"
 #include "Control/mdbStorageEngine.h"
 #include "Control/mdbExecuteEngine.h"
+#include "Helper/mdbOS.h"
 
 //namespace QuickMDB{
 
@@ -87,6 +88,11 @@ int TMdbDDLExecuteEngine::Init(TMdbSqlParser * pMdbSqlParser)
     if(NULL == m_pScript)
     {
         m_pScript = new(std::nothrow) TMdbScript();
+		if(m_pScript == NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pScript");
+			return ERR_OS_NO_MEMROY;
+		}
         CHECK_RET(m_pScript->Init(pMdbSqlParser),"Failed to init m_pScript.");
     }
     m_pMdbJob = pMdbSqlParser->m_pDDLSqlStruct->pMdbJob;
@@ -491,10 +497,10 @@ int TMdbDDLExecuteEngine::ExecuteAlterDsn()
             }
             CONVERT_Y_N(tMdbAttr.sAttrValue,m_pDsn->m_bIsOraRep);
         }
-        else if(TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrName,"is-rep") == 0)
+        else if(TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrName,"is-shard-backup") == 0)
         {
             //判断是否动态创建主备同步区
-            bTrue = (!m_pDsn->m_bIsRep
+            bTrue = (!m_pDsn->m_bIsShardBackup
                         && TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrValue,"Y") == 0);
             if(bTrue)
             {
@@ -503,7 +509,25 @@ int TMdbDDLExecuteEngine::ExecuteAlterDsn()
                     "Can't create RepShm shared memory.");
                 bIsStartRep = true;
             }
-            CONVERT_Y_N(tMdbAttr.sAttrValue,m_pDsn->m_bIsRep);
+            CONVERT_Y_N(tMdbAttr.sAttrValue,m_pDsn->m_bIsShardBackup);
+        }
+        else if(TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrName,"is-Mem-load") == 0)
+        {
+            CONVERT_Y_N(tMdbAttr.sAttrValue,m_pDsn->m_bIsMemLoad);
+        }
+        else if(TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrName,"is-Online-rep") == 0)
+        {
+            //判断是否动态创建主备同步区
+            if(!m_pDsn->m_bIsShardBackup
+                        && TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrValue,"Y") == 0)
+        	{
+				TADD_ERROR(ERR_DB_INVALID_VALUE, "Can't use online-rep mode while is-shard-backup is false, please set is-shard-backup true first.");
+				return ERR_DB_INVALID_VALUE;
+        	}
+			else
+			{
+        		CONVERT_Y_N(tMdbAttr.sAttrValue,m_pDsn->m_bIsOnlineRep);
+			}
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(tMdbAttr.sAttrName,"is-capture-router") == 0)
         {
@@ -1335,6 +1359,7 @@ int TMdbDDLExecuteEngine::CreateTmpTable(const char* psTableName)
     CHECK_OBJ(m_pTable);
     TMdbTable * pNewTable = NULL;
     TMdbTable * pSrcTable = new(std::nothrow) TMdbTable();
+	CHECK_OBJ(pSrcTable);
     pSrcTable->Clear();
 
     TMdbTable * pTable = m_pShmDSN->GetTableByName(m_pTable->sTableName);
@@ -1915,7 +1940,7 @@ bool TMdbDDLExecuteEngine::IsLoadFromRep(TMdbTable * pTable)
     TADD_FUNC("Begin."); 
     bool bLoadFromRep = false;
     //判断是否需要从Oracle上载
-    if(!m_pDsn->m_bIsRep)
+    if(!m_pDsn->m_bIsShardBackup)
     {
         return bLoadFromRep;
     }
@@ -2535,10 +2560,26 @@ int TMdbDDLExecuteEngine::StartRepProcess()
         //启动缓冲刷新到日志的进程
         sprintf(sProcFullName, "mdbFlushRep %s",m_pDsn->sName);
         m_tProcCtrl.Restart(sProcFullName,true);
+		
+		while(!TMdbOS::IsProcExist(sProcFullName))
+        {
+        	TMdbDateTime::Sleep(1);
+        }
+		
         sprintf(sProcFullName, "mdbRepServer %s",m_pDsn->sName);
         m_tProcCtrl.Restart(sProcFullName,true);
-        sprintf(sProcFullName, "mdbRepClient %s",m_pDsn->sName);
-        m_tProcCtrl.Restart(sProcFullName,true);
+		
+		TMdbShmRepMgr *pShmMgr = new (std::nothrow)TMdbShmRepMgr(m_pDsn->sName);
+	    CHECK_OBJ(pShmMgr);
+		CHECK_RET(pShmMgr->Attach(), "MdbShmRepMgr Attach Failed.");
+		
+		const TMdbShmRep * pShmRep = pShmMgr->GetRoutingRep();
+		for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+		{
+	        sprintf(sProcFullName, "mdbRepClient %s %d",m_pDsn->sName, pShmRep->m_arHosts[i].m_iHostID);
+	        m_tProcCtrl.Restart(sProcFullName,true);
+		}
+		SAFE_DELETE(pShmMgr);
     }
     TADD_FUNC("Finish.");
     return iRet;

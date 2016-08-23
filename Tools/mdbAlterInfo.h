@@ -21,6 +21,7 @@
     if(VALUE <0 )\
     {\
         TADD_ERROR(-1,"invalid Integer Value[%s].",VALUE);\
+        return -1;\
     }\
     else\
     {\
@@ -35,6 +36,7 @@
                 && TMdbNtcStrFunc::StrNoCaseCmp(VALUE, "false") != 0)\
     {\
         TADD_ERROR(-1,"invalid bool Value[%s]. valied value:[Y N TRUE FALSE]",VALUE);\
+        return -1;\
     }\
     else\
     {\
@@ -109,7 +111,7 @@
     	* 返回值    :  无 
     	* 作者      :  zhang.lin
     	*******************************************************************************/
-    	void SetTableValue(char* pszProperty,char* pszValue);
+    	int SetTableValue(char* pszProperty,char* pszValue);
 
 
     	/******************************************************************************
@@ -120,7 +122,7 @@
     	* 返回值    :  无 
     	* 作者      :  zhang.lin
     	*******************************************************************************/
-    	void SetSysValue(char* pszProperty,char* pszValue);
+    	int SetSysValue(char* pszProperty,char* pszValue);
 
 
     	/******************************************************************************

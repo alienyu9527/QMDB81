@@ -759,7 +759,7 @@ void MDBXMLElement::SetAttribute( const char * cname, const char * cvalue )
 		return;
 	}
 
-	MDBXMLAttribute* attrib = new MDBXMLAttribute( cname, cvalue );
+	MDBXMLAttribute* attrib = new(std::nothrow) MDBXMLAttribute( cname, cvalue );
 	if ( attrib )
 	{
 		attributeSet.Add( attrib );
@@ -782,7 +782,7 @@ void MDBXMLElement::SetAttribute( const std::string& name, const std::string& _v
 		return;
 	}
 
-	MDBXMLAttribute* attrib = new MDBXMLAttribute( name, _value );
+	MDBXMLAttribute* attrib = new(std::nothrow) MDBXMLAttribute( name, _value );
 	if ( attrib )
 	{
 		attributeSet.Add( attrib );
@@ -887,7 +887,7 @@ bool MDBXMLElement::Accept( MDBXMLVisitor* visitor ) const
 
 MDBXMLNode* MDBXMLElement::Clone() const
 {
-	MDBXMLElement* clone = new MDBXMLElement( Value() );
+	MDBXMLElement* clone = new(std::nothrow) MDBXMLElement( Value() );
 	if ( !clone )
 		return 0;
 
@@ -1161,7 +1161,7 @@ void MDBXMLDocument::CopyTo( MDBXMLDocument* target ) const
 
 MDBXMLNode* MDBXMLDocument::Clone() const
 {
-	MDBXMLDocument* clone = new MDBXMLDocument();
+	MDBXMLDocument* clone = new(std::nothrow) MDBXMLDocument();
 	if ( !clone )
 		return 0;
 
@@ -1346,7 +1346,7 @@ bool MDBXMLComment::Accept( MDBXMLVisitor* visitor ) const
 
 MDBXMLNode* MDBXMLComment::Clone() const
 {
-	MDBXMLComment* clone = new MDBXMLComment();
+	MDBXMLComment* clone = new(std::nothrow) MDBXMLComment();
 
 	if ( !clone )
 		return 0;
@@ -1401,7 +1401,7 @@ bool MDBXMLText::Accept( MDBXMLVisitor* visitor ) const
 MDBXMLNode* MDBXMLText::Clone() const
 {	
 	MDBXMLText* clone = 0;
-	clone = new MDBXMLText( "" );
+	clone = new(std::nothrow) MDBXMLText( "" );
 
 	if ( !clone )
 		return 0;
@@ -1489,7 +1489,7 @@ bool MDBXMLDeclaration::Accept( MDBXMLVisitor* visitor ) const
 
 MDBXMLNode* MDBXMLDeclaration::Clone() const
 {	
-	MDBXMLDeclaration* clone = new MDBXMLDeclaration();
+	MDBXMLDeclaration* clone = new(std::nothrow) MDBXMLDeclaration();
 
 	if ( !clone )
 		return 0;
@@ -1521,7 +1521,7 @@ bool MDBXMLUnknown::Accept( MDBXMLVisitor* visitor ) const
 
 MDBXMLNode* MDBXMLUnknown::Clone() const
 {
-	MDBXMLUnknown* clone = new MDBXMLUnknown();
+	MDBXMLUnknown* clone = new(std::nothrow) MDBXMLUnknown();
 
 	if ( !clone )
 		return 0;

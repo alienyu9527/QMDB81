@@ -34,6 +34,8 @@
 #define MAX_MDB_PAGE_COUNT    (2097151)      //每个表空间最大页个数，占rowid的21位
 #define MAX_MDB_PAGE_RECORD_COUNT (2047) //页内最大记录个数占rowid的11位
 #define MAX_VALUE_LEN      (32768)  //数据最大长度
+#define MAX_DEFAULT_VALUE_LEN (256)  //列默认值最大长度
+#define MAX_LOAD_TABLE_COLUMN_DIFF_COUNT (5) //加载表时两端表结构最大差异数
 #define TS_FILE_PREFIX "TS_"      //文件前缀
 #define VARCHAR_FILE_PREFIX "VARCHAR_"      //文件前缀
 #define TS_FILE_SUFFIX ".mdb"   //文件后缀
@@ -52,7 +54,6 @@
 #define MAX_INDEX_LAYER_LIMIT 4
 
 #define MAX_BASE_INDEX_COUNTS 500
-
 #define MAX_MHASH_INDEX_COUNT 1000
 #define MAX_MHASH_SHMID_COUNT 1000
 
@@ -73,6 +74,15 @@
 #define VC_2048    7
 #define VC_4096    8
 #define VC_8192    9
+
+//表结构变化操作类型
+#define TC_NoChange 0
+#define TC_ColumnAdd 1
+#define TC_ColumnDrop 2
+#define TC_ColLenIncrease 3
+
+//最大备机数量
+#define MAX_ALL_REP_HOST_COUNT 100
 
 	/**
 	 * @brief rowid 一条记录的唯一标识
@@ -124,7 +134,7 @@
 		char   cStorage;  //这条记录是否是文件存储的，主要用于varchar，非varchar页不使用该字段 Y:是 N:不是
 		int    iNextNode; //下一个节点，用来做连表，可以存放未使用的节点 <0 表示该节点正在使用，>=0 表示该节点空闲
 		int    iPreNode; //前一个节点
-		TMutex tMutex;
+		TMiniMutex tMutex;
 		unsigned int iSessionID;
 		unsigned char cFlag;
 	};
@@ -154,8 +164,6 @@
             int RecordPosToDataOffset(int iRecordPos);
             //data offset 转记录位置
             int DataOffsetToRecordPos(int iDataOffset);
-			int LockRow(int iDataOffset,char* pHeadAddr);
-			int UnLockRow(int iDataOffset,char* pHeadAddr);
 			
         public:
             char m_sUpdateTime[MAX_TIME_LEN];    //变更时间
@@ -257,7 +265,7 @@
             bool isInOra;             //Oracle中是否存在本字段,默认是true，如果这个字段是session类的，则为false
             long iHashPos;            //节点在hash表中的位置
             bool bIsDefault;
-            char iDefaultValue[256];
+            char iDefaultValue[MAX_DEFAULT_VALUE_LEN];
             bool m_bNullable;//是否允许null;
         };
 	/**
@@ -271,6 +279,7 @@
 		INDEX_TRIE = 2,     //trie索引		INDEX_UNKOWN 
 		INDEX_UNKOWN = 3
 	};
+	
 
 	// 表的记录数级别
 	enum E_MDB_TABLE_LEVEL
@@ -287,14 +296,16 @@
 	 * @brief 索引信息
 	 * 
 	 */
+    class TMdbTable;
 	class TMdbIndex
         {
         public:
             TMdbIndex() {}
             ~TMdbIndex() {}
             void Clear();
-            void Print();
-            const char* GetAlgoType();
+            void Print(TMdbTable* pTable);
+            const char* GetAlgoType();		
+			bool IsRedirectIndex();
             int GetInnerAlgoType(const char* psAlgoName);
 
             char sName[MAX_NAME_LEN]; //索引名称
@@ -304,7 +315,9 @@
             int iPriority;       //索引优先级,1…10，数值越小优先级越高
             //TMutex tMutex;       //索引的共享锁
             int iMaxLayer;
-			bool bBuilding;
+			bool bRePos;
+			int  iRIdxOffset;
+			bool bBuilding;			
         };
 
 
@@ -506,7 +519,23 @@ public:
         int       iNextPos;//下一个node 的位置
         // int 	iPrePos;//前一个node的位置
     };
-
+	
+	// 带反向定位功能的哈希索引节点
+	class TMdbReIndexNode
+	{
+	public:
+	    void SetPreNode(int iNodePos, bool bOnBase)// 设置前一个节点时请使用该接口
+	    {
+	        iPrePos = iNodePos;
+	        bPreBase = bOnBase;
+	    }
+	    
+	    TMdbRowID tData;  //数据所在位置
+	    int       iNextPos;//下一个node 的位置
+	    int 	iPrePos;//前一个node的位置
+	    bool bPreBase; // 前一个node是否在基础链上
+	};
+	
     // 索引内存块上的空闲块，用于内存回收
     class TMDBIndexFreeSpace
     {
@@ -578,7 +607,8 @@ public:
         char cState;                //索引状态：’0’-未创建;’1’-在使用中;’2’-正在创建;’3’正在销毁
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iFreeHeadPos;         //空闲头结点位置
-        int  iFreeNodeCounts;      //剩余空闲节点数
+        int  iFreeNodeCounts;      //剩余空闲节点数       
+		bool bRePos; // 是否反向定位索引
     };
 
     //冲突索引管理区信息
@@ -822,6 +852,22 @@ public:
     int    m_iFileSize;                 //日志文件大小，单位为M
 };
 
+
+//同步区信息
+class TMdbShardBakBufArea
+{
+public:
+    void Clear();//清理
+public:
+	char m_sName[MAX_NAME_LEN];
+    int    m_iHostID[MAX_ALL_REP_HOST_COUNT];//同步区类型
+    SHAMEM_T m_iShmID[MAX_SHM_ID];
+    int m_iShmSize;          //主备同步Shm的大小(单位为M)
+    MDB_INT64 m_iShmKey[MAX_SHM_ID];           //主备同步Key
+};
+
+
+
 //数据库的整体信息
 class TMdbDSN
 {
@@ -879,6 +925,7 @@ public:
     int iHashMutexShmKey[MAX_SHM_ID]; // hash索引基础索引段shmkey
 
     TMdbSyncArea m_arrSyncArea;//同步区
+    TMdbShardBakBufArea m_arrShardBakBufArea;//链路缓冲区
 
     // MHASH  索引段
     int iMHashBaseIdxShmCnt;  // 阶梯式索引基础索引段个数
@@ -928,6 +975,7 @@ public:
     int iTrieConfIdxShmKey[MAX_TRIE_SHMID_COUNT];   // 阶梯式索引阶梯索引段shmkey
 
 	
+
  
     char sStorageDir[MAX_PATH_NAME_LEN];//文件存储位置
     char sDataStore[MAX_PATH_NAME_LEN]; //文件影像的位置
@@ -955,6 +1003,9 @@ public:
     bool bDiskSpaceStat;//磁盘剩余空间是否够
     bool m_bIsOraRep;  //是否进行oracle同步
     bool m_bIsRep; //是否进行主备同步
+    bool m_bIsShardBackup; //是否启用分片备份
+    bool m_bIsMemLoad; //是否采用内存传输方式从备机加载数据
+    bool m_bIsOnlineRep; //是否使用飞行模式进行同步
     bool m_bIsCaptureRouter;// 是否捕获路由
     bool m_bIsDiskStorage;//是否开启磁盘存储   
     int m_arrRouterToCapture[MAX_ROUTER_LIST_LEN];//等待caputre的路由链表
@@ -990,7 +1041,7 @@ private:
     
 private:
 	TMutex m_SessionMutex;
-	unsigned short m_iSessionID;
+	unsigned int m_iSessionID;
 	
 public:
 	unsigned int GetSessionID();
@@ -1055,6 +1106,8 @@ public:
     int GetInnerTableLevel(const char* psTabLevel);
 	TMdbColumn * GetColumnByName(const char* sColumnName);
     int GetFreePageRequestCount();
+	
+	int CalcRIndexSize(int & iFlagSize);
 
     int m_iTableId;
     char sTableName[MAX_NAME_LEN];   //表名
@@ -1123,6 +1176,8 @@ public:
     //int iOneRecordDataSize;//一条记录中的数据大小
     int iOneRecordNullOffset;//一条记录的NULL值偏移量
     int m_iTimeStampOffset; // 一条记录的时间戳偏移量
+    int iReIdxFlagOffset;
+    int iReIdxPosOffset;
 
     int iInsertCounts;   //insert记录数
     int iDeleteCounts;//delete记录数
@@ -1151,6 +1206,24 @@ public:
     int iEndPos;     //数据区的结束位置
     int iTailPos;    //数据的结束位置
 };
+
+	class TMdbOnlineRepMemQueue
+	{
+	public:
+    	int GetFreeSpace();//获取剩余空间
+	public:
+	    char sFlag[8];
+	    TMutex tPushMutex;   //Push的共享锁
+	    TMutex tPopMutex;    //Pop的共享锁
+	    int iPushPos;    //Push的位置
+	    int iPopPos;     //Pop的位置
+	    int iStartPos;   //数据区的起始位置
+	    int iEndPos;     //数据区的结束位置
+	    int iTailPos;    //数据的结束位置
+		int iCleanPos;//数据的清理位置
+	};
+
+
 	//LCR中的列信息
     class TLCRColm
     {

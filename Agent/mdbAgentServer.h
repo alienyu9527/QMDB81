@@ -66,10 +66,10 @@ using namespace std;
     #define NO_OCP_USERNAME_POS SIZE_MSG_AVP_HEAD
     #define NO_OCP_PASSWORD_POS (SIZE_MSG_AVP_HEAD + NO_OCP_USERNAME_LEN)
     #define NO_OCP_PASSWORD_LEN 32
-    #define NO_OCP_SQLLABEL_POS SIZE_MSG_AVP_HEAD
-    #define NO_OCP_SQL_POS (SIZE_MSG_AVP_HEAD+sizeof(int))
-    #define NO_OCP_PARAMCNT_POS (SIZE_MSG_AVP_HEAD+sizeof(int))
-    #define NO_OCP_BATCHCNT_POS (SIZE_MSG_AVP_HEAD+sizeof(int))
+    #define NO_OCP_SQLLABEL_POS SIZE_MSG_BIN_HEAD
+    #define NO_OCP_SQL_POS (SIZE_MSG_BIN_HEAD+sizeof(int))
+    #define NO_OCP_PARAMCNT_POS (SIZE_MSG_BIN_HEAD+sizeof(int))
+    #define NO_OCP_BATCHCNT_POS (SIZE_MSG_BIN_HEAD+sizeof(int))
     
     //no ocp end
 
@@ -181,6 +181,9 @@ using namespace std;
         char m_sPackageBuffer[MAX_DUMP_PACKAGE_BUFFER];//缓存数据抓包
         bool m_bFirstNext;//第一次解析
         bool m_bRegister;
+        char m_iSqlType;
+        unsigned char m_iFieldCount;
+        unsigned char m_iParamCount;
         TMdbSequenceMgr *m_pSequenceMgr[MAX_SEQUENCE_NUM]; //默认255个Sequence缓存
         TAgentClientSequence m_tLastSequence;//记录前一次sequence
 		TMdbRecvMsgEvent * m_pEventInfo;//接收数据包事件        
@@ -260,6 +263,7 @@ private:
     int Authentication(TAgentClient *ptClient);//认证
     int SendAnswer(TMdbCspParser * pCspParser,TAgentClient *ptClient,int AnsCode,const char * sMsg);//发回复信息
     int RecvPackage(TAgentClient * ptClient);//接收消息包
+    int RecvPackageOnce(TAgentClient * ptClient);//接收消息包
     int CheckClientSequence(TAgentClient * ptClient);//检测客户端序号
 	void DumpRecvPackage(TAgentClient *ptClient);//日志级别-1时抓数据包-接收包
 	void DumpSendPackage(TAgentClient *ptClient);//日志级别-1时抓数据包-发送包

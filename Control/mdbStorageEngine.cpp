@@ -125,7 +125,7 @@
         m_iSize = iSize;
         SAFE_DELETE(m_pBuff);
         m_iBuffSize = 10000*(m_iSize);
-        m_pBuff = new char[m_iBuffSize];
+        m_pBuff = new(std::nothrow) char[m_iBuffSize];
         CHECK_OBJ(m_pBuff);
         memset(m_pBuff,0,m_iBuffSize);
         iReadPageCount = 0;
@@ -1380,7 +1380,7 @@
         CHECK_OBJ(pTSNode);
         int iDirtyPageID = -1;
         int iDirtyCount = 0;
-		//char *sChangedPageArray = new char[(m_pVarchar->iPageSize)*MAX_FLUSH_CHANGED_PAGE_COUNT+64];
+		//char *sChangedPageArray = new(std::nothrow) char[(m_pVarchar->iPageSize)*MAX_FLUSH_CHANGED_PAGE_COUNT+64];
 		//memset(sChangedPageArray, 0, (m_pVarchar->iPageSize)*MAX_FLUSH_CHANGED_PAGE_COUNT+64);
 		if(m_pVarCharArray == NULL)
 		{

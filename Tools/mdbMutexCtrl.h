@@ -37,6 +37,7 @@
         
         int RenewIndexMutex();
         int RenewSyncAreaMutex(int iType);
+		int RenewShardBakBufAreaMutex(int iType);
     private:
         int RenewOneMutex(TMutex & tMutex);
         TMdbShmDSN * m_pShmDsn;

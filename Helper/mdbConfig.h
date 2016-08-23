@@ -1,3 +1,4 @@
+
 /****************************************************************************************
 *@Copyrights  2007，中兴软创（南京）计算机有限公司 开发部 CCB项目组
 *@                   All rights reserved.
@@ -242,8 +243,11 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
 		//begin 兼容1.2
         bool bIsPeerRep;            //是否开启容灾备份
         bool bIsRep;                 //是否开启主备同步
+        bool bIsMemLoad;
         //end
-        
+
+		bool bIsOnlineRep;
+		
         bool bIsCaptureRouter;            //是否开启路由捕获
         bool bIsLicense;             //是否需要检测序列号
 
@@ -570,7 +574,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         * 返回值	:  正确则返回true，否则返回false
         * 作者		:  li.shugang
         *******************************************************************************/
-        bool CheckLicense();
+        //bool CheckLicense();
 
         /******************************************************************************
         * 函数名称	:  IsAdmin()
@@ -666,6 +670,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         * 返回值	:  配置文件路径
         * 作者		:  li.shugang
         *******************************************************************************/
+        int  GetFullPathCfgName(const char* pszDsn,char *sCfgFileName);
         char * GetConfigHomePath();
         int GetDbDataShmCounts(int &iDataShmCounts);//获取数据库需要的数据共享块
         int GetOneTableDataSize(TMdbTable * pTable,long long &llDataSize);//获取某张表所需要的数据空间大小
@@ -1025,7 +1030,7 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         * 返回值	:  无
         * 作者		:  li.shugang
         *******************************************************************************/
-        void GetLincese(char* pLicense);
+        //void GetLincese(char* pLicense);
 
         /******************************************************************************
         * 函数名称	:  SetConfigHomePath()
@@ -1122,7 +1127,6 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
 
         int LoadTableSpaceAlterInfo(const char* psSysFilePath);
 
-        int GetTableNameFromDir(const char* psDir, char* psTableName, int iNameLen);
         int GetIdleTableId();
         int LoadTableAlterInfo(const char* psCfgDir,const char* psTabName);
         int LoadTableOldConfig();
@@ -1188,6 +1192,8 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         bool IsDsnSame(const char* sName);
         //oracle 二次登录校验
 		int ReLoadOracle();
+		
+        int GetTableNameFromDir(const char* psDir, char* psTableName, int iNameLen);
 	
     public:
         std::vector<TMdbJob>  m_vMdbJob;//job列表

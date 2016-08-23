@@ -9,8 +9,10 @@
 ******************************************************************************************/
 
 #include "Control/mdbRowCtrl.h"
+#include "Control/mdbMgrShm.h"
 #include "Helper/mdbDateTime.h"
-//#include "BillingSDK.h"
+
+
 
 //using namespace ZSmart::BillingSDK;
 
@@ -51,6 +53,23 @@
         return 0; 
     }
 
+	 TMdbRIndexBaseFlag::TMdbRIndexBaseFlag()
+	{
+	}
+
+	TMdbRIndexBaseFlag::~TMdbRIndexBaseFlag()
+	{
+	}
+
+	int TMdbRIndexBaseFlag::CalcBaseFlag(int iIndexId)
+	{
+	    m_iIndexId = iIndexId;
+	    m_iFlagOffset = iIndexId/MDB_CHAR_SIZE;
+	    char sMask[] = {128,64,32,16,8,4,2,1};
+	    m_iFlag = sMask[iIndexId%MDB_CHAR_SIZE];
+	    return 0;
+	}
+
     /******************************************************************************
     * 函数名称	:  TMdbRowCtrl
     * 函数描述	:  构造
@@ -62,7 +81,8 @@
     TMdbRowCtrl::TMdbRowCtrl():
         m_pMdbTable(NULL),
         m_pShmDsn(NULL),
-        m_arrColNullFlag(NULL)
+        m_arrColNullFlag(NULL),
+		m_aRIdxBaseFlag(NULL)
     {
         int i = 0;
         for(i = 0;i < MAX_COLUMN_COUNTS;++i)
@@ -81,6 +101,7 @@
     TMdbRowCtrl::~TMdbRowCtrl()
     {
         SAFE_DELETE_ARRAY(m_arrColNullFlag);
+		SAFE_DELETE_ARRAY(m_aRIdxBaseFlag);
         ClearColValueBlock();
     }
     /******************************************************************************
@@ -97,38 +118,24 @@
         int iRet = 0;
         m_pShmDsn = TMdbShmMgr::GetShmDSN(sDsn);
         CHECK_OBJ(m_pShmDsn);
-        m_pMdbTable = m_pShmDsn->GetTableByName(sTableName);
-        CHECK_OBJ(m_pMdbTable);
-        CHECK_RET(m_tVarcharCtrl.Init(sDsn),"varchar Init faild.");
-        //计算null flag
-        SAFE_DELETE_ARRAY(m_arrColNullFlag);
-        m_arrColNullFlag = new TMdbColumnNullFlag[m_pMdbTable->iColumnCounts];
-        int i =0;
-        for(i = 0;i < m_pMdbTable->iColumnCounts;++i)
-        {
-            if(i != m_pMdbTable->tColumn[i].iPos)
-            {
-                CHECK_RET(ERR_APP_CONFIG_ITEM_VALUE_INVALID,"column[%s] of table[%s] pos=[%d] is error,should be [%d]",
-                    m_pMdbTable->tColumn[i].sName,m_pMdbTable->sTableName,m_pMdbTable->tColumn[i].iPos,i);
-            }
-            m_arrColNullFlag[i].CalcNullFlag(i);
-        }
-        //清理临时区
-        ClearColValueBlock();
+        TMdbTable* pTable  = m_pShmDsn->GetTableByName(sTableName);
+        CHECK_OBJ(pTable);	
+        CHECK_RET(Init(sDsn,pTable),"TMdbRowCtrl::Init failed");
         return iRet;
     }
 
     int TMdbRowCtrl::Init(const char * sDsn,TMdbTable* pTable)//初始化
     {
         int iRet = 0;
-        m_pShmDsn = TMdbShmMgr::GetShmDSN(sDsn);
-        CHECK_OBJ(m_pShmDsn);
+
         CHECK_OBJ(pTable);
         m_pMdbTable = pTable;
         CHECK_RET(m_tVarcharCtrl.Init(sDsn),"varchar Init faild.");
+		
         //计算null flag
         SAFE_DELETE_ARRAY(m_arrColNullFlag);
-        m_arrColNullFlag = new TMdbColumnNullFlag[m_pMdbTable->iColumnCounts];
+        m_arrColNullFlag = new(std::nothrow) TMdbColumnNullFlag[m_pMdbTable->iColumnCounts];
+		CHECK_OBJ(m_arrColNullFlag);
         int i =0;
         for(i = 0;i < m_pMdbTable->iColumnCounts;++i)
         {
@@ -139,6 +146,21 @@
             }
             m_arrColNullFlag[i].CalcNullFlag(i);
         }
+		
+		//计算反向索引flag
+		SAFE_DELETE_ARRAY(m_aRIdxBaseFlag);
+	    m_aRIdxBaseFlag = new(std::nothrow) TMdbRIndexBaseFlag[m_pMdbTable->iIndexCounts];
+		CHECK_OBJ(m_aRIdxBaseFlag);
+		
+	    for(i = 0; i < m_pMdbTable->iIndexCounts; ++i )
+	    {
+	        if(!m_pMdbTable->tIndex[i].IsRedirectIndex())
+	        {
+	            continue;
+	        }
+	        m_aRIdxBaseFlag[i].CalcBaseFlag(i);
+	    }
+		
         //清理临时区
         ClearColValueBlock();
         return iRet;
@@ -567,6 +589,55 @@
 
         return iRet;
     }
+	
+	int TMdbRowCtrl::SetIndexPos( char* pDataAddr, const int iOffset,int iIndexCount,bool bBase,int iIndexNodePos)
+	{
+	    TADD_FUNC("Start.index[%d],bBase=[%s],iIndexPos=[%d]",iIndexCount,bBase?"Y":"N",iIndexNodePos);
+	    int iRet = 0;
+	    
+	    CHECK_OBJ(pDataAddr);
+	    CHECK_OBJ(m_aRIdxBaseFlag);
+
+	    if(!m_pMdbTable->tIndex[iIndexCount].IsRedirectIndex())
+	    {
+	        TADD_DETAIL("not need to write index pos into record.");
+	        return iRet;
+	    }
+
+	    char * sFlag = NULL;
+	    if(bBase)
+	    {
+	        sFlag  = pDataAddr + m_pMdbTable->iReIdxFlagOffset + m_aRIdxBaseFlag[iIndexCount].m_iFlagOffset;
+	        *sFlag |= m_aRIdxBaseFlag[iIndexCount].m_iFlag;
+	    }
+	    else
+	    {
+	        sFlag  = pDataAddr + m_pMdbTable->iReIdxFlagOffset + m_aRIdxBaseFlag[iIndexCount].m_iFlagOffset;
+	        *sFlag &= (m_aRIdxBaseFlag[iIndexCount].m_iFlag^(char)255);
+	    }
+
+	    long long* pInt = (long long*)&pDataAddr[m_pMdbTable->iReIdxPosOffset+iOffset];
+	    *pInt = iIndexNodePos;
+
+	    return iRet;
+	}
+
+	int TMdbRowCtrl::GetIndexPos(const char* pDataAddr, const int iOffset,int iIndexCount,bool & bBase, long long & iIndexNodePos)
+	{
+	    TADD_FUNC("Start.");
+	    int iRet = 0;
+
+	    CHECK_OBJ(pDataAddr);
+	    CHECK_OBJ(m_aRIdxBaseFlag);
+
+	    const char * sFlag = pDataAddr + m_pMdbTable->iReIdxFlagOffset + m_aRIdxBaseFlag[iIndexCount].m_iFlagOffset;
+	    bBase = (0 != (*sFlag & m_aRIdxBaseFlag[iIndexCount].m_iFlag));
+
+	    iIndexNodePos = *(long long*)&pDataAddr[m_pMdbTable->iReIdxPosOffset+iOffset];
+	    TADD_DETAIL("get index node pos:[%s][%lld]", bBase?"BASE":"CONF",iIndexNodePos);
+	    
+	    return iRet;
+	}
 
     
 //}

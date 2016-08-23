@@ -12,7 +12,6 @@
 #include "Helper/mdbStruct.h"
 #include "Helper/SqlParserStruct.h"
 #include "Control/mdbVarcharMgr.h"
-#include "Control/mdbMgrShm.h"
 
 //namespace QuickMDB{
 
@@ -28,7 +27,24 @@
         int m_iNullFlagOffset;//null标识的位置
         char m_cNullFlag;    //null标识
     };
+
+	// 列的索引记录值
+	class TMdbRIndexBaseFlag
+	{
+	public:
+		TMdbRIndexBaseFlag();
+		~TMdbRIndexBaseFlag();
+	
+	public:
+		int CalcBaseFlag(int iIndexId);
+	
+		int m_iIndexId;
+		int m_iFlagOffset;
+		char m_iFlag;	 
+	};
+
     //记录管理
+    class TMdbShmDSN;
     class TMdbRowCtrl
     {
     public:
@@ -44,6 +60,10 @@
                                                                        char * & sValue,int iValueSize,int & iResultType);//获取某列值
         int SetTimeStamp(char* const & pDataAddr, int iOffSet,long long iTimeStamp);              
         int GetTimeStamp(char* pDataAddr, int iOffSet,long long & iTimeStamp);
+		
+		int SetIndexPos( char* pDataAddr, const int iOffset,int iIndexCount,bool bBase,int iIndexNodePos);
+		int GetIndexPos(const char* pDataAddr, const int iOffset,int iIndexCount,bool & bBase, long long & iIndexNodePos);
+		
     private:
         int ClearColValueBlock();   //清理临时区
         char * GetColValueBlockByPos(int iPos);//根据column -pos 获取记录临时区
@@ -53,7 +73,8 @@
         //TMdbVarcharMgr m_tVarcharMgr;
 		TMdbVarCharCtrl m_tVarcharCtrl;
         char *  m_pArrColValueBlock[MAX_COLUMN_COUNTS];//临时记录区
-        TMdbColumnNullFlag * m_arrColNullFlag;//列的null标识
+        TMdbColumnNullFlag * m_arrColNullFlag;//列的null标识        
+		TMdbRIndexBaseFlag* m_aRIdxBaseFlag; // 
     };
 //}
 #endif

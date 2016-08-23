@@ -515,6 +515,74 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
     return iRet;
 }
 
+/******************************************************************************
+* 函数名称	:  Insert
+* 函数描述	:  插入一条varchar数据
+* 输入		:  varchar数据
+* 输入		:  iLen varchar数据长度
+* 输出		:  数据所在位置
+* 返回值	: 
+* 作者		:  dong.chun
+*******************************************************************************/
+int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int& iRowId,char cStorage)
+{
+	TADD_FUNC(" Start.");
+	int iRet = 0;
+	iWhichPos = -1;
+	CHECK_RET(VarCharWhichStore(iLen,iWhichPos),"Get VarCharWhichStore[%d] Faild",iWhichPos);
+	TMdbRowID rowID;
+	while(true)
+	{
+		TMdbPage* pMdbPage = NULL;
+		char* pMemDataAddr = NULL;
+		CHECK_RET(m_pVarChar->tMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
+		CHECK_RET_BREAK(GetFreePage(pMdbPage),"GetFreePage Faild");
+		if(pMdbPage == NULL)
+		{
+			TADD_ERROR(-1,"pMdbPage is NULL");
+			iRet = -1;
+			break;
+		}
+		CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char *)pMdbPage, false, true),"Can't Attach to page");
+        int iSize = GetValueSize(iWhichPos);
+		iRet = m_mdbPageCtrl.InsertData((unsigned char*)pValue, iLen, iSize, rowID,pMemDataAddr,false);
+		if(ERR_PAGE_NO_MEMORY == iRet)
+		{
+			//对于找到的自由页满了而无法插入数据，则找下一个自由页
+			TADD_DETAIL("Current page is Full.");
+			CHECK_RET_BREAK(PageFreeToFull(pMdbPage),"PageFreeToFull Faild");
+			CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
+			continue;
+		}
+		else if(iRet < 0)
+		{
+			CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
+			CHECK_RET(iRet,"Insert varchar Data failed.");
+		}
+		TMdbPageNode * pPageNode = (TMdbPageNode *)(pMemDataAddr - sizeof(TMdbPageNode));
+		pPageNode->cStorage = cStorage;
+		if(NeedStorage())
+		{
+			TADD_DETAIL("whichpos=[%d],page_id=[%d]",iWhichPos,pMdbPage->m_iPageID);
+			SetPageDirtyFlag(pMdbPage->m_iPageID);
+		}
+		else
+		{
+			pPageNode->cStorage = 'N';
+		}
+		iRowId = rowID.m_iRowID;
+		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
+		break;
+	}
+	if(iRet != 0)
+	{
+		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
+	}
+	TADD_FUNC("Finish.");
+	return iRet;
+}
+
+
 	/******************************************************************************
 	* 函数名称	:  Update
 	* 函数描述	:  修改一条varchar数据
@@ -560,6 +628,52 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    TADD_FUNC("Finish.");
 	    return iRet;
 	}
+
+	/******************************************************************************
+	* 函数名称	:  Update
+	* 函数描述	:  修改一条varchar数据
+	* 输入		:  varchar数据
+	* 输入		:  
+	* 输出		:  数据所在位置
+	* 返回值	: 
+	* 作者		:  dong.chun
+	*******************************************************************************/
+	int TMdbVarCharCtrl::Update(char * pValue, int iLen, int& iWhichPos, unsigned int& iRowId,char cStorage)
+	{
+		TADD_FUNC(" Start.");
+		int iRet = 0;
+		unsigned int iOldRowId = iRowId;
+		int iNewWhichPos = -1;
+		int iOldWhichPos = iWhichPos;
+		CHECK_RET(VarCharWhichStore(iLen,iNewWhichPos),"Get VarCharWhichStore[%d] Faild",iNewWhichPos);
+		if(iWhichPos == iNewWhichPos)
+		{
+			TMdbRowID tRowId;
+			tRowId.SetRowId(iRowId);
+			char* pAddr = GetAddressRowId(&tRowId);
+			TMdbPage* pMdbPage = NULL;
+			pMdbPage = (TMdbPage *)GetAddrByPageID(m_pVarChar,tRowId.GetPageID());
+			CHECK_OBJ(pMdbPage);
+			CHECK_RET(m_mdbPageCtrl.Attach((char *)pMdbPage, false, true),"Can't Attach to page");
+			m_mdbPageCtrl.WLock();
+			memcpy(pAddr,pValue,iLen);
+			pAddr[iLen] = 0;
+			m_mdbPageCtrl.UnWLock();
+			if(NeedStorage())
+			{
+				SetPageDirtyFlag(tRowId.GetPageID());
+			}
+		}
+		else
+		{
+			//插入新数据
+			CHECK_RET(Insert(pValue,iLen,iWhichPos,iRowId,cStorage),"Insert[%d] Faild",iWhichPos);
+			CHECK_RET(Delete(iOldWhichPos,iOldRowId),"Delete[%d] Faild",iOldWhichPos);
+		}	 
+		TADD_FUNC("Finish.");
+		return iRet;
+	}
+
 
 	/******************************************************************************
 	* 函数名称	:  Delete
@@ -647,6 +761,36 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
 	    TADD_FUNC("TMdbVarcharMgr::GetVarcharValue() ： Finish(0).");
 	    return iRet;
 	}
+
+	int TMdbVarCharCtrl::GetVarcharValue(char * pResultValue, char * const pData, int & iValueSize)
+	{
+		TADD_FUNC("Start.");
+		int iRet = 0;
+		int iWhichPos = -1;
+		unsigned int iRowId = 0;
+		GetStoragePos(pData, iWhichPos, iRowId);
+		TADD_DETAIL("pData=[%s],iWhichPos=[%d],iRowId=[%ud].",pData,iWhichPos,iRowId);
+		if(iWhichPos < VC_16 || iWhichPos > VC_8192)
+		{
+			TADD_WARNING("iWhichFlag=[%d],iWhichFlag IN [0,9],pData=[%s]",iWhichPos,pData);
+			pResultValue[0] = 0;
+			return iRet;
+		}
+		m_pVarChar = m_pShmDSN->GetVarchar(iWhichPos);
+		CHECK_OBJ(m_pVarChar);
+		TMdbRowID tRowId;
+		tRowId.SetRowId(iRowId);
+		char* pAddr = GetAddressRowId(&tRowId);
+		CHECK_OBJ(pAddr);
+		int iSize = GetValueSize(iWhichPos);
+		SAFESTRCPY(pResultValue, iSize, pAddr);
+		iValueSize = strlen(pAddr);
+		//memcpy(pResultValue,pAddr,iSize);
+		//pResultValue[iSize] = 0;
+		TADD_FUNC("TMdbVarcharMgr::GetVarcharValue() ： Finish(0).");
+		return iRet;
+	}
+
 
 	int TMdbVarCharCtrl::CreateOrAddFile()
 	{

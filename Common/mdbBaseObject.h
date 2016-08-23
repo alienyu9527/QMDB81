@@ -71,7 +71,7 @@
          * 或者pLongObject->IsKindOf(MDB_ZF_RUNTIME_OBJECT(TMdbNtcLongObject))
          */
         #define MDB_ZF_RUNTIME_OBJECT(class_name) (&class_name::oRuntimeObject)
-        #define MDB_ZF_DYNAMIC_CAST(class_name, x) ((((/*QuickMDB::*/TMdbNtcBaseObject*)x)->IsDerivedFrom(MDB_ZF_RUNTIME_OBJECT(class_name)))?static_cast<class_name *>(x):NULL)
+        #define MDB_ZF_DYNAMIC_CAST(class_name, x) ((((TMdbNtcBaseObject*)x)->IsDerivedFrom(MDB_ZF_RUNTIME_OBJECT(class_name)))?static_cast<class_name *>(x):NULL)
         
         /*
          * @brief 用于提供类名和类大小的获取，实际对象受类中指针因素，占用内存会比实际类大小更大
@@ -89,10 +89,10 @@
          * @brief 对于object声明的实现，放在cpp文件中
          * 
          */
-        #define MDB_ZF_IMPLEMENT_OBJECT(class_name, base_class_name) const /*QuickMDB::*/TMdbRuntimeObject class_name::oRuntimeObject(#class_name, sizeof(class class_name), NULL, &base_class_name::oRuntimeObject);
+        #define MDB_ZF_IMPLEMENT_OBJECT(class_name, base_class_name) const TMdbRuntimeObject class_name::oRuntimeObject(#class_name, sizeof(class class_name), NULL, &base_class_name::oRuntimeObject);
         #define MDB_ZF_DECLARE_DYNCREATE_OBJECT(class_name) MDB_ZF_DECLARE_OBJECT(class_name)\
-                                                        static /*QuickMDB::*/TMdbNtcBaseObject* CreateObject(){ return new class_name;}
-        #define MDB_ZF_IMPLEMENT_DYNCREATE_OBJECT(class_name, base_class_name) const /*QuickMDB::*/TMdbRuntimeObject class_name::oRuntimeObject(#class_name, sizeof(class class_name), &class_name::CreateObject, &base_class_name::oRuntimeObject);
+                                                        static TMdbNtcBaseObject* CreateObject(){ return new class_name;}
+        #define MDB_ZF_IMPLEMENT_DYNCREATE_OBJECT(class_name, base_class_name) const TMdbRuntimeObject class_name::oRuntimeObject(#class_name, sizeof(class class_name), &class_name::CreateObject, &base_class_name::oRuntimeObject);
 
         /*
          * @brief 对象基类

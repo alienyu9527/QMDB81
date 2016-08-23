@@ -56,7 +56,7 @@
 //namespace QuickMDB{
 
     #define TIME_OUT_TIME 20
-
+    #define RECV_PACKAGE_LEN_DEFAULT_CS 1024*16
     #ifdef OS_SUN
         #define CHECK_RET_THROW(_ret,_errCode,_sql,...)  if((iRet = _ret)!=0){\
             TADD_ERROR(iRet,__VA_ARGS__);\
@@ -371,7 +371,7 @@
             ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"m_pHead is NULL.");
         }
         m_bCanOpenAgain = false;
-		m_sSQL = new char[MAX_SQL_LEN];
+		m_sSQL = new(std::nothrow) char[MAX_SQL_LEN];
 		if(m_sSQL == NULL)
 		{
 			ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_sSQL,"Mem Not Enough.");
@@ -405,7 +405,7 @@
         m_vField.clear();
         SAFE_DELETE(m_pCspParserMgr);
         SAFE_DELETE(m_pHead);
-		SAFE_DELETE(m_sSQL);
+		SAFE_DELETE_ARRAY(m_sSQL);
     }
     /******************************************************************************
     * 函数名称	:  Close
@@ -512,7 +512,11 @@
         int iRet = 0;
         if(m_sSQL == NULL)
 		{
-			m_sSQL = new char[MAX_SQL_LEN];
+			m_sSQL = new(std::nothrow) char[MAX_SQL_LEN];
+			if(m_sSQL == NULL)
+			{
+				ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"Mem Not Enough.");
+			}
 			memset(m_sSQL, 0, MAX_SQL_LEN);
 			m_iSQLBuffLen = MAX_SQL_LEN;
 		}
@@ -520,11 +524,11 @@
 		int sqlLen = strlen(sSqlStatement);
 	    if(sqlLen >= m_iSQLBuffLen)
 		{
-			SAFE_DELETE(m_sSQL);
-			m_sSQL = new char[sqlLen + 100];
+			SAFE_DELETE_ARRAY(m_sSQL);
+			m_sSQL = new(std::nothrow) char[sqlLen + 100];
 			if(m_sSQL == NULL)
 			{
-				ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_sSQL,"Mem Not Enough.");
+				ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"Mem Not Enough.");
 			}
 			memset(m_sSQL, 0, sqlLen + 100);
 			m_iSQLBuffLen = sqlLen + 100;
@@ -562,7 +566,7 @@
                 ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"send(%s:%d) failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
             }
             TADD_DETAIL("Send SetSQL OK.");
-            m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
+            m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
             if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
             {
                 // TMdbStrFunc::PrintMsg(m_sRecvPackage, m_pHead->iLen);//打印
@@ -642,7 +646,11 @@
             }
         }
         m_tParam.NewParamPool();
-        m_pParamArray = new  TMdbParamArray[m_tParam.GetCount()];
+        m_pParamArray = new(std::nothrow)  TMdbParamArray[m_tParam.GetCount()];
+		if(m_pParamArray == NULL)
+		{
+			CHECK_RET_THROW_NOSQL(ERR_OS_NO_MEMROY,ERR_OS_NO_MEMROY,"can't create new m_pParamArray");
+		}
         return bRet;
     }
 
@@ -701,7 +709,7 @@
                             switch(m_pParamArray[iParamPos].m_iParamType)
                             {
                             case MEM_Int:
-                                sprintf(sTempNum,"%lld",m_pParamArray[iParamPos].m_pllValue[i]);
+                                snprintf(sTempNum,sizeof(sTempNum)-1,"%lld",m_pParamArray[iParamPos].m_pllValue[i]);
                                 //m_pCspSetParamArray->SetItemValue(pParamItem->pChildItem,AVP_PARAM_VALUE,sTempNum);
                                 m_pCspSetParamArray->SetItemValueForParamGroup(pParamItem,AVP_PARAM_STR_GROUP,sTempNum);
                                 break;
@@ -782,7 +790,7 @@
                     ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"Open(%s:%d):send()failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
                 }
                 TADD_DETAIL("Send SetParam OK.");
-                m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
+                m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
                 if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
                 {
                     m_pCspSetSQLAns->DeSerialize(m_sRecvPackage, m_pHead->iLen);
@@ -857,7 +865,7 @@
                         ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"send() failed, SocketID is invalid!");
                     }
                     TADD_DETAIL("Send Next OK.");
-                    m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
+                    m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead,m_pCspError);
                     if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
                     {
                         m_pCspSetSQLAns->DeSerialize(m_sRecvPackage, m_pHead->iLen);
@@ -943,7 +951,7 @@
                 ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"Open(%s:%d):send()failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
             }
             TADD_DETAIL("Send GetSeq OK.");
-            m_pMdb->RecvPackage(CSP_APP_GET_SEQUENCE,m_sRecvPackage,*m_pHead,m_pCspError);
+            m_pMdb->RecvPackageOnce(CSP_APP_GET_SEQUENCE,m_sRecvPackage,*m_pHead,m_pCspError);
             if(m_pHead->iCmdCode == CSP_APP_GET_SEQUENCE)
             {
                 m_pCspSeqRecv->DeSerialize(m_sRecvPackage, m_pHead->iLen);
@@ -1249,7 +1257,7 @@
         }
     
         char sParamValue[32] = {0};
-        sprintf(sParamValue, "%d", iParamValue);
+        snprintf(sParamValue,sizeof(sParamValue)-1, "%d", iParamValue);
         SetParameter(sParamName,sParamValue,isOutput_Unused);
     }
 
@@ -1609,7 +1617,11 @@
         m_iSetParamCount = 0;
         if(m_sSQL == NULL)
         {
-            m_sSQL = new char[MAX_SQL_LEN];
+            m_sSQL = new(std::nothrow) char[MAX_SQL_LEN];
+			if(m_sSQL == NULL)
+			{
+				ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"Mem Not Enough.");
+			}
             memset(m_sSQL, 0, MAX_SQL_LEN);
             m_iSQLBuffLen = MAX_SQL_LEN;
         }
@@ -1617,11 +1629,11 @@
         int sqlLen = strlen(sSqlStatement);
         if(sqlLen >= m_iSQLBuffLen)
         {
-            SAFE_DELETE(m_sSQL);
-            m_sSQL = new char[sqlLen + 100];
+            SAFE_DELETE_ARRAY(m_sSQL);
+            m_sSQL = new(std::nothrow) char[sqlLen + 100];
             if(m_sSQL == NULL)
             {
-                ERROR_TO_THROW(ERR_OS_NO_MEMROY,m_sSQL,"Mem Not Enough.");
+                ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"Mem Not Enough.");
             }
             memset(m_sSQL, 0, sqlLen + 100);
             m_iSQLBuffLen = sqlLen + 100;
@@ -1645,7 +1657,7 @@
         try
         {
             m_iSQLType = iSqlFlag;
-            m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_SQL,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
+            m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_SQL,(unsigned int)m_pMdb->m_lSessionId,(unsigned int)m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int));
             m_tSendDataParse.SetData((char*)m_sSQL,ilen+1);
             m_tSendDataParse.SetSize();
@@ -1656,19 +1668,20 @@
                 ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"send(%s:%d) failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
             }
             TADD_DETAIL("Send SetSQL OK.");
-            m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
+            m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
+            m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
             if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
             {
-                m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
+                //m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
                 int sqllabel = 0;
-                m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_AVP_HEAD,sizeof(int));
+                m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_BIN_HEAD,sizeof(int));
                 if(sqllabel != m_iSQLLabel)
                 {
                     ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                 }
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_AVP_HEAD+sizeof(int),sizeof(int));
-                m_tRecvDataParse.GetData(&m_iRowsAff,SIZE_MSG_AVP_HEAD+2*sizeof(int),sizeof(int));
+                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                m_tRecvDataParse.GetData(&m_iRowsAff,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
                 
                 if(m_bIsDynamic)
                 {
@@ -1680,7 +1693,7 @@
                 {
                     m_bCanOpenAgain = false;//静态SQL在setSQL的时候执行过一次了
                     m_iRowsCurNext = m_iRowsAff;
-                    m_iCurPos = SIZE_MSG_AVP_HEAD + 3*sizeof(int);
+                    m_iCurPos = SIZE_MSG_BIN_HEAD + sizeof(int)+sizeof(char)+sizeof(short int);
                 }
                 m_iFiledCounts = 0;
                 TADD_DETAIL("m_iIsNeedNextOper=[%d],m_iRowsAff=[%d].",m_iIsNeedNextOper,m_iRowsAff);
@@ -1718,10 +1731,10 @@
             int iBatchCount = m_pParamArray[0].m_iArraySize;
             int iParamCount  = m_tParam.GetCount();
             int i = 0;
-            m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM_ARRAY,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
+            m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM_ARRAY,(unsigned int)m_pMdb->m_lSessionId,(unsigned int)m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
-            m_tSendDataParse.SetData(&iBatchCount,sizeof(int));//count            
-            m_tSendDataParse.SetData(&iParamCount,sizeof(int));//count            
+            m_tSendDataParse.SetData(&iBatchCount,sizeof(short int));//count            
+            m_tSendDataParse.SetData(&iParamCount,sizeof(char));//count            
             
             int iLen = 0;
             int iPackageLen = 0;
@@ -1736,8 +1749,8 @@
                         if(m_pParamArray[iParamPos].m_tNullArrWrap.IsNull(i))
                         {
                             //NULL值
-                            iPackageLen = sizeof(int);
-                            m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
+                            iPackageLen = sizeof(short int);
+                            m_tSendDataParse.SetData(&iPackageLen,sizeof(short int));
                         }
                         else
                         {
@@ -1745,16 +1758,16 @@
                             {
                             case MEM_Int:
                                 {
-                                    iPackageLen = sizeof(int) + sizeof(long long);
-                                    m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
+                                    iPackageLen = sizeof(short int) + sizeof(long long);
+                                    m_tSendDataParse.SetData(&iPackageLen,sizeof(short int));
                                     m_tSendDataParse.SetData(&m_pParamArray[iParamPos].m_pllValue[i],sizeof(long long));
                                     break;
                                 }
                             case MEM_Str:
                                 {
-                                    iLen = strlen(m_pParamArray[iParamPos].m_psValue[i]) + 1;
-                                    iPackageLen = sizeof(int) + iLen;
-                                    m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
+                                    iLen = (int)strlen(m_pParamArray[iParamPos].m_psValue[i]) + 1;
+                                    iPackageLen = sizeof(short int) + iLen;
+                                    m_tSendDataParse.SetData(&iPackageLen,sizeof(short int));
                                     m_tSendDataParse.SetData(m_pParamArray[iParamPos].m_psValue[i],iLen);
                                     break;
                                 }
@@ -1790,8 +1803,8 @@
     int iRet = 0;
     try
     {
-        m_bFirstNext = true;
-        m_iFiledCounts = 0;
+        ///m_bFirstNext = true;
+        ///m_iFiledCounts = 0;
         //静态sql 不能再次OPEN
         if(m_bCanOpenAgain)
         {
@@ -1801,21 +1814,22 @@
                 ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"Open(%s:%d):send()failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
             }
             TADD_DETAIL("Send SetParam OK.");
-            m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
+            m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
             if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
             {
                 m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
                 int sqllabel = 0;
-                m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_AVP_HEAD,sizeof(int));
+                m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_BIN_HEAD,sizeof(int));
                 if(sqllabel != m_iSQLLabel)
                 {
                     ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                 }
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_AVP_HEAD+sizeof(int),sizeof(int));
-                m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_AVP_HEAD+2*sizeof(int),sizeof(int));
+                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                m_iRowsCurNext = 0;
+                m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
                 m_iRowsAff = m_iRowsCurNext;
-                m_iCurPos = SIZE_MSG_AVP_HEAD+3*sizeof(int);
+                m_iCurPos = SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char)+sizeof(short int);
                 
                 TADD_DETAIL("m_iIsNeedNextOper=[%d],m_iRowsAff=[%d].",m_iIsNeedNextOper,m_iRowsAff);
             }
@@ -1878,21 +1892,22 @@
                         ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"send() failed, SocketID is invalid!");
                     }
                     TADD_DETAIL("Send Next OK.");
-                    m_pMdb->RecvPackage(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
+                    m_pMdb->RecvPackageOnce(CSP_APP_SEND_SQL,m_sRecvPackage,*m_pHead);
                     if(m_pHead->iCmdCode == CSP_APP_SEND_SQL)
                     {
                         m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
                         int sqllabel = 0;
-                        m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_AVP_HEAD,sizeof(int));
+                        m_tRecvDataParse.GetData(&sqllabel,SIZE_MSG_BIN_HEAD,sizeof(int));
                         if(sqllabel != m_iSQLLabel)
                         {
                             ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                         }
                         m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                        m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_AVP_HEAD+sizeof(int),sizeof(int));
-                        m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_AVP_HEAD+2*sizeof(int),sizeof(int));
+                        m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                        m_iRowsCurNext = 0;
+                        m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
                         m_iRowsAff += m_iRowsCurNext;
-                        m_iCurPos   = SIZE_MSG_AVP_HEAD + 3*sizeof(int);
+                        m_iCurPos   = SIZE_MSG_BIN_HEAD + sizeof(int) + sizeof(char) + sizeof(short int);
                         TADD_DETAIL("m_iIsNeedNextOper=[%d].",m_iIsNeedNextOper);
                         return NextBin();
                     }
@@ -1938,8 +1953,8 @@
             {
                 if(m_iFiledCounts <= 0)//只获取一次
                 {
-                    m_tRecvDataParse.GetData(&m_iFiledCounts,m_iCurPos,sizeof(int));
-                    m_iCurPos += sizeof(int);
+                    m_tRecvDataParse.GetData(&m_iFiledCounts,m_iCurPos,sizeof(char));
+                    m_iCurPos += sizeof(char);
                 }
                 int iOldFieldCounts = m_vField.size();
                 TADD_DETAIL("iOldFieldCounts=[%d],m_iFiledCounts=[%d].",iOldFieldCounts,m_iFiledCounts);
@@ -1963,14 +1978,14 @@
                     {//只获取一次
                         m_tRecvDataParse.GetData(&pTempField->m_iDataType,m_iCurPos,sizeof(char));
                         m_iCurPos += sizeof(char);
-                        m_tRecvDataParse.GetData(&iValueLen,m_iCurPos,sizeof(iValueLen));
-                        m_iCurPos += sizeof(iValueLen);
+                        m_tRecvDataParse.GetData(&iValueLen,m_iCurPos,sizeof(short int));
+                        m_iCurPos += sizeof(short int);
                         NewMemory(pTempField->m_sName,MAX_AVP_NAME_LEN);
                         m_tRecvDataParse.GetData(pTempField->m_sName,m_iCurPos,iValueLen);
                         m_iCurPos += iValueLen;
                     }
-                    m_tRecvDataParse.GetData(&iValueLen,m_iCurPos,sizeof(iValueLen));
-                    m_iCurPos += sizeof(iValueLen);
+                    m_tRecvDataParse.GetData(&iValueLen,m_iCurPos,sizeof(short int));
+                    m_iCurPos += sizeof(short int);
                     //pTempField->m_sName   = m_pCspSetSQLAns->GetStringValue((*itorNew)->pChildItem,AVP_COLUMN_NAME);
                     pTempField->m_bIsNULL   = (0 == iValueLen);
                     if(false == pTempField->m_bIsNULL)
@@ -2028,14 +2043,14 @@
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
             int iCount = ParamCount();
-            m_tSendDataParse.SetData(&iCount,sizeof(int));//count            
+            m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         
         int iLen = strlen(sParamValue)+1;
-        int iPackageLen = sizeof(int) + sizeof(int) + iLen;
-        m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
-        m_tSendDataParse.SetData(&iParamIndex,sizeof(int));
+        int iPackageLen = sizeof(short int) + sizeof(char) + iLen;
+        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
         m_tSendDataParse.SetData((char*)sParamValue,iLen);
         m_iSetParamCount++;
     
@@ -2074,13 +2089,13 @@
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
             int iCount = ParamCount();
-            m_tSendDataParse.SetData(&iCount,sizeof(int));//count            
+            m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         //iPackageLen + iParamIndex + iParamValue
-        int iPackageLen = sizeof(int) + sizeof(int) + sizeof(llParamValue);
-        m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
-        m_tSendDataParse.SetData(&iParamIndex,sizeof(int));
+        int iPackageLen = sizeof(short int) + sizeof(char) + sizeof(llParamValue);
+        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
         m_tSendDataParse.SetData(&llParamValue,sizeof(llParamValue));
         m_iSetParamCount++;
     }
@@ -2108,13 +2123,13 @@
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
             int iCount = ParamCount();
-            m_tSendDataParse.SetData(&iCount,sizeof(int));//count            
+            m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         //iPackageLen + iParamIndex + iParamValue
-        int iPackageLen = sizeof(int) + sizeof(int);
-        m_tSendDataParse.SetData(&iPackageLen,sizeof(int));
-        m_tSendDataParse.SetData(&iParamIndex,sizeof(int));
+        int iPackageLen = sizeof(short int) + sizeof(char);
+        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
         m_iSetParamCount++;
     }
     
@@ -2134,11 +2149,11 @@
                 ERROR_TO_THROW(ERR_NET_SEND_FAILED,m_sSQL,"send(%s:%d) failed, SocketID is invalid!",m_pMdb->m_sIP, m_pMdb->m_iPort);
             }
             TADD_DETAIL("Send SetSQL OK.");
-            m_pMdb->RecvPackage(CSP_APP_GET_SEQUENCE,m_sRecvPackage,*m_pHead);
+            m_pMdb->RecvPackageOnce(CSP_APP_GET_SEQUENCE,m_sRecvPackage,*m_pHead);
             if(m_pHead->iCmdCode == CSP_APP_GET_SEQUENCE)
             {
                 m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
-                m_tRecvDataParse.GetData(&llSeqValue,SIZE_MSG_AVP_HEAD,sizeof(int));
+                m_tRecvDataParse.GetData(&llSeqValue,SIZE_MSG_BIN_HEAD,sizeof(int));
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
             }
         }
@@ -2573,7 +2588,7 @@
             }
             iRet = iRet >0?0:iRet;
             TADD_DETAIL("Send LogOn OK.");
-            RecvPackage(CSP_APP_LOGON,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
+            RecvPackageOnce(CSP_APP_LOGON,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
             m_lSessionId = m_pHead->iSessionId;
             m_iUseOcp = m_pHead->iVersion;
             if(CSP_APP_LOGON ==  m_pHead->iCmdCode)
@@ -2661,7 +2676,7 @@
             }
             iRet = iRet >0?0:iRet;
             TADD_DETAIL("Send LogOn OK.");
-            RecvPackage(CSP_APP_LOGON,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
+            RecvPackageOnce(CSP_APP_LOGON,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
             m_lSessionId = m_pHead->iSessionId;
             m_iUseOcp = m_pHead->iVersion;
             if(CSP_APP_LOGON ==  m_pHead->iCmdCode)
@@ -2737,7 +2752,7 @@
         {
             ERROR_TO_THROW_NOSQL(ERR_NET_SEND_FAILED,"send() failed, SocketID is invalid.");
         }
-        RecvPackage(CSP_APP_ACTION,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
+        RecvPackageOnce(CSP_APP_ACTION,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
         if(CSP_APP_ACTION ==  m_pHead->iCmdCode)
         {
             //解析响应报文
@@ -2772,7 +2787,7 @@
         {
             ERROR_TO_THROW_NOSQL(ERR_NET_SEND_FAILED,"send() failed, SocketID is invalid.");
         }
-        RecvPackage(CSP_APP_ACTION,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
+        RecvPackageOnce(CSP_APP_ACTION,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
         if(CSP_APP_ACTION ==  m_pHead->iCmdCode)
         {
             //解析响应报文
@@ -2921,6 +2936,69 @@
         TADD_FUNC("Finish");
     }
 
+    void TMdbClientDatabase::RecvPackageOnce(int iCspAppType,unsigned char * sRecvMsg,
+                                         TMdbAvpHead & tAvpHead,TMdbCspParser * pCspErrorParser)throw (TMdbException)
+    {
+        TADD_FUNC("AppType=[%d].",iCspAppType);
+        int iRet = 0;
+        //接收回应
+        iRet = m_pSocket->Recv(sRecvMsg,RECV_PACKAGE_LEN_DEFAULT_CS);
+        if(iRet < 0)
+        {
+            Disconnect();
+            ERROR_TO_THROW_NOSQL(ERR_NET_RECV_FAILED,"Open(%s:%d):recv()failed, SocketID is invalid!",m_sIP,m_iPort);
+        }
+        int iRecvLen = iRet;
+        unsigned char cHead = sRecvMsg[SIZE_MSG_AVP_HEAD];
+        sRecvMsg[SIZE_MSG_AVP_HEAD] = '\0';
+        tAvpHead.Clear();
+        tAvpHead.BinToCnvt(sRecvMsg);
+        if(tAvpHead.sHeadName[5] == '>' && tAvpHead.sHeadName[0] == '<')
+        {
+            if((int)tAvpHead.iCmdCode == iCspAppType || tAvpHead.iCmdCode == CSP_APP_ERROR)
+            {
+                int iMsgLen = tAvpHead.iLen;
+                sRecvMsg[SIZE_MSG_AVP_HEAD] = cHead;
+                if(iMsgLen > iRecvLen)
+                {
+                    //printf("read twice\n");
+                    iRet = m_pSocket->read(&sRecvMsg[iRecvLen],iMsgLen-iRecvLen);
+                    if(iRet < 0)
+                    {
+                                Disconnect();
+                                ERROR_TO_THROW_NOSQL(ERR_NET_RECV_FAILED,"Open(%s:%d):NTC client GetMessage()failed.",m_sIP,m_iPort);
+                    }
+                }
+                IS_LOG(1)
+                {
+                    printf("\n------------------Open----begin------------------------------\n");
+                    printf("iMsgLen = %d\n",iMsgLen);
+                    for(int i=0; i<iMsgLen; ++i)
+                    {
+                        if(i%16 == 0)
+                            printf("\n");
+                        printf(" %02x", sRecvMsg[i]);
+                        }
+                    printf("\n");
+                    printf("------------------Open----end------------------------------\n");
+                }
+            }
+            else
+            {
+                ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"AVP CommonCode [%d]!= %d",tAvpHead.iCmdCode,iCspAppType);
+            }
+        }
+        else
+        {
+            ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"Recved Head Package Error,Msg=[%s]",sRecvMsg);
+        }
+        if(tAvpHead.iCmdCode == CSP_APP_ERROR)
+        {
+            pCspErrorParser->DeSerialize(sRecvMsg,tAvpHead.iLen);
+            CheckAnsCode(pCspErrorParser);
+        }
+        TADD_FUNC("Finish");
+    }
     /******************************************************************************
     * 函数名称	:  CheckAnsCode
     * 函数描述	:  检测应答码
@@ -2998,14 +3076,78 @@
         TADD_FUNC("Finish");
     }
 
-    void TMdbClientDatabase::CheckAnsCode(NoOcpParse &tRecvData,int iAnsCodePos)throw (TMdbException)
+    void TMdbClientDatabase::RecvPackageOnce(int iCspAppType,unsigned char * sRecvMsg,
+                                         TMdbAvpHead & tAvpHead)throw (TMdbException)
     {
-        int iAnsCode = 0;
-        tRecvData.GetData(&iAnsCode,iAnsCodePos,sizeof(int));
+        TADD_FUNC("AppType=[%d].",iCspAppType);
+        int iRet = 0;
+        //接收回应
+        iRet = m_pSocket->Recv(sRecvMsg,RECV_PACKAGE_LEN_DEFAULT_CS);
+        if(iRet < 0)
+        {
+            Disconnect();
+            ERROR_TO_THROW_NOSQL(ERR_NET_RECV_FAILED,"Open(%s:%d):recv()failed, SocketID is invalid!",m_sIP,m_iPort);
+        }
+        int iRecvLen = iRet;
+        unsigned char cHead = sRecvMsg[SIZE_MSG_BIN_HEAD];
+        sRecvMsg[SIZE_MSG_BIN_HEAD] = '\0';
+        //tAvpHead.Clear();
+        tAvpHead.Parse(sRecvMsg);
+        //if(tAvpHead.sHeadName[5] == '>' && tAvpHead.sHeadName[0] == '<')
+        //{
+            if((int)tAvpHead.iCmdCode == iCspAppType || tAvpHead.iCmdCode == CSP_APP_ERROR)
+            {
+                int iMsgLen = tAvpHead.iLen;
+                sRecvMsg[SIZE_MSG_BIN_HEAD] = cHead;
+                if(iMsgLen > iRecvLen)
+                {
+                    //printf("read twice\n");
+                
+                    iRet = m_pSocket->read(&sRecvMsg[iRecvLen],iMsgLen-iRecvLen);
+                    if(iRet < 0)
+                    {
+                                Disconnect();
+                                ERROR_TO_THROW_NOSQL(ERR_NET_RECV_FAILED,"Open(%s:%d):NTC client GetMessage()failed.",m_sIP,m_iPort);
+                    }
+                }
+                IS_LOG(1)
+                {
+                    printf("\n------------------Open----begin------------------------------\n");
+                    printf("iMsgLen = %d\n",iMsgLen);
+                    for(int i=0; i<iMsgLen; ++i)
+                    {
+                        if(i%16 == 0)
+                            printf("\n");
+                        printf(" %02x", sRecvMsg[i]);
+                        }
+                    printf("\n");
+                    printf("------------------Open----end------------------------------\n");
+                }
+            }
+            else
+            {
+                ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"AVP CommonCode [%d]!= %d",tAvpHead.iCmdCode,iCspAppType);
+            }
+        //}
+        //else
+        //{
+        //    ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"Recved Head Package Error,Msg=[%s]",sRecvMsg);
+        //}
+        if(tAvpHead.iCmdCode == CSP_APP_ERROR)
+        {
+            m_tRecvDataParse.InitDataSrc((char*)sRecvMsg);
+            CheckAnsCode(m_tRecvDataParse,tAvpHead.iAnsCodePos);
+        }
+        TADD_FUNC("Finish");
+    }
+    void TMdbClientDatabase::CheckAnsCode(NoOcpParse &tRecvData,unsigned short int iAnsCodePos)throw (TMdbException)
+    {
+        unsigned short int iAnsCode = 0;
+        tRecvData.GetData(&iAnsCode,iAnsCodePos,sizeof(iAnsCode));
         if(iAnsCode != 0)
         {
             ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"ErrorId=[%d] Error Msg=[%s].",iAnsCode,
-                                 tRecvData.GetDataPtr() + iAnsCodePos + sizeof(int));
+                                 tRecvData.GetDataPtr() + iAnsCodePos + sizeof(iAnsCodePos));
         }
     }
 
@@ -3021,7 +3163,7 @@
             ERROR_TO_THROW(ERR_NET_SEND_FAILED,sCmd,"send(%s:%d) failed, SocketID is invalid!",m_sIP, m_iPort);
         }
         
-        RecvPackage(CSP_APP_ACTION,m_sRecvPackage,*m_pHead);
+        RecvPackageOnce(CSP_APP_ACTION,m_sRecvPackage,*m_pHead);
         if(CSP_APP_ACTION ==  m_pHead->iCmdCode)
         {
             //解析响应报文
@@ -3081,7 +3223,7 @@
         }
         //接收
         pCspParser = m_pCspParserMgr->GetParserByType(CSP_APP_QMDB_INFO,false);
-        RecvPackage(CSP_APP_QMDB_INFO,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
+        RecvPackageOnce(CSP_APP_QMDB_INFO,m_sRecvPackage,*m_pHead,m_pCspErrorRecv);
         if(CSP_APP_QMDB_INFO ==  m_pHead->iCmdCode)
         {
             //解析响应报文
@@ -3097,7 +3239,7 @@
     {
         //const char *sCmd = "Commit";
         m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_QMDB_INFO,m_lSessionId,GetSendSequence());
-        m_tSendDataParse.SetData((char*)sCmd,strlen(sCmd)+1);
+        m_tSendDataParse.SetData((char*)sCmd,(int)(strlen(sCmd)+1));
         m_tSendDataParse.SetSize();
         int iRet = m_pSocket->write(m_sSendPackage,m_tSendDataParse.GetSize());//stocket往里写内容
         if(iRet < 0)
@@ -3105,7 +3247,7 @@
             ERROR_TO_THROW(ERR_NET_SEND_FAILED,sCmd,"send(%s:%d) failed, SocketID is invalid!",m_sIP, m_iPort);
         }
         
-        RecvPackage(CSP_APP_QMDB_INFO,m_sRecvPackage,*m_pHead);
+        RecvPackageOnce(CSP_APP_QMDB_INFO,m_sRecvPackage,*m_pHead);
         if(CSP_APP_QMDB_INFO ==  m_pHead->iCmdCode)
         {
             //解析响应报文
@@ -3121,12 +3263,16 @@
         m_pHead     = NULL;
         m_iSize     = 0;
         m_bSetParam = false;
+        iCmdCode    = 0;
+        iSessionId  = 0;
+        isequence   = 0;
+        iAnsCodePos = 0;
     }
     NoOcpParse::~NoOcpParse()
     {
         SAFE_DELETE(m_pHead);
     }
-    
+    /*
     void NoOcpParse::InitDataSrc(char *pSrc)
     {
         if(pSrc)
@@ -3140,27 +3286,15 @@
         }
     }
     
-    void NoOcpParse::SerializeHead(char* pSrc,int iCmdCode,int SessionId,int iSequence)
+    inline void NoOcpParse::SerializeHead(char* pSrc,int iCmdCode,unsigned int SessionId,unsigned int iSequence)
     {
-        InitDataSrc(pSrc);
-        //if(InitDataSrc(pSrc) != 0) return -1;
-        if(NULL == m_pHead)
-        {
-            m_pHead = new (std::nothrow) TMdbAvpHead();
-            if(NULL == m_pHead)
-            {
-                ERROR_TO_THROW_NOSQL(ERR_OS_NO_MEMROY,"m_pHead is NULL");
-            }
-        }
-        
-        m_pHead->Clear();
-        m_pHead->SetCmdCode(iCmdCode);
-        m_pHead->SetSequence(iSequence);
-        m_pHead->CnvtToBinPlus((unsigned char*)pSrc,SessionId);
-        m_iSize = SIZE_MSG_AVP_HEAD;
+        m_pData = pSrc;
+        this->iCmdCode = iCmdCode;
+        this->isequence = iSequence;
+        this->iSessionId = SessionId;
+        m_iSize = SIZE_MSG_BIN_HEAD;
         return ;
-    }
-    
+    }*/
     
     void NoOcpParse::SetSize()
     {
@@ -3169,94 +3303,90 @@
             ERROR_TO_THROW_NOSQL(ERR_CSP_PARSER_ERROR_CSP,"Msg size[%d] > MAX_SIZE[%d]",m_iSize,MAX_CSP_LEN);
         }
     
-        memcpy(m_pData + 23,&m_iSize,sizeof(int));
+        memcpy(m_pData,&m_iSize,SIZE_MSG_BIN_HEAD);
         return ;
     }
-    
+   /*
     void NoOcpParse::SetData(char * pData,int iPos,int iLen)
     {
         memcpy(m_pData+iPos,pData,iLen);
         return ;
     }
-    void NoOcpParse::SetData(int * pData,int iPos,int iLen)
+    inline void NoOcpParse::SetData(int * pData,int iPos,int iLen)
     {
-        memcpy(m_pData+iPos,(char*)pData,iLen);
+        memcpy(m_pData+iPos,pData,iLen);
         return ;
     }
-    void NoOcpParse::SetData(int * pData,int iPos,size_t iLen)
+    inline void NoOcpParse::SetData(int * pData,int iPos,size_t iLen)
     {
-        memcpy(m_pData+iPos,(char*)pData,iLen);
+        memcpy(m_pData+iPos,pData,iLen);
         return ;
     }
-    void NoOcpParse::SetData(long long * pData,int iLen,bool bAnsCode)
+    inline void NoOcpParse::SetData(long long * pData,int iLen,bool bAnsCode)
     {
-        SetData((char*)pData,iLen,bAnsCode);
-        return ;
-    }
-    void NoOcpParse::SetData(char * pData,int iLen,bool bAnsCode)
-    {
-        if(!pData) return ;
-        char *pDataAddr = (char*)m_pData;
-        pDataAddr += m_iSize;
-        memcpy(pDataAddr,pData,iLen);
+        memcpy(m_pData+m_iSize,pData,iLen);
         if(bAnsCode)
         {
-            memcpy(m_pData+10,&m_iSize,sizeof(int));//anscode 位置
+            iAnsCodePos = 0xFF&m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
         }
         m_iSize += iLen;
-        return ;
     }
-
-    void NoOcpParse::SetData(int * pData,int iLen,bool bAnsCode)
+    inline void NoOcpParse::SetData(char * pData,int iLen,bool bAnsCode)
     {
-        SetData((char*)pData,iLen,bAnsCode);
-    }
-    void NoOcpParse::SetData(unsigned short int * pData,int iLen,bool bAnsCode)
-    {
-        SetData((char*)pData,iLen,bAnsCode);
-    }
-    
-    /*
-    int NoOcpParse::SetData(int iData)
-    {
-        char *pDataAddr = (char*)m_pData;
-        pDataAddr += m_iSize;
-        memcpy(pDataAddr,&iData,sizeof(int));
-        m_iSize += sizeof(int);
-        
-        return 0;
-    }
-    
-    int NoOcpParse::SetData(char* pStr)
-    {
-        char *pDataAddr = (char*)m_pData;
-        pDataAddr += m_iSize;
-        int iLen = strlen(pStr)+1;
-        memcpy(pDataAddr,pStr,iLen);
+        memcpy(m_pData+m_iSize,pData,iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = 0xFF&m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
         m_iSize += iLen;
-        
-        return 0;
-    }
-    */
-    void NoOcpParse::GetData(char * pData,int iPos,int iLen)
-    {
-        char *pDataAddr = (char*)m_pData;
-        pDataAddr += iPos;
-        memcpy(pData,pDataAddr,iLen);
-        return ;
     }
 
-    void NoOcpParse::GetData(int * pData,int iPos,int iLen)
+    inline void NoOcpParse::SetData(int * pData,int iLen,bool bAnsCode)
     {
-        GetData((char*)pData,iPos,iLen);
+        memcpy(m_pData+m_iSize,pData,iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = 0xFF&m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
     }
-    void NoOcpParse::GetData(unsigned short int * pData,int iPos,int iLen)
+    inline void NoOcpParse::SetData(unsigned short int * pData,int iLen,bool bAnsCode)
     {
-        GetData((char*)pData,iPos,iLen);
-    }
-    void NoOcpParse::GetData(long long * pData,int iPos,int iLen)
-    {
-        GetData((char*)pData,iPos,iLen);
+        memcpy(m_pData+m_iSize,pData,iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = 0xFF&m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
     }
     
+    
+    
+    inline void NoOcpParse::GetData(char * pData,int iPos,int iLen)
+    {
+        memcpy(pData,m_pData+iPos,iLen);
+    }
+
+    inline void NoOcpParse::GetData(int * pData,int iPos,int iLen)
+    {
+        memcpy(pData,m_pData+iPos,iLen);
+    }
+    inline void NoOcpParse::GetData(unsigned short int * pData,int iPos,int iLen)
+    {
+        memcpy(pData,m_pData+iPos,iLen);
+    }
+    inline void NoOcpParse::GetData(long long * pData,int iPos,int iLen)
+    {
+        memcpy(pData,m_pData+iPos,iLen);
+    }
+    inline void NoOcpParse::GetData(unsigned short int * pData,unsigned short int iPos,int iLen)
+    {
+        memcpy(pData,m_pData+iPos,iLen);
+    }
+    
+    */
     

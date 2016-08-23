@@ -3,7 +3,7 @@
 //namespace QuickMDB
 //{
 //using namespace QuickMDB;
-MDB_ZF_IMPLEMENT_OBJECT(TMdbEventInfo, /*QuickMDB::*/TMdbNtcBaseObject)
+MDB_ZF_IMPLEMENT_OBJECT(TMdbEventInfo, TMdbNtcBaseObject)
 void TMdbEventInfo::Release(int iRetCode)
 {
     --uiRefCnt;
@@ -80,7 +80,7 @@ TMdbEventPump* TMdbEventDispatcher::Dispatch(TMdbEventInfo* pEventInfo)
     return pSuitableEventPump;
 }
 
-/*QuickMDB::*/TMdbNtcStringBuffer TMdbEventDispatcher::PrintAllPump()
+TMdbNtcStringBuffer TMdbEventDispatcher::PrintAllPump()
 {
     TMdbNtcStringBuffer sRet;
     for (unsigned int i = 0; i < m_arrayPump.GetSize(); ++i)
@@ -105,9 +105,9 @@ TMdbEventPump::~TMdbEventPump()
     m_queueEvent.Clear();
 }
 
-/*QuickMDB::*/TMdbNtcStringBuffer TMdbEventPump::ToString() const
+TMdbNtcStringBuffer TMdbEventPump::ToString() const
 {
-    return /*QuickMDB::*/TMdbNtcStringBuffer(512, "thread_id[%"MDB_NTC_ZS_FORMAT_UINT64"],state[%s] queue_size[%d],processed[%u:%u]", GetThreadId(),
+    return TMdbNtcStringBuffer(512, "thread_id[%"MDB_NTC_ZS_FORMAT_UINT64"],state[%s] queue_size[%d],processed[%u:%u]", GetThreadId(),
         mdb_ntc_zthread_state_name(GetThreadState()), m_queueEvent.GetSize(), m_queueEvent.GetPopTimes(),m_queueEvent.GetPushTimes());
 }
 

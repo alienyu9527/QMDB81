@@ -140,5 +140,75 @@ private:
 	bool m_bWriteErrorData;
 };
 
+class TMdbOnlineRepQueue
+{
+public:
+	TMdbOnlineRepQueue();
+	~TMdbOnlineRepQueue();
+	int Init(TMdbOnlineRepMemQueue * pOnlineRepMemQueue,TMdbDSN * pDsn,const bool bWriteErrorData=false);
+	
+	/******************************************************************************
+	* 函数名称	:  Push
+	* 函数描述	:  设置DSN名称
+	* 输入		:  sData push的数据，iLen push数据的长度
+	* 输出		:  无
+	* 返回值	:  !0 - 失败,0 - 成功
+	* 作者		:  cao.peng
+	*******************************************************************************/
+	bool Push(char * const sData,const int iLen);
+
+	/******************************************************************************
+	* 函数名称	:  Pop
+	* 函数描述	:  获取队列中一条数据
+	* 输入		:  无
+	* 输出		:  sData 存储pop出的数据，iBufLen 存储pop数据的长度，iLen pop出数据的长度
+	* 返回值	:  !0 - 失败,0 - 成功
+	* 作者		:  cao.peng
+	*******************************************************************************/	
+	int Pop();
+
+	int RollbackPopPos();
+
+	int GetPosOfNext();
+
+	int GetRecordLen();
+	char* GetData();
+	int GetUsedPercentage();
+	int CheckRepDataIsValid();
+	bool WriteInvalidData(const int iInvalidLen);
+private:
+	
+
+	/******************************************************************************
+	* 函数名称	:  PrintInvalidData
+	* 函数描述	:  打印错误记录信息
+	* 输入		:  pCurAddr 数据地址，iLen无效数据长度
+	* 输出		:  无
+	* 返回值	:  无
+	* 作者		:  cao.peng
+	*******************************************************************************/
+	void PrintInvalidData(char *pCurAddr,const int iLen);
+private:
+	TMdbDSN      * m_pDsn;
+	TMdbOnlineRepMemQueue * m_pOnlineRepQueueShm;    //链路同步数据存储地址 
+	char* m_pszRecord;
+	char * m_pCurAddr;
+	int m_iSQLType;                //sql类型
+	int m_iSyncType;               //数据来源
+	int m_iRecordLen;            //数据长度
+	int m_iErrTry;                 //pop数据时，检查错误次数
+
+	int m_iPushPos;
+	int m_iPopPos;
+	int m_iCleanPos;
+	int m_iStartPos;
+	int m_iTailPos;
+	bool m_bCheckData;//是否校验数据
+	char m_sFileName[MAX_PATH_NAME_LEN];
+	char *m_pszErrorRecord;
+	FILE* m_pFile;
+	bool m_bWriteErrorData;
+};
+
 //}
 #endif

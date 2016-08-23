@@ -152,7 +152,9 @@ int main(int argc, char* argv[])
     }
     
 
-    int *ipid = new int[pConfig->GetDSN()->iOraRepCounts + 1];
+    int *ipid = new(std::nothrow) int[pConfig->GetDSN()->iOraRepCounts + 1];
+	CHECK_OBJ(ipid);
+	
 	for (int i = 0; i < pConfig->GetDSN()->iOraRepCounts + 1; i++)
 	{
 		ipid[i] = 0;

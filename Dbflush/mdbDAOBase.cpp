@@ -398,7 +398,7 @@
         {
 			if(m_tDaoData[m_TotalPos] == NULL)
             {
-                m_tDaoData[m_TotalPos] = new TMdbDAOData();
+                m_tDaoData[m_TotalPos] = new(std::nothrow) TMdbDAOData();
             }
             m_tDaoData[m_TotalPos]->iPos  = m_iLongPos;
 			if(m_tIntData[m_iLongPos] == NULL)

@@ -43,7 +43,7 @@ INFO g_info[] = {
 };
 
 int CYCLE_NUM = 40000;
-int THREAD_NUM = 2;
+int FLAG = 0;
 int DSN_INDEX = 0;
 //判断_ret值,_ret可能是函数返回。若不为0则报错并返回错误码
 #define CHECK_RET(_ret,...) if((iRet = _ret)!= 0){ printf(__VA_ARGS__);return iRet;}
@@ -209,38 +209,158 @@ void* TestSelect(void* p)
     SAFE_DELETE(pQuery);
 }
 
+void* TestUpdate(void* p)
+{
+    int iRet = 0;
+	int iaffact = 0;
+	int index = *(int*)p;
+	int irand = getpid() %  CYCLE_NUM;
+	
+    TMdbDatabase mdb;
+    TMdbQuery* pQuery = NULL;
+    printf("\nTestInsert\n");
+    try
+    {
+       	printf("begin to connect mdb\n");
+       	ConnectMDB(mdb,index);
+
+		printf("begin to CreateDBQuery\n");
+        pQuery = mdb.CreateDBQuery();
+        pQuery->Close();
+
+		printf("begin to SetSQL\n");
+		pQuery->SetSQL("Update ylx set SESSION_ID=:New where SESSION_ID=:Old and  routing_id>2");
+
+		char m_sExecStartTime[256];
+		char m_sExecEndTime[256];
+		float fDiffTime = 0.0;
+
+		struct timeval tTV;
+    	gettimeofday(&tTV, NULL);
+    	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+    	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
+		//char blob[8] = {'y','l','x',0,0,'l','a',0};
+        for(int i=0;i<CYCLE_NUM;i++)
+    	{
+    		char New[128] = {0};
+			char Old[128] = {0};
+			sprintf(New,"%d",i-1);
+			sprintf(Old,"%d",(i+irand) % CYCLE_NUM);
+			
+
+			
+	 		pQuery->SetParameter(0,New);
+			pQuery->SetParameter(1,Old);
+	        
+
+			
+	 		pQuery->Execute();
+
+			pQuery->Commit();
+			
+			iaffact += pQuery->RowsAffected();
+    	}    
+
+		    gettimeofday(&tTV, NULL);
+		    TMdbDateTime::GetCurrentTimeStr(m_sExecEndTime);
+		    sprintf(&m_sExecEndTime[14],"%03d",tTV.tv_usec/1000);
+		    fDiffTime = TMdbDateTime::GetDiffMSecond(m_sExecEndTime,m_sExecStartTime);
+		    printf("Done in %0.3f seconds.\n",fDiffTime/1000);
+		
+    }
+    catch(...)
+    {
+        printf("exception\n");
+        iRet = -1;
+    }
+    SAFE_DELETE(pQuery);
+}
+
+
+void* TestDelete(void* p)
+{
+    int iRet = 0;
+	int iaffact = 0;
+	int index = *(int*)p;
+    TMdbDatabase mdb;
+    TMdbQuery* pQuery = NULL;
+    printf("\nTestInsert\n");
+    try
+    {
+       	printf("begin to connect mdb\n");
+       	ConnectMDB(mdb,index);
+
+		printf("begin to CreateDBQuery\n");
+        pQuery = mdb.CreateDBQuery();
+        pQuery->Close();
+
+		printf("begin to SetSQL\n");
+		pQuery->SetSQL("Delete from  ylx  where SESSION_ID=:Old");
+
+		char m_sExecStartTime[256];
+		char m_sExecEndTime[256];
+		float fDiffTime = 0.0;
+
+		struct timeval tTV;
+    	gettimeofday(&tTV, NULL);
+    	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+    	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
+		//char blob[8] = {'y','l','x',0,0,'l','a',0};
+        for(int i=0;i<CYCLE_NUM;i++)
+    	{
+			char Old[128] = {0};
+			sprintf(Old,"%d",i);
+	 		pQuery->SetParameter(0,Old);
+	 		pQuery->Execute();
+			pQuery->Commit();
+			iaffact += pQuery->RowsAffected();
+    	}    
+
+		    gettimeofday(&tTV, NULL);
+		    TMdbDateTime::GetCurrentTimeStr(m_sExecEndTime);
+		    sprintf(&m_sExecEndTime[14],"%03d",tTV.tv_usec/1000);
+		    fDiffTime = TMdbDateTime::GetDiffMSecond(m_sExecEndTime,m_sExecStartTime);
+		    printf("Done in %0.3f seconds.\n",fDiffTime/1000);
+		
+    }
+    catch(...)
+    {
+        printf("exception\n");
+        iRet = -1;
+    }
+    SAFE_DELETE(pQuery);
+}
+
+
 
 int main(int argc, char** argv)
 {		
 		if(argc >1) CYCLE_NUM=atoi(argv[1]);
-		if(argc >2) THREAD_NUM=atoi(argv[2]);
+		if(argc >2) FLAG=atoi(argv[2]);
 		if(argc >3) DSN_INDEX = atoi(argv[3]);
 		int iRet = 0;
 		int index = DSN_INDEX;
 
-		if(THREAD_NUM == 0)
+
+		switch(FLAG)
 		{
-			TestSelect((void*)&index);	
-			return 0;
+			case 0:
+				TestSelect((void*)&index);	
+				break;
+			case 1:
+				TestInsert((void*)&index);	
+				break;
+			case 2:
+				TestUpdate((void*)&index);	
+				break;	
+			case 3:
+				TestDelete((void*)&index);	
+				break;
+
 		}
 		
-		pthread_t* pidArrr = new pthread_t[THREAD_NUM];
-
-
-		for(int i = 0  ; i<THREAD_NUM ; i++)
-		{
-			pidArrr[i]=0;
-			CHECK_RET(pthread_create(&pidArrr[i], NULL , TestInsert, (void*)&index),"Can't pthread_create1()");
-		}
 		
-		
-		
-		for(int i = 0  ; i<THREAD_NUM ; i++)
-		{
-			pthread_join(pidArrr[i],NULL);		
-		}
 
-		SAFE_DELETE_ARRAY(pidArrr);
 		
 		return 0;
 }

@@ -157,6 +157,8 @@ public:
     void AsBlobBuffer(unsigned char *buffer, int &iBufferLen) throw (TMdbException);
     void  AsDateTime(int &iYear,int &iMonth,int &iDay,int &iHour,int &iMinute,int &iSecond) throw (TMdbException);//返回日期的各个部分
     char* AsDateTimeString() throw (TMdbException); //YYYYMMDDHHMISS
+    char*  AsRealStr();
+    long long  AsRealnt();
     void ClearDataBuf();
     int GetDataType();//
     //char  m_sValue[8192];  //存储字符串
@@ -169,6 +171,7 @@ public:
 * 类描述	:  查询接口
 * 作者		:
 *******************************************************************************/
+
 class TMdbColumnAddr;
 class TMdbQuery
 {
@@ -180,6 +183,7 @@ public:
     const char* GetSQL();
     void ExecuteDDLSQL()throw (TMdbException);//执行DDL 语句
     int InitSqlBuff(bool & bFirstSet);
+	int ParseSQLForRollback(char* sSqlStatement);
     /******************************************************************************
     * 函数名称	:  SetSQL
     * 函数描述	:  设置SQL
@@ -475,30 +479,79 @@ public:
     * 函数描述	:  设置数据
     * 输入		:  bAnsCode表示是否为应答码
     *******************************************************************************/
-    void    SetData(char* pData,int iLen,bool bAnsCode = false);
-    void    SetData(int * pData,int iLen,bool bAnsCode = false);
-    void    SetData(long long * pData,int iLen,bool bAnsCode = false);
-    void    SetData(unsigned short int * pData,int iLen,bool bAnsCode = false);
-    void    SetData(char *pData,int iPos,int iLen);
-    
-    void    SetData(int *pData,int iPos,int iLen);
-    void    SetData(int *pData,int iPos,size_t iLen);
+    void    SetData(char* pData,int iLen,bool bAnsCode = false)
+    {
+        memcpy(m_pData+m_iSize,pData,(size_t)iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = (unsigned short int)m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
+    }
+    void    SetData(int * pData,int iLen,bool bAnsCode = false)
+    {
+        memcpy(m_pData+m_iSize,pData,(size_t)iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = (unsigned short int)m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
+    }
+    void    SetData(long long * pData,int iLen,bool bAnsCode = false)
+    {
+        memcpy(m_pData+m_iSize,pData,(size_t)iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = (unsigned short int)m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
+    }
+    void    SetData(unsigned short int * pData,int iLen,bool bAnsCode = false)
+    {
+        memcpy(m_pData+m_iSize,pData,(size_t)iLen);
+        if(bAnsCode)
+        {
+            iAnsCodePos = (unsigned short int)m_iSize;
+            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
+        }
+        m_iSize += iLen;
+    }
+        
+    void    SetData(char *pData,int iPos,int iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
+    void    SetData(int *pData,int iPos,int iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
+    void    SetData(int *pData,int iPos,size_t iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
     void    SetSize();
 
-    void    GetData(char* pData,int iPos,int iLen);
-    void    GetData(int * pData,int iPos,int iLen);
-    void    GetData(long long * pData,int iPos,int iLen);
-    void    GetData(unsigned short int * pData,int iPos,int iLen);
+    void    GetData(char* pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
+    void    GetData(int * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
+    void    GetData(long long * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
+    void    GetData(unsigned short int * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
+    void    GetData(unsigned short int * pData,unsigned short int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
     
-    void    InitDataSrc(char *pSrc);
-    void    SerializeHead(char* pSrc,int iCmdCode,int SessionId,int iSequence);
+    void    InitDataSrc(char *pSrc){m_pData = pSrc;};
+    void    SerializeHead(char* pSrc,int iCmdCode,unsigned int SessionId,unsigned int iSequence)
+    {
+        m_pData = pSrc;
+        this->iCmdCode = (unsigned short int)iCmdCode;
+        this->isequence = iSequence;
+        this->iSessionId = SessionId;
+        m_iSize = 16;
+    }
     void    ResetParamFlag(bool bFlag){m_bSetParam = bFlag;}
     char*   GetDataPtr(){return m_pData;}; 
     bool    GetSetParamFlag(){return m_bSetParam;}
     int     GetSize(){return m_iSize;}
-private:
+    void    Parse(){memcpy(&m_iSize,m_pData,16);};
+public:
     char*   m_pData;//源数据地址
     int     m_iSize;
+    unsigned short int iCmdCode;
+    unsigned short int iAnsCodePos;
+    unsigned int iSessionId;
+    unsigned int isequence; //序列
     bool    m_bSetParam;
     TMdbAvpHead *m_pHead;  //avp head 解析
 };
@@ -675,8 +728,10 @@ public:
     void SetTimeout(int iTimeout);//设置超时时间
     void RecvPackage(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead,TMdbCspParser * pCspErrorParser)throw (TMdbException);
     void RecvPackage(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead)throw (TMdbException);
+    void RecvPackageOnce(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead,TMdbCspParser * pCspErrorParser)throw (TMdbException);
+    void RecvPackageOnce(int iCspAppType,unsigned char * sRecvMsg,TMdbAvpHead & tAvpHead)throw (TMdbException);
     void CheckAnsCode(TMdbCspParser * pParser)throw (TMdbException);
-    void CheckAnsCode(NoOcpParse &tRecvData,int iAnsCodePos)throw (TMdbException);
+    void CheckAnsCode(NoOcpParse &tRecvData,unsigned short int iAnsCodePos)throw (TMdbException);
     void MultCmdBin(const char * sCmd);
     int GetQmdbInfoBin(const char * sCmd,std::string & sAnswer);//获取qmdb信息
     int GetSendSequence();//获取发送序号
@@ -893,6 +948,7 @@ class  TMdbColumnAddr
 		void*   m_ppColumnAddr[MAX_COLUMN_COUNTS];
 		int  	m_iDataLen[MAX_COLUMN_COUNTS];
 		char*   m_ppBlob[MAX_COLUMN_COUNTS];//保存解码后的blob数据
+		int     m_iBlobAskLen[MAX_COLUMN_COUNTS];//blob数据的动态申请长度
 };
 
 

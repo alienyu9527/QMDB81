@@ -29,6 +29,7 @@
 #define ENV_QMDB_HOME_NAME "QuickMDB_HOME"
 #define MAX_REP_SEND_MSG_LEN 32
 #define MAX_REP_SEND_BUF_LEN 1024*32
+#define MAX_REP_LINK_BUF_RESERVE_LEN 10*MAX_REP_SEND_BUF_LEN
 
 
 #define IS_DISASTER_RECOVERY "1" //QuickMDB存在容灾机， 与配置服务通信标识
@@ -47,14 +48,27 @@
 #define  MDB_MAX_REP_FILE_LEN 1024*1024 //同步文件的最大长度
 #define  MDB_MAX_REP_FILE_BUF_LEN 32*1024 //同步文件写缓冲区的最大长度
 
+#define MAX_ONLINE_REP_BUF_USE_PERCENT 50 //飞行同步模式下最大的链路缓存占用率
+
 const char MDB_REP_RCD_BEGIN[]= "^^";//同步记录的开始
 const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
 
 #define LOAD_DATA_END_FLAG "Load-From-Peer-End"
 #define LOAD_DATA_START_FLAG "Load:"
-#define  CLEAN_REP_FILE_FLAG "CleanRepFile"
-#define  REP_HEART_BEAT  "Heart"
+#define CLEAN_REP_FILE_FLAG "CleanRepFile"
+#define REP_HEART_BEAT  "Heart"
 #define REP_TABLE_NO_EXIST "Table-No-Exist"
+#define HOST_ENDIAN_MATCH "Endian-Match"
+#define HOST_ENDIAN_NOT_MATCH "Endian-Not-Match"
+#define REP_TABLE_ERROR "Table-Rep-Failed"
+
+/*#define REP_TABLE_DIFF_NULL_SET "Table-Diff-NULL-Set"
+#define REP_TABLE_COLUMN_LEN_SHORT "Table-Column-Len-Short"
+#define REP_TABLE_DIFF_COLUMN_ORDER "Table-Diff-Column-Order"
+#define REP_TABLE_STRUCT_DIFF_TOO_MANY "Table-Struct-Diff-Too-Many"
+#define REP_TABLE_NO_DEFAULT_VALUE "Table-No-Default-Value"
+#define REP_TABLE_DIFF_COLUMN_TYPE "Table-Diff-Column-Type"
+*/
 
     /**
 	 * @brief 数据库状态
@@ -99,10 +113,12 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
             m_iHostID = MDB_REP_EMPTY_HOST_ID;
             m_iPort = -1;
             memset(m_sIP, 0, MAX_IP_LEN);
+			m_bSameEndian = false;
         }
         int m_iHostID; //主机标识
         int m_iPort; //端口号
         char m_sIP[MAX_IP_LEN]; //IP
+        bool m_bSameEndian;  //备机与本机字节序是否一致
     };
 
      /**
@@ -148,6 +164,10 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
             m_iRepHostCount = 0;
             m_iLocalPort = 0;
             memset(m_sRoutingList, 0, MAX_REP_ROUTING_LIST_LEN);
+			for(int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
+			{
+				m_bNetConnect[i] = true;
+			}
         }
         void Clear()
         {
@@ -164,12 +184,52 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
             for (int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
             {
                 m_arHosts[i].Clear();
+				m_iRepMode[i] = -1;
+				m_bNetConnect[i] = true;
             }
             for (int i = 0; i<MAX_REP_ROUTING_ID_COUTN; i++)
             {
                 m_arRouting[i].Clear();
             }
         }
+
+		const TMdbShmRepHost * GetRepHostByID(int iHostID) const
+		{
+			for(int i = 0; i<MAX_REP_ROUTING_LIST_LEN; i++)
+			{
+				if(m_arHosts[i].m_iHostID == iHostID)
+				{
+					return (const TMdbShmRepHost *)&m_arHosts[i];
+				}
+				if(i == MAX_REP_ROUTING_LIST_LEN - 1)
+				{
+					TADD_NORMAL("Can't find rep host [%d].", iHostID);
+					return NULL;
+				}
+			}
+			return NULL;
+		}
+		int SetRepMode(TMdbDSN * pDsn, int iHostID, int iRepMode)
+		{
+			TADD_FUNC("Start.");
+			int iRet = 0;
+			if(m_iRepMode[iHostID] == iRepMode)
+			{
+				return iRet;
+			}
+			else
+			{
+				m_iRepMode[iHostID] = iRepMode;
+			}
+			TADD_FUNC("Finish.");
+			return iRet;
+		}
+
+		void SetNetState(int iHostID, bool bConnected)
+		{
+			m_bNetConnect[iHostID] = bConnected;
+		}
+		
         bool m_bNoRtMode; // 不区分路由的模式,仅用来支持旧版本的主备同步模式
         //bool m_bRunning;//mdbRep是否正在运行
         bool m_bRoutingChange;//是否发生了路由变更
@@ -183,6 +243,8 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
         char m_sFailedRoutingList[MAX_REP_ROUTING_LIST_LEN];//加载失败的路由列表
         TMdbShmRepHost m_arHosts[MAX_ALL_REP_HOST_COUNT]; //本机对应的所有备机
         TMdbShmRepRouting m_arRouting[MAX_REP_ROUTING_ID_COUTN]; //本机的路由与其备机（包括容灾机）的对应关系
+        bool m_bNetConnect[MAX_ALL_REP_HOST_COUNT];
+		int m_iRepMode[MAX_ALL_REP_HOST_COUNT];
     };
 
      /**
@@ -404,7 +466,34 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
         TMdbConfig  *m_pConfig;
     };
 
+	class TMdbTableChangeOper
+	{
+	public:
+		TMdbTableChangeOper();
+		~TMdbTableChangeOper();
 
-    
+		void Clear();
+	public:
+		int m_iColPos;
+		int m_iColType;//新增加列的类型
+		int m_iColLen;
+		int m_iChangeType;
+		int m_iValue;
+		long long m_llValue;
+		char m_sValue[MAX_DEFAULT_VALUE_LEN];
+	};
+
+	class TMdbLoadTableRemoteStruct
+	{
+	public:
+		TMdbLoadTableRemoteStruct();
+		~TMdbLoadTableRemoteStruct();
+
+		void Clear();
+	public:
+		int m_iIsLocalCol[MAX_COLUMN_COUNTS]; //0-本地列，1-对端列，-1-没有列
+		int m_iColPos[MAX_COLUMN_COUNTS];//本地列的列号，对端列对应的change序列
+		int m_iColCount;
+	};
 //}
 #endif

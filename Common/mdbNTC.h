@@ -18,23 +18,23 @@
 //#include "Common/mdbLogInterface.h"
 
 //namespace QuickMDB{
-/*QuickMDB::*/TMdbNtcStringBuffer MdbNtcFormatHexString(const void* pcBuffer, unsigned int uiLength);
-mdb_ntc_extern_thread_local(/*QuickMDB::*/TMdbNtcStringBuffer*, ntc_errstr_t);
-inline /*QuickMDB::*/TMdbNtcStringBuffer& mdb_ntc_errstr_fun()
+TMdbNtcStringBuffer MdbNtcFormatHexString(const void* pcBuffer, unsigned int uiLength);
+mdb_ntc_extern_thread_local(TMdbNtcStringBuffer*, ntc_errstr_t);
+inline TMdbNtcStringBuffer& mdb_ntc_errstr_fun()
 {
-    /*QuickMDB::*/TMdbNtcStringBuffer* pBuffer = ntc_errstr_t.Value();
+    TMdbNtcStringBuffer* pBuffer = ntc_errstr_t.Value();
     if(pBuffer) return *pBuffer;
     else
     {
-        ntc_errstr_t = pBuffer = new /*QuickMDB::*/TMdbNtcStringBuffer;
-        /*QuickMDB::*/mdb_ntc_zthread_cleanup_push(pBuffer);
+        ntc_errstr_t = pBuffer = new TMdbNtcStringBuffer;
+        mdb_ntc_zthread_cleanup_push(pBuffer);
         return *pBuffer;
     }
 }
 #define mdb_ntc_errstr mdb_ntc_errstr_fun()
 
 //之所以不放入shared_ptr的静态成员，是因为shared_ptr为模板，在不同编译器下展开可能在多个模块中存在多份
-extern /*QuickMDB::*/TMdbNtcThreadLock g_oMdbNtcSharedPtrSpinLock;///< 用作shared_ptr的互斥
+extern TMdbNtcThreadLock g_oMdbNtcSharedPtrSpinLock;///< 用作shared_ptr的互斥
 template<class _Ty>
 class TMdbSharedPtr
 {
@@ -243,7 +243,7 @@ public:
     inline MDB_UINT32 GetUsedSize()
     {
         //return m_iTailCursor>=m_iHeadCursor?(m_iPoolSize-(m_iTailCursor-m_iHeadCursor)):(m_iHeadCursor-m_iTailCursor);
-        return m_uiAllocTimes>=m_uiFreeTimes?(m_uiAllocTimes-m_uiFreeTimes):(m_uiAllocTimes+(/*QuickMDB::*/MDB_NTC_ZS_MAX_UINT32-m_uiFreeTimes));
+        return m_uiAllocTimes>=m_uiFreeTimes?(m_uiAllocTimes-m_uiFreeTimes):(m_uiAllocTimes+(MDB_NTC_ZS_MAX_UINT32-m_uiFreeTimes));
     }
     /**
      * @brief 获得空闲的资源数
@@ -286,7 +286,7 @@ protected:
     MDB_UINT32  m_uiTailCursor;///< 游标尾
     MDB_UINT32  m_uiAllocTimes;///< 申请的次数
     MDB_UINT32  m_uiFreeTimes;///< 释放的次数
-    /*QuickMDB::*/TMdbNtcThreadLock  m_oAllocMutex, m_oFreeMutex;///< 申请资源锁和释放资源锁
+    TMdbNtcThreadLock  m_oAllocMutex, m_oFreeMutex;///< 申请资源锁和释放资源锁
 };
 
 template<class _Ty>
@@ -418,13 +418,13 @@ protected:
  * @brief 定义http头里的属性
  * 
  */
-class TMdbNtcAttrInfo:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbNtcAttrInfo:public TMdbNtcBaseObject
 {
 public:
-    /*QuickMDB::*/TMdbNtcStringBuffer sName;///< 属性名称
-    /*QuickMDB::*/TMdbNtcStringBuffer sValue;///< 属性取值
+    TMdbNtcStringBuffer sName;///< 属性名称
+    TMdbNtcStringBuffer sValue;///< 属性取值
 public:
-    TMdbNtcAttrInfo(/*QuickMDB::*/TMdbNtcStringBuffer sName = "", /*QuickMDB::*/TMdbNtcStringBuffer sValue = "");
+    TMdbNtcAttrInfo(TMdbNtcStringBuffer sName = "", TMdbNtcStringBuffer sValue = "");
     /**
      * @brief 根据属性名获得属性值
      * 
@@ -432,7 +432,7 @@ public:
      * @return const char*
      * @retval 属性取值
      */
-    inline /*QuickMDB::*/TMdbNtcStringBuffer ValueAsString()
+    inline TMdbNtcStringBuffer ValueAsString()
     {
         return sValue;
     }
@@ -462,8 +462,8 @@ public:
     {
         return atof(sValue.c_str());
     }
-    virtual /*QuickMDB::*/TMdbNtcStringBuffer ToString() const;
-    virtual MDB_INT64 Compare(const /*QuickMDB::*/TMdbNtcBaseObject *pObject) const
+    virtual TMdbNtcStringBuffer ToString() const;
+    virtual MDB_INT64 Compare(const TMdbNtcBaseObject *pObject) const
     {
         return sName.Compare(static_cast<const TMdbNtcAttrInfo*>(pObject)->sName, false);//不区分大小写
     }
@@ -473,7 +473,7 @@ public:
  * @brief 属性比较
  * 
  */
-class TMdbNtcAttrCompare:public /*QuickMDB::*/TMdbNtcObjCompare
+class TMdbNtcAttrCompare:public TMdbNtcObjCompare
 {
 public:
     /**
@@ -485,7 +485,7 @@ public:
     TMdbNtcAttrCompare(bool bCaseSentive = true):m_bCaseSentive(bCaseSentive)
     {
     }
-    virtual MDB_INT64 Compare(const /*QuickMDB::*/TMdbNtcBaseObject* pObject1, const /*QuickMDB::*/TMdbNtcBaseObject* pObject2) const
+    virtual MDB_INT64 Compare(const TMdbNtcBaseObject* pObject1, const TMdbNtcBaseObject* pObject2) const
     {
         return (static_cast<const TMdbNtcAttrInfo*>(pObject1))->sName.Compare((static_cast<const TMdbNtcAttrInfo*>(pObject2))->sName, m_bCaseSentive);
     }
@@ -497,7 +497,7 @@ private:
  * @brief 属性管理
  * 
  */
-class TMdbNtcAttrMgr:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbNtcAttrMgr:public TMdbNtcBaseObject
 {
     MDB_ZF_DECLARE_OBJECT(TMdbNtcAttrMgr);
 public:
@@ -516,7 +516,7 @@ public:
      * @param sValue [in] 属性取值
      * @return TMdbNtcAttrInfo*
      */
-    TMdbNtcAttrInfo* AddAttrInfo(/*QuickMDB::*/TMdbNtcStringBuffer sName, /*QuickMDB::*/TMdbNtcStringBuffer sValue);
+    TMdbNtcAttrInfo* AddAttrInfo(TMdbNtcStringBuffer sName, TMdbNtcStringBuffer sValue);
     /**
      * @brief 删除一个属性
      * 
@@ -524,7 +524,7 @@ public:
      * @return bool
      * @retval true 找到并删除
      */
-    bool DelAttrInfo(/*QuickMDB::*/TMdbNtcStringBuffer sName);
+    bool DelAttrInfo(TMdbNtcStringBuffer sName);
     /**
      * @brief 根据属性名获得属性取值
      * 
@@ -532,7 +532,7 @@ public:
      * @return TMdbNtcAttrInfo*
      * @retval 属性信息
      */
-    TMdbNtcAttrInfo* GetAttrInfo(/*QuickMDB::*/TMdbNtcStringBuffer sName) const;
+    TMdbNtcAttrInfo* GetAttrInfo(TMdbNtcStringBuffer sName) const;
     /**
      * @brief 根据属性名获得属性值
      * 
@@ -540,7 +540,7 @@ public:
      * @return const char*
      * @retval 属性取值
      */
-    /*QuickMDB::*/TMdbNtcStringBuffer AttrValueAsString(/*QuickMDB::*/TMdbNtcStringBuffer sName) const;
+    TMdbNtcStringBuffer AttrValueAsString(TMdbNtcStringBuffer sName) const;
     /**
      * @brief 根据属性名获得属性值
      * 
@@ -548,7 +548,7 @@ public:
      * @return MDB_INT64
      * @retval 属性取值
      */
-    MDB_INT64 AttrValueAsInterger(/*QuickMDB::*/TMdbNtcStringBuffer sName) const;
+    MDB_INT64 AttrValueAsInterger(TMdbNtcStringBuffer sName) const;
     /**
      * @brief 根据属性名获得属性值
      * 
@@ -556,7 +556,7 @@ public:
      * @return double
      * @retval 属性取值
      */
-    double AttrValueAsFloat(/*QuickMDB::*/TMdbNtcStringBuffer sName) const;
+    double AttrValueAsFloat(TMdbNtcStringBuffer sName) const;
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -564,7 +564,7 @@ public:
      * @param sValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, /*QuickMDB::*/TMdbNtcStringBuffer sValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, TMdbNtcStringBuffer sValue);
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -572,7 +572,7 @@ public:
      * @param iValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, MDB_INT64 iValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, MDB_INT64 iValue);
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -580,7 +580,7 @@ public:
      * @param uiValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, MDB_UINT64 uiValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, MDB_UINT64 uiValue);
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -588,7 +588,7 @@ public:
      * @param iValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, MDB_INT32 iValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, MDB_INT32 iValue);
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -596,7 +596,7 @@ public:
      * @param uiValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, MDB_UINT32 uiValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, MDB_UINT32 uiValue);
     /**
      * @brief 根据属性名设置属性取值
      * 
@@ -604,7 +604,7 @@ public:
      * @param dValue [in] 属性取值
      * @return 无
      */
-    void SetAttrValue(/*QuickMDB::*/TMdbNtcStringBuffer sName, double dValue);
+    void SetAttrValue(TMdbNtcStringBuffer sName, double dValue);
     /**
      * @brief 获得属性的个数
      * 
@@ -621,7 +621,7 @@ public:
      * @return iterator
      * @retval 开始迭代器
      */
-    inline /*QuickMDB::*/TMdbNtcContainer::iterator IterBegin()
+    inline TMdbNtcContainer::iterator IterBegin()
     {
         return m_oAttrMap.IterBegin();
     }
@@ -631,7 +631,7 @@ public:
      * @return iterator
      * @retval 结束迭代器
      */
-    inline /*QuickMDB::*/TMdbNtcContainer::iterator IterEnd()
+    inline TMdbNtcContainer::iterator IterEnd()
     {
         return m_oAttrMap.IterEnd();
     }
@@ -641,13 +641,13 @@ public:
      * @param sName [in] 属性名
      * @return std::pair
      */
-    inline std::pair</*QuickMDB::*/TMdbNtcContainer::iterator, /*QuickMDB::*/TMdbNtcContainer::iterator>
-        IterFindMulti(/*QuickMDB::*/TMdbNtcStringBuffer sName)
+    inline std::pair<TMdbNtcContainer::iterator, TMdbNtcContainer::iterator>
+        IterFindMulti(TMdbNtcStringBuffer sName)
     {
         return m_oAttrMap.EqualRange(TMdbNtcAttrInfo(sName));
     }
-    inline /*QuickMDB::*/TMdbNtcContainer::iterator
-        IterFind(/*QuickMDB::*/TMdbNtcStringBuffer sName)
+    inline TMdbNtcContainer::iterator
+        IterFind(TMdbNtcStringBuffer sName)
     {
         return m_oAttrMap.IterFind(TMdbNtcAttrInfo(sName));
     }
@@ -666,9 +666,9 @@ public:
      *
      * @return TMdbNtcStringBuffer
      */
-    virtual /*QuickMDB::*/TMdbNtcStringBuffer ToString() const;
+    virtual TMdbNtcStringBuffer ToString() const;
 protected:
-    /*QuickMDB::*/TMdbNtcAvlTree m_oAttrMap;///< 协议头的属性map
+    TMdbNtcAvlTree m_oAttrMap;///< 协议头的属性map
 };
 ////_MDB//_NTC_END
 //}

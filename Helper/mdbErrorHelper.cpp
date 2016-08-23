@@ -940,7 +940,7 @@ void TMdbErrorHelper::FillErrMsg(int iCode,const char* pszFormat, ...)
 		//char sTemp[1024] = {0};
 		 if(NULL == m_psTemp)
         {
-            m_psTemp = new char[40960];
+            m_psTemp = new(std::nothrow) char[40960];
             if(NULL == m_psTemp)
             {
 
@@ -994,6 +994,11 @@ int TMdbErrorHelper::InitErrorDescription()
     while(i<iErrCounts)
     {
         TMdbError * pError = new (std::nothrow) TMdbError();
+		if(pError == NULL)
+		{
+			CHECK_RET_BREAK(ERR_OS_NO_MEMROY,"can't create pError");
+
+		}
         pError->m_iCode = g_mdbErrors[i].m_iCode;
         pError->m_sBrief = g_mdbErrors[i].m_sBrief;
         pError->m_sCause = g_mdbErrors[i].m_sCause;

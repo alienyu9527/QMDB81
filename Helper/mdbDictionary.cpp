@@ -12,9 +12,9 @@
 #include "Helper/mdbDateTime.h"
 #include "Helper/mdbOS.h"
 
-
 //using namespace ZSmart::BillingSDK;
 //namespace QuickMDB{
+
 
     #define BOOL_TO_CHAR(VALUE)  ((VALUE)?"Y":"N")
 
@@ -40,7 +40,7 @@
             }
             iPageID = iPageID << 11;
             m_iRowID &= MAX_MDB_PAGE_RECORD_COUNT;//先清理
-            m_iRowID |= iPageID;
+            m_iRowID |= static_cast<unsigned int>(iPageID);
             return iRet;
         }
         int TMdbRowID::SetDataOffset(int iDataOffset)
@@ -51,8 +51,8 @@
                 CHECK_RET(ERR_APP_INVALID_PARAM,"iDataOffset[%d] > MAX_MDB_PAGE_RECORD_COUNT[%d]",
                     iDataOffset,MAX_MDB_PAGE_RECORD_COUNT);
             }
-            m_iRowID &= (MAX_MDB_PAGE_COUNT << 11);//先清理
-            m_iRowID |= iDataOffset;
+            m_iRowID &= static_cast<unsigned int>(MAX_MDB_PAGE_COUNT << 11);//先清理
+            m_iRowID |= static_cast<unsigned int>(iDataOffset);
             return iRet;
         }
 
@@ -67,7 +67,7 @@
             m_iFreePageNode = -1;      //第一个空闲的页节点  0-没有空闲页
             m_iFullPageNode = -1;
             m_iFreeOffSet   = sizeof(TMdbPage);//空闲偏移
-            m_iFreeSize = m_iPageSize -  sizeof(TMdbPage);//空闲大小
+            m_iFreeSize = m_iPageSize -  static_cast<int>(sizeof(TMdbPage));//空闲大小
             m_iRecordSize  = 0;
             memset(m_sState, 0, sizeof(m_sState));
             SAFESTRCPY(m_sState,sizeof(m_sState),"empty");
@@ -86,7 +86,7 @@
             m_iFreePageNode = -1;      //第一个空闲的页节点  0-没有空闲页
             m_iFullPageNode = -1;
             m_iFreeOffSet   = sizeof(TMdbPage);//空闲偏移
-            m_iFreeSize = m_iPageSize -  sizeof(TMdbPage);//空闲大小
+            m_iFreeSize = m_iPageSize -  static_cast<int>(sizeof(TMdbPage));//空闲大小
             switch (iVarcharID)
         	{
 				case 0:
@@ -168,29 +168,13 @@
         //记录位置转data offset
         int TMdbPage::RecordPosToDataOffset(int iRecordPos)
         {
-            return sizeof(TMdbPage)+ iRecordPos*(m_iRecordSize + sizeof(TMdbPageNode))+sizeof(TMdbPageNode);
+            return static_cast<int>(sizeof(TMdbPage))+ iRecordPos*(m_iRecordSize + static_cast<int>(sizeof(TMdbPageNode)))+static_cast<int>(sizeof(TMdbPageNode));
         }
         //data offset 转记录位置
         int TMdbPage::DataOffsetToRecordPos(int iDataOffset)
         {
-            return (iDataOffset - sizeof(TMdbPage)-sizeof(TMdbPageNode))/(m_iRecordSize + sizeof(TMdbPageNode));
+            return (iDataOffset - static_cast<int>(sizeof(TMdbPage))-static_cast<int>(sizeof(TMdbPageNode)))/(m_iRecordSize + static_cast<int>(sizeof(TMdbPageNode)));
         }
-
-		int TMdbPage::LockRow(int iDataOffset,char* pHeadAddr)
-		{
-			int iRet = 0;
-			TMdbPageNode* pPageNode = (TMdbPageNode*)(pHeadAddr+iDataOffset-sizeof(TMdbPageNode));
-			CHECK_RET(pPageNode->tMutex.Lock(true),"LockPageNode Failed");
-			return iRet;
-		}
-
-		int TMdbPage::UnLockRow(int iDataOffset,char* pHeadAddr)
-		{
-			int iRet = 0;
-			TMdbPageNode* pPageNode = (TMdbPageNode*)(pHeadAddr+iDataOffset-sizeof(TMdbPageNode));
-			CHECK_RET(pPageNode->tMutex.UnLock(true),"UnLockPageNode Failed");
-			return iRet;
-		}
 		
         int TMdbPage::GetFreeRecord(int & iNewDataOffset,int iDataSize)
         {
@@ -208,7 +192,7 @@
             if(m_iFreePageNode > 0)
             {//有空闲节点
                 
-                iNewDataOffset = m_iFreePageNode + sizeof(TMdbPageNode);
+                iNewDataOffset = m_iFreePageNode + static_cast<int>(sizeof(TMdbPageNode));
                 TMdbPageNode * pFreePageNode = (TMdbPageNode *)((char *)this + m_iFreePageNode);//空闲节点
 				if(pFreePageNode->iNextNode > 0)
 				{
@@ -222,7 +206,7 @@
 					}
 	                m_iFreePageNode = pFreePageNode->iNextNode;
 	                pFreePageNode->iNextNode = m_iFullPageNode;
-	                m_iFullPageNode = iNewDataOffset - sizeof(TMdbPageNode);
+	                m_iFullPageNode = iNewDataOffset - static_cast<int>(sizeof(TMdbPageNode));
 				}
 				else
 				{
@@ -234,7 +218,7 @@
 					}
 	                m_iFreePageNode = -1;
 	                pFreePageNode->iNextNode = m_iFullPageNode;
-	                m_iFullPageNode = iNewDataOffset - sizeof(TMdbPageNode);
+	                m_iFullPageNode = iNewDataOffset - static_cast<int>(sizeof(TMdbPageNode));
 				}
 				pFreePageNode->tMutex.Create();
 				pFreePageNode->cFlag = 0;
@@ -243,7 +227,7 @@
             else if(m_iFreeOffSet + m_iRecordSize + (int)sizeof(TMdbPageNode) < m_iPageSize)
             {//获取新位置
                 
-                iNewDataOffset = m_iFreeOffSet + sizeof(TMdbPageNode);
+                iNewDataOffset = m_iFreeOffSet + static_cast<int>(sizeof(TMdbPageNode));
                 TMdbPageNode * pFreePageNode = (TMdbPageNode *)((char *)this + m_iFreeOffSet);//占用该节点
                 if(m_iFullPageNode > 0)
             	{
@@ -252,14 +236,14 @@
 					pFreePageNode->iPreNode = -1;
 					pFullPageNode->iPreNode = m_iFreeOffSet;
 	                m_iFullPageNode = m_iFreeOffSet;
-	                m_iFreeOffSet += m_iRecordSize + sizeof(TMdbPageNode);
+	                m_iFreeOffSet += m_iRecordSize + static_cast<int>(sizeof(TMdbPageNode));
             	}
                 else
             	{
 					pFreePageNode->iNextNode = -1;
 					pFreePageNode->iPreNode = -1;
 	                m_iFullPageNode = m_iFreeOffSet;
-	                m_iFreeOffSet += m_iRecordSize + sizeof(TMdbPageNode);
+	                m_iFreeOffSet += m_iRecordSize + static_cast<int>(sizeof(TMdbPageNode));
             	}
 				pFreePageNode->tMutex.Create();
 				pFreePageNode->cFlag = 0;
@@ -295,7 +279,7 @@
             if(NULL == pDataAddr)
             {//第一次获取
                 pDataAddr = (char * )this + m_iFullPageNode + sizeof(TMdbPageNode);//第一个数据地址
-                iDataOffset = pDataAddr - (char * )this;
+                iDataOffset = static_cast<int>(pDataAddr - (char * )this);
 
 				TMdbPageNode* node = (TMdbPageNode*)(pDataAddr - sizeof(TMdbPageNode));
                 if(node->iNextNode > 0)
@@ -316,7 +300,7 @@
 				{
 					return NULL;
 				}
-				iDataOffset = pDataAddr - (char * )this;
+				iDataOffset = static_cast<int>(pDataAddr - (char * )this);
 				
                 TMdbPageNode* node = (TMdbPageNode*)(pDataAddr - sizeof(TMdbPageNode));
                 if(node->iNextNode > 0)
@@ -345,7 +329,7 @@
             }
             else 
             {
-                int iBlockOffset = iDataOffset - sizeof(TMdbPageNode);
+                int iBlockOffset = iDataOffset - static_cast<int>(sizeof(TMdbPageNode));
                 TMdbPageNode * pCurPageNode = (TMdbPageNode *)((char *)this + iBlockOffset);//空闲节点
                 TMdbPageNode * pFreePageNode = NULL;
                 if(m_iFreePageNode > 0)
@@ -374,14 +358,14 @@
 					pFreePageNode->iPreNode = iBlockOffset;
 	                pCurPageNode->iNextNode = m_iFreePageNode;
 	                m_iFreePageNode = iBlockOffset;
-	                memset((char *)this+iDataOffset,0,m_iRecordSize);//清空数据区
+	                memset((char *)this+iDataOffset,0,static_cast<size_t>(m_iRecordSize));//清空数据区
 	            }
 	            else
 	            {
 					pCurPageNode->iPreNode = -1;
 					pCurPageNode->iNextNode = -1;
 					m_iFreePageNode = iBlockOffset;
-	                memset((char *)this+iDataOffset,0,m_iRecordSize);//清空数据区
+	                memset((char *)this+iDataOffset,0,static_cast<size_t>(m_iRecordSize));//清空数据区
 	            }
             }
             m_iFreeSize += m_iRecordSize;
@@ -519,8 +503,12 @@
         tCollIndexNode.tData.Clear();  
         tCollIndexNode.iNextPos = -1;
         iOneRecordSize = 0;//每条记录的大小
+        
         iOneRecordNullOffset = -1;
         m_iTimeStampOffset = -1;
+		iReIdxFlagOffset = -1;
+		iReIdxPosOffset = -1;		
+		
         iInsertCounts = 0;
         iDeleteCounts = 0;
         iUpdateCounts = 0;
@@ -615,6 +603,38 @@
         
     }
     */
+    
+	int TMdbTable::CalcRIndexSize(int & iFlagSize)
+	{
+		int iPosSize = 0;
+		
+		int i = 0;
+		for(i = 0;i < iIndexCounts;++i)
+		{
+			if(tIndex[i].IsRedirectIndex())
+			{
+				break;
+			}
+		}
+		if(i == iIndexCounts){return 0;}
+		
+		int iCount = iIndexCounts/MDB_CHAR_SIZE;
+		if(0 != iIndexCounts % MDB_CHAR_SIZE )
+		{
+			iCount ++;
+		}
+		iFlagSize = iCount * MDB_CHAR_SIZE;
+		
+		for(i = 0; i < iIndexCounts; i++)
+		{
+			if(tIndex[i].IsRedirectIndex())
+			{
+				tIndex[i].iRIdxOffset = iPosSize;
+				iPosSize += (int)sizeof(long long); 		   
+			}
+		}
+		return (iPosSize+iFlagSize);
+	}
 
     int TMdbTable::Init(TMdbTable * pSrcTable)
     {
@@ -1130,8 +1150,9 @@
     {
         char sTemp[10240] = {0};
         const   char * sRateTypeArr[] = {"","year","month","day","hour","min","sec"};
-        sprintf(sTemp,"name=[%s] startTime=[%s] execDate=[%s] nextDate=[%s] sql=[%s] RateType=[%s] interval=[%d] ExecCount=[%d]",
-            m_sName,m_sStartTime,m_sExecuteDate,m_sNextExecuteDate,m_sSQL,sRateTypeArr[m_iRateType],m_iInterval,m_iExcCount);
+		const	char * sStateArr[] = {"","JOB_STATE_NONE","JOB_STATE_WAIT","JOB_STATE_RUNNING","JOB_STATE_PAUSE"};
+        sprintf(sTemp,"name=[%s] startTime=[%s] execDate=[%s] nextDate=[%s] sql=[%s] RateType=[%s] interval=[%d] ExecCount=[%d] State=[%s]",
+            m_sName,m_sStartTime,m_sExecuteDate,m_sNextExecuteDate,m_sSQL,sRateTypeArr[m_iRateType],m_iInterval,m_iExcCount,sStateArr[m_iState]);
         std::string sRet = sTemp;
         return sRet;
     }
@@ -1202,6 +1223,21 @@
          m_iFileSize = iSize;
     }
 
+	void TMdbShardBakBufArea::Clear()
+    {
+    	for(int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
+		{
+    		m_iHostID[i] = -1;
+		}
+		for(int i = 0; i<MAX_SHM_ID; i++)
+		{
+	        m_iShmID[i]  = INITVAl;
+	        m_iShmKey[i] = INITVAl;
+		}
+        m_iShmSize = 128;
+		memset(m_sName, 0, sizeof(m_sName));
+    }
+
     void TMdbDSN::Clear()
     {
         SAFESTRCPY(sVersion,sizeof(sVersion),MDB_VERSION);
@@ -1242,8 +1278,7 @@
             iConflictIndexShmKey[i] = INITVAl;
             iMHashBaseIdxShmKey[i] = INITVAl;
             iMHashMutexShmKey[i] = INITVAl;
-            iHashMutexShmKey[i] = INITVAl;
-        }
+            iHashMutexShmKey[i] = INITVAl;        }
 
         iMhashConfMgrShmId = INITVAl;
         iMhashConfMgrShmKey = INITVAl;
@@ -1333,6 +1368,9 @@
         bDiskSpaceStat = true;
         m_bIsOraRep = false;
         m_bIsRep = false;
+		m_bIsShardBackup = false;
+		m_bIsMemLoad = false;
+		m_bIsOnlineRep = false;
         m_bLoadFromDisk = false;
         m_bLoadFromDiskOK = false;
 
@@ -1365,16 +1403,19 @@
             printf("|    TableSpaceAddr= %-20zd  \n", iTableSpaceAddr);
             printf("|    iLocalLinkAddr= %-20zd    |  iRemoteLinkAddr      = %zd\n", iLocalLinkAddr,iRemoteLinkAddr);
             printf("|    iSeqAddr      = %-20zd \n", iSeqAddr);
-            
+            printf("|    iPortLinkAddr= %-20zd \n", iPortLinkAddr);
             printf("|\n");
             printf("|    bIsOraRep           = %-12s \n", m_bIsOraRep?"Y":"N");
             printf("|    bIsRep              = %-12s \n", m_bIsRep?"Y":"N");
+            printf("|    bIsShardBackup      = %-12s \n", m_bIsShardBackup?"Y":"N");
+            printf("|    bIsMemLoad          = %-12s \n", m_bIsMemLoad?"Y":"N");
+            printf("|    bIsOnlineRep        = %-12s \n", m_bIsOnlineRep?"Y":"N");
             printf("|    bIsCaptureRouter    = %-12s \n", m_bIsCaptureRouter?"Y":"N");
             
             printf("|\n");
             printf("|    sDataStore    = %-40s |  iPermSize        = %d\n", sDataStore,iPermSize);
             TMdbSyncArea & tSA = m_arrSyncArea;
-            printf("|[%-10s]Dir       = %-40s |  FileSize     = %d\n",tSA.m_sName,tSA.m_sDir,tSA.m_iFileSize);
+            printf("|[%-10s]Dir       = %-40s |  FileSize     = %d\n",tSA.m_sName,tSA.m_sDir[0],tSA.m_iFileSize);
             printf("|    sStorageDir   = %-40s \n", sStorageDir);
             printf("|\n");
             printf("|    sOracleID     = %-20s \n", sOracleID);
@@ -1529,6 +1570,24 @@
         return 0;
     }
 
+	//获取剩余空间
+	int TMdbOnlineRepMemQueue::GetFreeSpace()
+	{
+		if(iPushPos == iCleanPos)
+		{//全部空
+			return iEndPos - iStartPos;
+		}
+		if(iPushPos > iCleanPos)
+		{
+			return (iEndPos - iStartPos) - (iPushPos - iCleanPos);
+		}
+		if(iPushPos< iCleanPos)
+		{
+			return iCleanPos - iPushPos;
+		}
+		return 0;
+	}
+
     TMdbTSNode::TMdbTSNode()
     {
         Clear(); 
@@ -1560,6 +1619,7 @@
         m_iAlgoType = INDEX_HASH;
         iMaxLayer = 1;
 		bBuilding = false;
+		bRePos = false;
     }
 
     const char* TMdbIndex::GetAlgoType()
@@ -1609,30 +1669,38 @@
 
         return iAlgoType;
     }
-    void TMdbIndex::Print()
+	
+	bool TMdbIndex::IsRedirectIndex()
+	{
+		return bRePos;
+	}
+	
+	//mjx sql tool add start
+    void TMdbIndex::Print(TMdbTable* pTable)
     {
-        TADD_NORMAL("===INDEX Start===");
-        TADD_NORMAL("    Name     = %s", sName);
-        TADD_NORMAL("    Algorithm Type = %d(%d-HT_Unknown, %d-Hash index, %d-multistep hash index, %d-Trie index)", m_iAlgoType, INDEX_UNKOWN, INDEX_HASH, INDEX_M_HASH, INDEX_TRIE);
-        TADD_NORMAL("    Type = %d(%d-HT_Unknown, %d-HT_Int, %d-HT_Char)", m_iIndexType, HT_Unknown, HT_Int, HT_Char);
+        printf("===INDEX definition Start===\n");
+        printf("Name     = %s \n", sName);
+        printf("Algorithm Type = %d(%d-HT_Unknown, %d-Hash index, %d-multistep hash index, %d-Trie index)\n", m_iAlgoType, INDEX_UNKOWN, INDEX_HASH, INDEX_M_HASH, INDEX_TRIE);
+        printf("Type = %d(%d-HT_Unknown, %d-HT_Int, %d-HT_Char,%d-HT_CMP)\n", m_iIndexType, HT_Unknown, HT_Int, HT_Char,HT_CMP);
         
-        char sName[32] = {0};
+        char sName[512] = {0};
         for(int i=0; i<MAX_INDEX_COLUMN_COUNTS; ++i)
         {
             if(iColumnNo[i] > -1)
             {
                 if(i == 0)
-                    sprintf(sName, "%d", iColumnNo[i]);
+                    snprintf(sName, sizeof(sName),"%s", pTable->tColumn[iColumnNo[i]].sName);
                 else
-                    sprintf(sName+strlen(sName), ", %d",iColumnNo[i]);   
-             } 
+                    snprintf(sName+strlen(sName),sizeof(sName)-strlen(sName), ",%s",pTable->tColumn[iColumnNo[i]].sName);   
+             }
         }
-        TADD_NORMAL("    ColumnNo = %s", sName);
-        TADD_NORMAL("    Priority = %d", iPriority);
-        TADD_NORMAL("    MaxLayer = %d", iMaxLayer);
-        TADD_NORMAL("===INDEX End=====");
+        printf("ColumnName = (%s)\n", sName);
+        printf("Priority = %d\n", iPriority);
+        printf("MaxLayer = %d\n", iMaxLayer);
+		printf("Reverse position = %s\n",  BOOL_TO_CHAR(bRePos));
+        printf("===INDEX definition End=====\n");
     }
-
+	//mjx sql tool add end
     void TMdbPrimaryKey::Clear()
     {
         iColumnCounts = 0;                 //主键需要的列数
@@ -2170,7 +2238,7 @@
     {
         if(m_pQuery == NULL)
         {
-            int iLen = strlen(sSQL);
+            size_t iLen = strlen(sSQL);
             memcpy(m_sSQL,sSQL,iLen);
             m_sSQL[iLen]=0;
 
@@ -2257,7 +2325,7 @@
 
         if(NULL == m_arrDaoNode[iPos])
         {
-            m_arrDaoNode[iPos] = new TMdbDAONode();
+            m_arrDaoNode[iPos] = new(std::nothrow) TMdbDAONode();
             if(NULL == m_arrDaoNode[iPos])
             {
                 TADD_ERROR(-1,"new dao node failed.");

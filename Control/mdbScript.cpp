@@ -1066,7 +1066,7 @@ int TMdbScript::CreateTableSpace(TMdbTableSpace* pTableSpace,bool bIsDynamic)
         }
     }
 
-    MDBXMLElement *pTablespaceElement = new MDBXMLElement("table-space");
+    MDBXMLElement *pTablespaceElement = new(std::nothrow) MDBXMLElement("table-space");
     CHECK_OBJ(pTablespaceElement);
     m_tDsnMgr[iPos].m_pSysRoot->LinkEndChild(pTablespaceElement);
     pTablespaceElement->SetAttribute("name",pTableSpace->sName);
@@ -1280,7 +1280,7 @@ int TMdbScript::CreateUser(TMDbUser* pUser,bool bIsDynamic)
         }
     }
 
-    MDBXMLElement *pUserElement = new MDBXMLElement("user");
+    MDBXMLElement *pUserElement = new(std::nothrow) MDBXMLElement("user");
     CHECK_OBJ(pUserElement);
     m_tDsnMgr[iPos].m_pSysRoot->LinkEndChild(pUserElement);
     pUserElement->SetAttribute("name",pUser->sUser);
@@ -1622,12 +1622,12 @@ int TMdbScript::CreateDsn(TMdbCfgDSN  *pDsn)
     {
         return iRet;
     }
-    m_tDsnMgr[iPos].m_pSysRoot = new MDBXMLElement("MDBConfig");
+    m_tDsnMgr[iPos].m_pSysRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
     CHECK_OBJ(m_tDsnMgr[iPos].m_pSysRoot);
     m_tDsnMgr[iPos].m_pSysDocument->LinkEndChild(m_tDsnMgr[iPos].m_pSysRoot);
-    MDBXMLElement *pDataSource = new MDBXMLElement("DataSource");
+    MDBXMLElement *pDataSource = new(std::nothrow) MDBXMLElement("DataSource");
     CHECK_OBJ(pDataSource);
-    MDBXMLElement *pESys = new MDBXMLElement("sys");
+    MDBXMLElement *pESys = new(std::nothrow) MDBXMLElement("sys");
     CHECK_OBJ(pESys);
     m_tDsnMgr[iPos].m_pSysRoot->LinkEndChild(pDataSource);
     m_tDsnMgr[iPos].m_pSysRoot->LinkEndChild(pESys);
@@ -1781,23 +1781,26 @@ int TMdbScript::CreateTable(TMdbTable* pTable,bool bIsDynamic)
         //TMdbNtcFileOper::Remove(pTableScript->m_sTableFileName);
     }
     pTableScript->m_pTableDocument->Clear();
-    pTableScript->m_pTableRoot = new MDBXMLElement("MDBConfig");
+    pTableScript->m_pTableRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
+	CHECK_OBJ(pTableScript->m_pTableRoot);
+	
     pTableScript->m_pTableDocument->LinkEndChild(pTableScript->m_pTableRoot);
-    MDBXMLElement *pETable = new MDBXMLElement("table");
+    MDBXMLElement *pETable = new(std::nothrow) MDBXMLElement("table");
+	
     pTableScript->m_pTableRoot->LinkEndChild(pETable);
-    MDBXMLElement *pNameElement = new MDBXMLElement("name");
+    MDBXMLElement *pNameElement = new(std::nothrow) MDBXMLElement("name");
     //MDBXMLElement *pTableIdElement = new MDBXMLElement("table-id");
-    MDBXMLElement *pTbSpaceElement = new MDBXMLElement("table-space");
-    MDBXMLElement *pRecordsElement = new MDBXMLElement("record-counts");
-    MDBXMLElement *pExpandElement = new MDBXMLElement("expand-record");
-    MDBXMLElement *pIsZipTimeElement = new MDBXMLElement("Is-Zip-Time");
-    MDBXMLElement *pRepTypeElement = new MDBXMLElement("rep-type");
-    MDBXMLElement *pSharedBackupElement = new MDBXMLElement("shard-backup");
-    MDBXMLElement *pTabLevelElement = new MDBXMLElement("table-level");
+    MDBXMLElement *pTbSpaceElement = new(std::nothrow) MDBXMLElement("table-space");
+    MDBXMLElement *pRecordsElement = new(std::nothrow) MDBXMLElement("record-counts");
+    MDBXMLElement *pExpandElement = new(std::nothrow) MDBXMLElement("expand-record");
+    MDBXMLElement *pIsZipTimeElement = new(std::nothrow) MDBXMLElement("Is-Zip-Time");
+    MDBXMLElement *pRepTypeElement = new(std::nothrow) MDBXMLElement("rep-type");
+    MDBXMLElement *pSharedBackupElement = new(std::nothrow) MDBXMLElement("shard-backup");
+    MDBXMLElement *pTabLevelElement = new(std::nothrow) MDBXMLElement("table-level");
     pETable->LinkEndChild(pNameElement);
 	if(pTable->m_iTableId != -1)
 	{
-		MDBXMLElement *pTableIdElement = new MDBXMLElement("table-id");
+		MDBXMLElement *pTableIdElement = new(std::nothrow) MDBXMLElement("table-id");
 		pETable->LinkEndChild(pTableIdElement);
 		pTableIdElement->SetAttribute("value",pTable->m_iTableId);
 	}
@@ -1835,7 +1838,7 @@ int TMdbScript::CreateTable(TMdbTable* pTable,bool bIsDynamic)
     MDBXMLElement *pColumnElement[MAX_COLUMN_COUNTS] = {NULL};
     for(int k = 0;k<pTable->iColumnCounts;k++)
     {
-        pColumnElement[k] = new MDBXMLElement("column");
+        pColumnElement[k] = new(std::nothrow) MDBXMLElement("column");
         pETable->LinkEndChild(pColumnElement[k]);
         //设置列名
         pColumnElement[k]->SetAttribute("name",pTable->tColumn[k].sName);
@@ -1867,7 +1870,7 @@ int TMdbScript::CreateTable(TMdbTable* pTable,bool bIsDynamic)
     for(int k = 0; k<pTable->iIndexCounts;k++)
     {
         pIndexElement[k] = NULL;
-        pIndexElement[k] = new MDBXMLElement("index");
+        pIndexElement[k] = new(std::nothrow) MDBXMLElement("index");
         pETable->LinkEndChild(pIndexElement[k]);
         pIndexElement[k]->SetAttribute("name",pTable->tIndex[k].sName);
         for(int i=0;i<MAX_INDEX_COLUMN_COUNTS;i++)
@@ -1889,21 +1892,21 @@ int TMdbScript::CreateTable(TMdbTable* pTable,bool bIsDynamic)
     for(int k =0;k<pTable->m_tPriKey.iColumnCounts;k++)
     {
         pKeyElement[k] = NULL;
-        pKeyElement[k] = new MDBXMLElement("pkey");
+        pKeyElement[k] = new(std::nothrow) MDBXMLElement("pkey");
         pETable->LinkEndChild(pKeyElement[k]);
         pKeyElement[k]->SetAttribute("column-pos",pTable->m_tPriKey.iColumnNo[k]);
     }
 
 
-    MDBXMLElement *pReadElement = new MDBXMLElement("is-read-lock");
-    MDBXMLElement *pWriteElement = new MDBXMLElement("is-write-lock");
-    MDBXMLElement *pRollbacklement = new MDBXMLElement("is-rollback");
-    MDBXMLElement *pPerfStateElement = new MDBXMLElement("is-PerfStat");
-    MDBXMLElement *pPriKeyElement = new MDBXMLElement("checkPriKey");
-    MDBXMLElement *pLoadTypeElement = new MDBXMLElement("LoadType");
-    MDBXMLElement *pFilterElement = new MDBXMLElement("filter-sql");
-    MDBXMLElement *pLoadElement = new MDBXMLElement("load-sql");
-    MDBXMLElement *pFlushElement = new MDBXMLElement("flush-sql");
+    MDBXMLElement *pReadElement = new(std::nothrow) MDBXMLElement("is-read-lock");
+    MDBXMLElement *pWriteElement = new(std::nothrow) MDBXMLElement("is-write-lock");
+    MDBXMLElement *pRollbacklement = new(std::nothrow) MDBXMLElement("is-rollback");
+    MDBXMLElement *pPerfStateElement = new(std::nothrow) MDBXMLElement("is-PerfStat");
+    MDBXMLElement *pPriKeyElement = new(std::nothrow) MDBXMLElement("checkPriKey");
+    MDBXMLElement *pLoadTypeElement = new(std::nothrow) MDBXMLElement("LoadType");
+    MDBXMLElement *pFilterElement = new(std::nothrow) MDBXMLElement("filter-sql");
+    MDBXMLElement *pLoadElement = new(std::nothrow) MDBXMLElement("load-sql");
+    MDBXMLElement *pFlushElement = new(std::nothrow) MDBXMLElement("flush-sql");
     //pETable->LinkEndChild(pNameElement);
     pETable->LinkEndChild(pReadElement);
     pETable->LinkEndChild(pWriteElement);
@@ -1928,7 +1931,7 @@ int TMdbScript::CreateTable(TMdbTable* pTable,bool bIsDynamic)
 
     for(int i=0;i<pTable->iParameterCount;i++)
     {
-        MDBXMLElement *ParmElement = new MDBXMLElement("Parameter");
+        MDBXMLElement *ParmElement = new(std::nothrow) MDBXMLElement("Parameter");
         pETable->LinkEndChild(ParmElement);
         ParmElement->SetAttribute("name",pTable->tParameter[i].sName);
         if(pTable->tParameter[i].iDataType == DT_Int)
@@ -2055,7 +2058,7 @@ int TMdbScript::AddIndex(bool bIsDynamic)
             return ERR_TAB_INDEX_ALREADY_EXIST;
         }   
     }
-    MDBXMLElement *pIndexElement = new MDBXMLElement("index");
+    MDBXMLElement *pIndexElement = new(std::nothrow) MDBXMLElement("index");
     CHECK_OBJ(pIndexElement);
     pTableEle->LinkEndChild(pIndexElement);
     pIndexElement->SetAttribute("name",pTable->tIndex[iIndexPos].sName);
@@ -2227,7 +2230,7 @@ int TMdbScript::AddPrimaryKey(TMdbTable* pTable)
         }
 
         //添加主键
-        MDBXMLElement *pKeyElement = new MDBXMLElement("pkey");
+        MDBXMLElement *pKeyElement = new(std::nothrow) MDBXMLElement("pkey");
         pTableEle->LinkEndChild(pKeyElement);
         pKeyElement->SetAttribute("column-pos",iPos);
     }
@@ -2272,7 +2275,7 @@ int TMdbScript::AddColumn(TMdbTable* pTable,bool bIsDynamic, bool bWriteUpdate)
         iColumCount++;
     }
     
-    MDBXMLElement *pColumnElement = new MDBXMLElement("column");
+    MDBXMLElement *pColumnElement = new(std::nothrow) MDBXMLElement("column");
     pTableEle->LinkEndChild(pColumnElement);
     pColumnElement->SetAttribute("name",pTable->tColumn[iColumPos].sName);
     pColumnElement->SetAttribute("column-pos",iColumCount);
@@ -2657,7 +2660,7 @@ int TMdbScript::AddSingleTableAttribute(TMdbTable* pTable)
     }
     
     MDBXMLElement* pEle = pTableScript->m_pTableRoot->FirstChildElement("table");
-    MDBXMLElement *pElement = new MDBXMLElement(m_pMdbSqlParser->m_pDDLSqlStruct->sTableAttr);
+    MDBXMLElement *pElement = new(std::nothrow) MDBXMLElement(m_pMdbSqlParser->m_pDDLSqlStruct->sTableAttr);
     pEle->LinkEndChild(pElement);
     pElement->SetAttribute("value",m_pMdbSqlParser->m_pDDLSqlStruct->sTableAttrValue);
     
@@ -2826,7 +2829,7 @@ int TMdbScript::AddFlushOrLoadSQLParam(TMdbTable* pTable,bool bIsDynamic)
         }
     }
     //增加Parameter节点
-    MDBXMLElement *pParamElement = new MDBXMLElement("Parameter");
+    MDBXMLElement *pParamElement = new(std::nothrow) MDBXMLElement("Parameter");
     pTableEle->LinkEndChild(pParamElement);
     pParamElement->SetAttribute("name",pTable->tParameter[pTable->iParameterCount-1].sName);
     char sDataType[MAX_NAME_LEN] = {0};
@@ -3307,7 +3310,7 @@ int TMdbScript::CreateJob(TMdbJob *pMdbJob)
     bool bExist = m_tDsnMgr[iDsnPos].m_tJob.m_pJobDocument->LoadFile(m_tDsnMgr[iDsnPos].m_tJob.m_sJobFileName);
     if(!bExist)
     {
-        MDBXMLElement * pJobRoot = new MDBXMLElement("MDB_JOB");
+        MDBXMLElement * pJobRoot = new(std::nothrow) MDBXMLElement("MDB_JOB");
         CHECK_OBJ(pJobRoot);
         m_tDsnMgr[iDsnPos].m_tJob.m_pJobDocument->LinkEndChild(pJobRoot);
         CHECK_RET(NewJobNode(pMdbJob,pJobRoot),"Generated node[%s] fails.",pMdbJob->m_sName);
@@ -3355,7 +3358,7 @@ int TMdbScript::NewJobNode(TMdbJob *pMdbJob,MDBXMLElement *pJobRoot)
     CHECK_OBJ(pMdbJob);
     CHECK_OBJ(pJobRoot);
     char sRateType[MAX_NAME_LEN] = {0};
-    MDBXMLElement *pJobElement = new MDBXMLElement("job");
+    MDBXMLElement *pJobElement = new(std::nothrow) MDBXMLElement("job");
     CHECK_OBJ(pJobElement);
     pJobRoot->LinkEndChild(pJobElement);
     pJobElement->SetAttribute("name",pMdbJob->m_sName);
@@ -3681,18 +3684,18 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEAddTs = new MDBXMLElement("add-ts");
+            MDBXMLElement *pEAddTs = new(std::nothrow) MDBXMLElement("add-ts");
             pETs->LinkEndChild(pEAddTs);
             pEAddTs->SetAttribute("value",psTsName);
             
         }
         else
         {
-            pDsnScript->m_pTsAlterRoot = new MDBXMLElement("MDBConfig");
+            pDsnScript->m_pTsAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             pDsnScript->m_pTsAlterDoc->LinkEndChild(pDsnScript->m_pTsAlterRoot);
-            MDBXMLElement *pETs = new MDBXMLElement("table-space");
+            MDBXMLElement *pETs = new(std::nothrow) MDBXMLElement("table-space");
             pDsnScript->m_pTsAlterRoot->LinkEndChild(pETs);
-            MDBXMLElement *pEAddTs = new MDBXMLElement("add-ts");
+            MDBXMLElement *pEAddTs = new(std::nothrow) MDBXMLElement("add-ts");
             pETs->LinkEndChild(pEAddTs);
             pEAddTs->SetAttribute("value",psTsName);
         }     
@@ -3733,7 +3736,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-pagesize");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-pagesize");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psTsName);
             pEModTs->SetAttribute("old-value",iOldValue);
@@ -3742,11 +3745,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            pDsnScript->m_pTsAlterRoot = new MDBXMLElement("MDBConfig");
+            pDsnScript->m_pTsAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             pDsnScript->m_pTsAlterDoc->LinkEndChild(pDsnScript->m_pTsAlterRoot);
-            MDBXMLElement *pETs = new MDBXMLElement("table-space");
+            MDBXMLElement *pETs = new(std::nothrow) MDBXMLElement("table-space");
             pDsnScript->m_pTsAlterRoot->LinkEndChild(pETs);
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-pagesize");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-pagesize");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psTsName);
             pEModTs->SetAttribute("old-value",iOldValue);
@@ -3787,18 +3790,18 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEDelTs = new MDBXMLElement("del-ts");
+            MDBXMLElement *pEDelTs = new(std::nothrow) MDBXMLElement("del-ts");
             pETs->LinkEndChild(pEDelTs);
             pEDelTs->SetAttribute("value",psTsName);
             
         }
         else
         {
-            pDsnScript->m_pTsAlterRoot = new MDBXMLElement("MDBConfig");
+            pDsnScript->m_pTsAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             pDsnScript->m_pTsAlterDoc->LinkEndChild(pDsnScript->m_pTsAlterRoot);
-            MDBXMLElement *pETs = new MDBXMLElement("table-space");
+            MDBXMLElement *pETs = new(std::nothrow) MDBXMLElement("table-space");
             pDsnScript->m_pTsAlterRoot->LinkEndChild(pETs);
-            MDBXMLElement *pEDelTs = new MDBXMLElement("del-ts");
+            MDBXMLElement *pEDelTs = new(std::nothrow) MDBXMLElement("del-ts");
             pETs->LinkEndChild(pEDelTs);
             pEDelTs->SetAttribute("value",psTsName);
         }     
@@ -3837,7 +3840,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEAddColm = new MDBXMLElement("add-column");
+            MDBXMLElement *pEAddColm = new(std::nothrow) MDBXMLElement("add-column");
             pETs->LinkEndChild(pEAddColm);
             pEAddColm->SetAttribute("value",psColmName);
             pEAddColm->SetAttribute("position",iColumCount);
@@ -3845,11 +3848,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+            psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-            MDBXMLElement *pETab = new MDBXMLElement("table");
+            MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
             psTabScript->m_pTabAlterRoot ->LinkEndChild(pETab);
-            MDBXMLElement *pEAddColm = new MDBXMLElement("add-column");
+            MDBXMLElement *pEAddColm = new(std::nothrow) MDBXMLElement("add-column");
             pETab->LinkEndChild(pEAddColm);
             pEAddColm->SetAttribute("value",psColmName);
             pEAddColm->SetAttribute("position",iColumCount);
@@ -3889,7 +3892,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
 				}
 			}
 
-			MDBXMLElement *pEDropColm = new MDBXMLElement("drop-column");
+			MDBXMLElement *pEDropColm = new(std::nothrow) MDBXMLElement("drop-column");
 			pETs->LinkEndChild(pEDropColm);
 			pEDropColm->SetAttribute("value",psColmName);
             pEDropColm->SetAttribute("position",iColumCount);
@@ -3897,11 +3900,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
 		}
 		else
 		{
-			psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+			psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
 			psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-			MDBXMLElement *pETab = new MDBXMLElement("table");
+			MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
 			psTabScript->m_pTabAlterRoot ->LinkEndChild(pETab);
-			MDBXMLElement *pEDropColm = new MDBXMLElement("drop-column");
+			MDBXMLElement *pEDropColm = new(std::nothrow) MDBXMLElement("drop-column");
 			pETab->LinkEndChild(pEDropColm);
 			pEDropColm->SetAttribute("value",psColmName);
             pEDropColm->SetAttribute("position",iColumCount);
@@ -3950,7 +3953,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-datatype");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-datatype");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psColmName);
             pEModTs->SetAttribute("old-value",sOldDataType);
@@ -3959,11 +3962,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+            psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-            MDBXMLElement *pETab = new MDBXMLElement("table");
+            MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
             psTabScript->m_pTabAlterRoot->LinkEndChild(pETab);
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-datatype");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-datatype");
             pETab->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psColmName);
             pEModTs->SetAttribute("old-value",sOldDataType);
@@ -4006,7 +4009,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 }
             }
 
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-datalen");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-datalen");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psColmName);
             pEModTs->SetAttribute("old-value",iOldValue);
@@ -4015,11 +4018,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+            psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-            MDBXMLElement *pETab = new MDBXMLElement("table");
+            MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
             psTabScript->m_pTabAlterRoot->LinkEndChild(pETab);
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-datalen");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-datalen");
             pETab->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("name",psColmName);
             pEModTs->SetAttribute("old-value",iOldValue);
@@ -4060,7 +4063,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 return 0;
             }
 
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-datalen");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-datalen");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("old-value",psOldValue);
             pEModTs->SetAttribute("new-value",psNewValue);
@@ -4068,11 +4071,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+            psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-            MDBXMLElement *pETab = new MDBXMLElement("table");
+            MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
             psTabScript->m_pTabAlterRoot->LinkEndChild(pETab);
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-timezip");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-timezip");
             pETab->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("old-value",psOldValue);
             pEModTs->SetAttribute("new-value",psNewValue);
@@ -4112,7 +4115,7 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
                 return 0;
             }
 
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-talespace");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-talespace");
             pETs->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("old-value",psOldValue);
             pEModTs->SetAttribute("new-value",psNewValue);
@@ -4120,11 +4123,11 @@ int TMdbScript::ReplaceSpecialCharactersForSQL(const char *pszFullFileName)
         }
         else
         {
-            psTabScript->m_pTabAlterRoot = new MDBXMLElement("MDBConfig");
+            psTabScript->m_pTabAlterRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
             psTabScript->m_pTabAlterDoc->LinkEndChild(psTabScript->m_pTabAlterRoot);
-            MDBXMLElement *pETab = new MDBXMLElement("table");
+            MDBXMLElement *pETab = new(std::nothrow) MDBXMLElement("table");
             psTabScript->m_pTabAlterRoot->LinkEndChild(pETab);
-            MDBXMLElement *pEModTs = new MDBXMLElement("mod-talespace");
+            MDBXMLElement *pEModTs = new(std::nothrow) MDBXMLElement("mod-talespace");
             pETab->LinkEndChild(pEModTs);
             pEModTs->SetAttribute("old-value",psOldValue);
             pEModTs->SetAttribute("new-value",psNewValue);

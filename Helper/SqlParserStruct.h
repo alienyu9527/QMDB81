@@ -786,12 +786,12 @@ struct _ST_MEM_VALUE_LIST
 		}
 		pValueArray = NULL;
 		
-		iItemNum = vMemValue.size();
+		iItemNum = static_cast<int>(vMemValue.size());
 		if(iItemNum <= 0){return;}
 		pValueArray = new ST_MEM_VALUE *[iItemNum];
 		for(i = 0;i<(int) vMemValue.size();i++)
 		{
-			pValueArray[i] = vMemValue[i];
+			pValueArray[i] = vMemValue[static_cast<size_t>(i)];
 		}
 	}
 };

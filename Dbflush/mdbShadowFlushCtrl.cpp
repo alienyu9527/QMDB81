@@ -342,7 +342,7 @@
         {
             if(0 == strlen(m_vTabDAO[i].m_sTabName))
             {
-                m_vTabDAO[i].m_pInsertDAO = new TMdbDAOBase();
+                m_vTabDAO[i].m_pInsertDAO = new(std::nothrow) TMdbDAOBase();
                 if(NULL == m_vTabDAO[i].m_pInsertDAO)
                 {
                     TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -351,7 +351,7 @@
                 GenInsertSql(psTabName, sSql, sizeof(sSql));
                 m_vTabDAO[i].m_pInsertDAO->SetSQL(sSql);
 
-                m_vTabDAO[i].m_pDelDAO= new TMdbDAOBase();
+                m_vTabDAO[i].m_pDelDAO= new(std::nothrow) TMdbDAOBase();
                 if(NULL == m_vTabDAO[i].m_pDelDAO)
                 {
                     TADD_ERROR(ERROR_UNKNOWN,"Out of memory.");
@@ -885,7 +885,7 @@
             return -1;
         }
 
-        TTableNotifyInfo* pCurTabInfo = new TTableNotifyInfo();
+        TTableNotifyInfo* pCurTabInfo = new(std::nothrow) TTableNotifyInfo();
         CHECK_OBJ(pCurTabInfo);
 
         iRet = pCurTabInfo->Init(m_sNotifyTabName, m_sNotifySeqTabName, m_sShadowTabName

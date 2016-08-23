@@ -135,7 +135,7 @@ class TMdbPeerInfo;
  * 前摄器基于线程，也就是由单独线程摄取io事件
  * 
  */
-class TMdbPeerProactor:public TMdbProactor, public /*QuickMDB::*/TMdbNtcThread
+class TMdbPeerProactor:public TMdbProactor, public TMdbNtcThread
 {
     friend class TMdbServerInfo;
     friend class TMdbPeerInfo;
@@ -279,7 +279,7 @@ protected:
     bool AsyncRemoveEventMonitor(QuickMDB_SOCKET fd, MDB_UINT16 events);
 protected:
     QuickMDB_SOCKET intr_fd[2];///< socket pair用于中断select等循环
-    /*QuickMDB::*/TMdbNtcThreadLock spinlock;
+    TMdbNtcThreadLock spinlock;
     TMdbNtcEngine* m_pNtcEngine;
 };
 

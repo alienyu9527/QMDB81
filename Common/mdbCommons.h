@@ -387,8 +387,8 @@ typedef void (*OnMdbEventFunc)(void *AObject);
 //#define ZF_DATABASE_MYSQL_THROW(ERR_CODE,STR_SQL,INFO) throw TDBException( __FILE__,__LINE__,__FUNC__,ERR_CODE,STR_SQL,INFO)
 //#define ZF_DATABASE_ORACLE_THROW(ERR_CODE,STR_SQL,INFO) throw TDBException( __FILE__,__LINE__,__FUNC__,ERR_CODE,STR_SQL,INFO)
 
-#define MDB_NTC_ZF_SNPRINTF /*QuickMDB::*/MdbNtcSnprintf
-#define MDB_NTC_ZF_STRCPY /*QuickMDB::*/MdbNtcStrcpy
+#define MDB_NTC_ZF_SNPRINTF MdbNtcSnprintf
+#define MDB_NTC_ZF_STRCPY MdbNtcStrcpy
         inline const char* mdb_ntc_strnchr(const char* pszSrc, char cChar, int iLength = -1)
         {
             if(pszSrc == NULL || iLength == 0) return NULL;

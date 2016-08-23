@@ -108,7 +108,6 @@
         m_mdbPageCtrl.SetDSN(m_pDsn->sName);
         //m_tVarcharMgr.SetConfig(m_pMdbSqlParser->m_stSqlStruct.pShmDSN);//设置varchar
         m_tVarcharCtrl.Init(m_pDsn->sName);
-		
         CHECK_RET_FILL_CODE(m_mdbTSCtrl.Init(m_pDsn->sName,m_pTable->m_sTableSpace),
                        ERR_OS_ATTACH_SHM,"m_mdbTSCtrl.Init error");
 		
@@ -116,12 +115,9 @@
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn failed.");
         CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable failed.");
-		
+        CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable,m_pMdbSqlParser->m_stSqlStruct.iSqlType),
+						ERR_OS_ATTACH_SHM,"m_MdbTableWalker.AttachTable failed.");
 		CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(pLocalLink),ERROR_UNKNOWN,"m_mdbIndexCtrl.SetLinkInfo failed");
-		
-		
-        CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable),
-                       ERR_OS_ATTACH_SHM,"m_MdbTableWalker.AttachTable failed.");
         CHECK_RET_FILL_CODE(m_tMdbFlush.Init(pMdbSqlParser,iFlag),ERR_SQL_FLUSH_DATA,"m_tMdbFlush.Init failed");//初始化flush模块
         CHECK_RET_FILL_CODE(m_tObserveTableExec.Init(m_pDsn->sName,OB_TABLE_EXEC),ERR_DB_OBSERVE,"m_tObserveTableExec.Init failed");
         CHECK_RET_FILL_CODE(m_tObserveTableExec.SetExecEngine(this),ERR_DB_OBSERVE,"m_tObserveTableExec.SetExecEngine failed.");
@@ -697,7 +693,7 @@
             break;
         }
         TADD_DETAIL("InsertData(%s) : Data insert OK,rowID=%p .",m_pTable->sTableName,&rowID);
-        CHECK_RET_FILL(ChangeInsertIndex(pAddr, rowID),"ChangeInsertIndex failed...");		
+        CHECK_RET_FILL(ChangeInsertIndex(m_pDataAddr, rowID),"ChangeInsertIndex failed...");
         TADD_FUNC("Finish.");
         return 0;
     }
@@ -1036,7 +1032,7 @@
                 m_iCurIndex ++;
                 pTableIndex = (*m_pVIndex)[m_iCurIndex].pstTableIndex;
                 CalcMemValueHash((*m_pVIndex)[m_iCurIndex],llValue);
-				CHECK_RET(SetTrieWord(),"SetTrieWord Failed.");
+				CHECK_RET(SetTrieWord((*m_pVIndex)[m_iCurIndex]),"SetTrieWord Failed.");
             }
         }
         if(NULL != pTableIndex)
@@ -1052,25 +1048,15 @@
     }
 
 	
-    int TMdbExecuteEngine::SetTrieWord()
+    int TMdbExecuteEngine::SetTrieWord(ST_INDEX_VALUE&  stIndexValue)
    	{
    		int  iRet = 0;
 		m_MdbTableWalker.m_sTrieWord[0] = 0;
-		if((int)m_pVIndex->size() <= 0 || m_iCurIndex < -1)
-        {
-        	return iRet;
-        }
-		
-		ST_INDEX_VALUE stIndexValue = (*m_pVIndex)[m_iCurIndex];
 		
 		if(stIndexValue.pstTableIndex->pIndexInfo->m_iAlgoType == INDEX_TRIE && \
 			stIndexValue.pstTableIndex->pIndexInfo->m_iIndexType == HT_Char ) 
 		{
 			SAFESTRCPY(m_MdbTableWalker.m_sTrieWord, MAX_TRIE_WORD_LEN ,stIndexValue.pExprArr[0]->pExprValue->sValue);			
-		}
-		else
-		{
-			m_MdbTableWalker.m_sTrieWord[0] = 0;
 		}
 
 		return iRet;		
@@ -1676,8 +1662,7 @@
 				   bResult = false;
 				   break;
 			   }
-
-				m_MdbTableWalker.WalkByIndex(pTableIndex, llValue);//按索引遍历			   
+			   m_MdbTableWalker.WalkByIndex(pTableIndex, llValue);//按索引遍历	
 			   continue;
 		   }
 		   else
@@ -1768,7 +1753,8 @@
         long long llValue = 0;
         TADD_FLOW("Check PK index[%s].",m_pMdbSqlParser->m_stSqlStruct.stIndexForVerifyPK.pstTableIndex->pIndexInfo->sName);
         CalcMemValueHash(m_pMdbSqlParser->m_stSqlStruct.stIndexForVerifyPK,llValue);//计算主键值
-        ST_INDEX_VALUE & stIndexForVerifyPK = m_pMdbSqlParser->m_stSqlStruct.stIndexForVerifyPK;
+		SetTrieWord(m_pMdbSqlParser->m_stSqlStruct.stIndexForVerifyPK);
+		ST_INDEX_VALUE & stIndexForVerifyPK = m_pMdbSqlParser->m_stSqlStruct.stIndexForVerifyPK;
         m_MdbTableWalker.WalkByIndex(stIndexForVerifyPK.pstTableIndex, llValue);
         while(m_MdbTableWalker.Next())
         {
@@ -2035,12 +2021,19 @@
 				if(m_tRowCtrl.IsColumnNull(pMdbColumn,m_pDataAddr) == true)
 		        {// NULL值
 		        	pTColumnAddr->m_ppColumnAddr[i] = NULL;
+					pTColumnAddr->m_iDataLen[i] = 0;
 		            TADD_FLOW("Column[%d] is NULL",i);
 		            break;
 		        }
+				
 				int iWhichPos = 0;
 				unsigned int iRowId = 0;
 				m_tVarcharCtrl.GetStoragePos(m_pDataAddr+pMdbColumn->iOffSet,iWhichPos,iRowId);
+				TMdbShmDSN* pShmDSN = TMdbShmMgr::GetShmDSN(m_pDsn->sName);
+				TMdbVarchar* pVarChar = pShmDSN->GetVarchar(iWhichPos);
+	    		CHECK_OBJ(pVarChar);
+				m_tVarcharCtrl.SetVarchar(pVarChar);
+
 				TMdbRowID tRowId;
 			    tRowId.SetRowId(iRowId);
 			    pTColumnAddr->m_ppColumnAddr[i] = m_tVarcharCtrl.GetAddressRowId(&tRowId);	
@@ -2052,6 +2045,7 @@
 				if(m_tRowCtrl.IsColumnNull(pMdbColumn,m_pDataAddr) == true)
 		        {// NULL值
 		        	pTColumnAddr->m_ppColumnAddr[i] = NULL;
+					pTColumnAddr->m_iDataLen[i] = 0;
 		            TADD_FLOW("Column[%d] is NULL",i);
 		            break;
 		        }
@@ -2059,6 +2053,11 @@
 				unsigned int iRowId = 0;
 				size_t iEnCodeLen = 0;
 				m_tVarcharCtrl.GetStoragePos(m_pDataAddr+pMdbColumn->iOffSet,iWhichPos,iRowId);
+				TMdbShmDSN* pShmDSN = TMdbShmMgr::GetShmDSN(m_pDsn->sName);
+				TMdbVarchar* pVarChar = pShmDSN->GetVarchar(iWhichPos);
+	    		CHECK_OBJ(pVarChar);
+				m_tVarcharCtrl.SetVarchar(pVarChar);
+
 				TMdbRowID tRowId;
 			    tRowId.SetRowId(iRowId);
 			    std::string encoded = m_tVarcharCtrl.GetAddressRowId(&tRowId);
@@ -2066,10 +2065,22 @@
 				iEnCodeLen =  decoded.length();
 				
 				pTColumnAddr->m_iDataLen[i] = (int)iEnCodeLen;
-				SAFE_DELETE(pTColumnAddr->m_ppBlob[i]);
-				pTColumnAddr->m_ppBlob[i] = new char[iEnCodeLen];
-				memcpy(pTColumnAddr->m_ppBlob[i],decoded.c_str(),iEnCodeLen);
 				
+				//长度不够再重新申请
+				if(pTColumnAddr->m_iBlobAskLen[i] < (int)iEnCodeLen)
+				{
+					SAFE_DELETE(pTColumnAddr->m_ppBlob[i]);
+					pTColumnAddr->m_ppBlob[i] = new(std::nothrow) char[iEnCodeLen];
+					if(pTColumnAddr->m_ppBlob[i] ==  NULL)
+					{
+						iRet = ERR_OS_NO_MEMROY;
+						TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new pTColumnAddr->m_ppBlob ");
+						break;
+					}
+					pTColumnAddr->m_iBlobAskLen[i] = (int)iEnCodeLen;
+				}
+				
+				memcpy(pTColumnAddr->m_ppBlob[i],decoded.c_str(),iEnCodeLen);				
 				pTColumnAddr->m_ppColumnAddr[i] = pTColumnAddr->m_ppBlob[i];
 
 				break;
@@ -2119,7 +2130,7 @@
         }
         if(NULL == m_aRowIndexPos)
         {
-            m_aRowIndexPos = new int[m_pTable->iIndexCounts];
+            m_aRowIndexPos = new(std::nothrow) int[m_pTable->iIndexCounts];
         }
         if(NULL == m_aRowIndexPos){return NULL;}
         if(NULL != pDataAddr)

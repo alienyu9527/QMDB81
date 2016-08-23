@@ -103,8 +103,7 @@
     public:
     	TMdbTableWalker();
     	~TMdbTableWalker();
-    	int AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * m_pMdbTable);//连接表
-
+    	int AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * m_pMdbTable,int iSqlType = TK_SELECT);//连接表
         int WalkByIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue);
     	bool Next();//下一个
     	inline char * GetDataAddr(){	return m_pDataAddr;}//获取数据地址
@@ -118,21 +117,24 @@
     	char* GetAddressRowID(TMdbRowID* pRowID, int &iDataSize, bool bGetPageAddr = false);
 		
     protected:
-
         // hash 索引遍历
         int WalkByHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue);
+		int WalkByRePosHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo,long long lIndexValue);
         bool NextByHash();
+		bool NextByRePosIndex();
 
         // m-hash索引遍历
         int WalkByMHashIndex(ST_TABLE_INDEX_INFO* pIndexInfo, long long lIndexValue); 
         bool NextByMHash();
-
         char* GetAddrByMhashIndexNodeId(int iHeadBlock,int iIndexNodeId, int iNodeSize, bool bConf);
         TMdbMhashBlock* GetMhashBlockById(int iBlockID, bool bConf);
 
 		//trie索引遍历
 		int WalkByTrieIndex(ST_TABLE_INDEX_INFO* pIndexInfo);		
-		bool NextByTrie();
+		bool NextByTrie();		
+		bool NextByTrieLookBack(TMdbTrieIndexNode* pCur);
+		bool NextByTrieFullMatch();
+			
 		char* GetAddrByTrieIndexNodeId(int iHeadBlock,int iIndexNodeId, int iNodeSize, bool bConf);
 		TMdbTrieBlock* GetTrieBlockById(int iBlockID, bool bConf);
 		
@@ -141,6 +143,7 @@
         TMdbDSN * 		m_pMdbDSN;//DSN
         TMdbTableSpace * m_pTableSpace;//表空间
         TMdbTable * 	       m_pMdbTable;//表
+        int   m_iSqlType;
         MDB_INT32  			m_iDataSize;   //数据长度
         char * 			m_pDataAddr;//数据地址，也可表示索引节点的地址
         char *			m_pNextDataAddr;//临时变量，用于保存m_pDataAddr的下一个位置
@@ -153,6 +156,8 @@
         // hash索引遍历使用
         TMdbIndexNode* m_pConflictIndex; 
         MDB_INT32 			m_iNextIndexPos; //下一个index的位置
+        TMdbReIndexNode* m_pReposConfIndex; // 反向定位冲突索引
+   		bool m_bWalkByRePosIndex;
 
         // 阶梯式索引遍历使用
         TMdbMHashBaseIndexNode* m_pMHashBaseIdx; // 基础索引链节点
@@ -164,9 +169,7 @@
         TMdbTrieBranchIndex* m_pTrieBranchIndex;
 		bool m_bStopScanTrie;
 				
-        bool m_bScanAll;
-
-			
+		
 	public:	
         TMdbPage * m_pCurPage;    //数据所在页面的地址
         TMdbPage * m_pStartPage; //是否遍历过表FREE链的头结点

@@ -9,6 +9,8 @@
 ******************************************************************************************/
 #include "Replication/mdbRepNTC.h"
 #include "Replication/mdbRepServerCtrl.h"
+#include "Helper/mdbBase.h"
+#include "Helper/mdbDateTime.h"
 //#include "Replication/mdbRepLoadData.h"
 //namespace QuickMDB
 //{
@@ -47,16 +49,16 @@
         }
         m_iTimeOut = iTimeOut;
 
-        if(!/*QuickMDB::*/TMdbSyncEngine::IsStart()) 
+        if(!TMdbSyncEngine::IsStart()) 
         {
-            /*QuickMDB::*/TMdbSyncEngine::Start();
+            TMdbSyncEngine::Start();
         }
 
-        m_pPeerInfo = /*QuickMDB::*/TMdbSyncEngine::Connect(pszIP, iPort, new /*QuickMDB::*/TMdbWinntTcpProtocol(), m_iTimeOut);//三秒超时
+        m_pPeerInfo = TMdbSyncEngine::Connect(pszIP, iPort, new TMdbWinntTcpProtocol(), m_iTimeOut);//三秒超时
         if (m_pPeerInfo != NULL)
         {
             TADD_NORMAL("Connect to Server(%s:%d) OK.", pszIP, iPort);
-            m_pTcpHelper = new(std::nothrow)/*QuickMDB::*/TMdbWinntTcpHelper(m_pPeerInfo);
+            m_pTcpHelper = new(std::nothrow)TMdbWinntTcpHelper(m_pPeerInfo);
             if (m_pTcpHelper == NULL)
             {
                 TADD_ERROR(ERR_OS_NO_MEMROY, "Get TMdbWinntTcpHelper failed.");
@@ -97,7 +99,7 @@
             iLength = psBodyBuffer!=NULL? strlen(psBodyBuffer): 0;
         }
 
-        bRet = m_pTcpHelper->SendPacket(/*QuickMDB::*/MDB_ASYN_EVENT, eEvent, psBodyBuffer, iLength);
+        bRet = m_pTcpHelper->SendPacket(MDB_ASYN_EVENT, eEvent, psBodyBuffer, iLength);
         TADD_FUNC("Finish");
         return bRet;
     }
@@ -132,7 +134,7 @@
             m_pMsgEvent->Release();
         }
 
-        m_pMsgEvent = /*QuickMDB::*/TMdbSyncEngine::GetMessage(m_iTimeOut);
+        m_pMsgEvent = TMdbSyncEngine::GetMessage(m_iTimeOut);
         if (m_pMsgEvent !=NULL)
         {
             tMsg.eEvent = (eRepNtcEvent)static_cast<TMdbWinntTcpMsg*>(m_pMsgEvent->pMsgInfo)->oMsgHead.event;
@@ -162,7 +164,7 @@
         TADD_FUNC("Start.");
         if (m_pPeerInfo!=NULL)
         {
-            /*QuickMDB::*/TMdbSyncEngine::Disconnect(m_pPeerInfo->pno);
+            TMdbSyncEngine::Disconnect(m_pPeerInfo->pno);
         }
         
         m_eState = E_REP_NTC_CLOSED;
@@ -245,7 +247,7 @@
             }
             else
             {
-                /*QuickMDB::*/TMdbNtcSplit tSplit;
+                TMdbNtcSplit tSplit;
                 tSplit.SplitString(tMsg.psMsg, '|');
                 iHostID = atoi(tSplit[0]);
                 iHeartbeat = atoi(tSplit[1]);
@@ -376,9 +378,9 @@
 
     
     TMdbRepDataClient::TMdbRepDataClient():m_pPeerInfo(NULL),m_pMsgEvent(NULL),m_pLoadDataTool(NULL), m_iRepHostID(MDB_REP_EMPTY_HOST_ID),
-        m_iLocHostID(MDB_REP_EMPTY_HOST_ID), m_iBufLen(0), m_ptFileParser(NULL), m_ptRepFileStat(NULL)         
+        m_iLocHostID(MDB_REP_EMPTY_HOST_ID), m_iBufLen(0), m_tFlushTime(0), m_ptFileParser(NULL), m_ptRepFileStat(NULL)         
     {
-
+		
     }
     TMdbRepDataClient::~TMdbRepDataClient()
     {
@@ -400,9 +402,9 @@
         m_pLoadDataTool = new(std::nothrow) TMdbLoadDataTool();
         CHECK_OBJ(m_pLoadDataTool);
         CHECK_RET(m_pLoadDataTool->Init(pMdbCfg), "TMdbLoadDataTool Init failed.");
-
+		
         m_strDsn = pMdbCfg->GetDSN()->sName;
-        return 0;
+        return iRet;
     }
     /******************************************************************************
     * 函数名称	:  Connect
@@ -428,12 +430,12 @@
         m_iPort = iPort;
         m_iTimeOut = iTimeOut;
 
-        if(!/*QuickMDB::*/TMdbSyncEngine::IsStart()) 
+        if(!TMdbSyncEngine::IsStart()) 
         {
-            /*QuickMDB::*/TMdbSyncEngine::Start();
+            TMdbSyncEngine::Start();
         }
 
-        m_pPeerInfo = /*QuickMDB::*/TMdbSyncEngine::Connect(pszIP, iPort, NULL, iTimeOut);//三秒超时
+        m_pPeerInfo = TMdbSyncEngine::Connect(pszIP, iPort, NULL, iTimeOut);//三秒超时
         if (m_pPeerInfo != NULL)
         {
             TADD_NORMAL("Connect to Server(%s:%d) OK.", pszIP, iPort);
@@ -519,7 +521,7 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jiang.lili
     *******************************************************************************/
-    int TMdbRepDataClient::GetMsg(/*QuickMDB::*/TMdbMsgInfo* &pMsg)
+    int TMdbRepDataClient::GetMsg(TMdbMsgInfo* &pMsg)
     {
         TADD_FUNC("Start.");
         int iRet = ERROR_SUCCESS;
@@ -528,7 +530,7 @@
             m_pMsgEvent->Release();
         }
 
-        m_pMsgEvent = /*QuickMDB::*/TMdbSyncEngine::GetMessage(m_iTimeOut);
+        m_pMsgEvent = TMdbSyncEngine::GetMessage(m_iTimeOut);
         if (m_pMsgEvent !=NULL && m_pMsgEvent->pMsgInfo->GetLength()>0)
         {
             pMsg = m_pMsgEvent->pMsgInfo;
@@ -556,7 +558,7 @@
     void TMdbRepDataClient::Disconnect()
     {
         TADD_FUNC("Start.");
-        /*QuickMDB::*/TMdbSyncEngine::Disconnect(m_pPeerInfo->pno);
+        TMdbSyncEngine::Disconnect(m_pPeerInfo->pno);
         m_eState = E_REP_NTC_CLOSED;
         m_pPeerInfo = NULL;
         TADD_FUNC("Finish");
@@ -673,6 +675,88 @@
         return iRet;
     }
 
+	/******************************************************************************
+    * 函数名称	:  SendData
+    * 函数描述	: 将文件数据发送至对端
+    * 输入		:  
+    * 输出		:  
+    * 返回值	:  0 - 成功 !0 -失败
+    * 作者		:  jiang.xiaolong
+    *******************************************************************************/ 
+	int TMdbRepDataClient::SendData(const char* sOneRecord, int iLen)
+	{
+		TADD_FUNC("Start");
+		int iRet = 0;
+		CHECK_OBJ(sOneRecord);
+		//m_iBufLen = 0;
+		
+		TADD_DETAIL("send:[%s]", sOneRecord);
+		if(MAX_REP_SEND_BUF_LEN - m_iBufLen > iLen)//空间足够，继续将数据放入缓存
+		{
+			memcpy(&m_sSendBuf[m_iBufLen],sOneRecord, iLen);
+		}
+		else//send mSendBuffer
+		{
+			if (!SendPacket(E_SEND_REP_DATA, m_sSendBuf, m_iBufLen))
+			{
+				CHECK_RET(ERR_NET_SEND_FAILED, "Send data to peer failed.");
+			}
+			m_iBufLen = 0;
+			memcpy(&m_sSendBuf[m_iBufLen],sOneRecord, iLen);
+		}
+		m_iBufLen+=iLen;
+		m_sSendBuf[m_iBufLen] = '\0';
+
+		if(TMdbNtcDateTime::GetDiffSeconds(TMdbNtcDateTime::GetCurTime(), m_tFlushTime)>= 1)//每隔1s清空缓冲区
+		{
+			if(m_iBufLen > 0)//缓冲区剩余数据
+			{		 
+				TADD_DETAIL("packet sending ...");
+				TADD_DETAIL("TEST: m_sSendBuf=[%s], m_iBufLen=%d", m_sSendBuf, m_iBufLen);
+				if (!SendPacket(E_SEND_REP_DATA, m_sSendBuf, m_iBufLen))
+				{
+					CHECK_RET(ERR_NET_SEND_FAILED, "Send data to peer failed.");
+				}
+				m_iBufLen = 0;
+			}
+			m_tFlushTime = TMdbNtcDateTime::GetCurTime();
+		}
+		TADD_FUNC("Finish");
+		return iRet;
+	}
+
+	/******************************************************************************
+	* 函数名称	:  SendData
+	* 函数描述	: 将缓存中残留数据发送至对端
+	* 输入		:  
+	* 输出		:  
+	* 返回值	:  0 - 成功 !0 -失败
+	* 作者		:  jiang.xiaolong
+	*******************************************************************************/ 
+	int TMdbRepDataClient::SendData()
+	{
+		TADD_FUNC("Start");
+		int iRet = 0;
+		if(m_iBufLen == 0)
+		{
+			return 1;
+		}
+		if(m_iBufLen > 0)//缓冲区剩余数据
+		{		 
+			TADD_DETAIL("packet sending ...");
+			TADD_DETAIL("TEST: m_sSendBuf=[%s], m_iBufLen=%d", m_sSendBuf, m_iBufLen);
+			if (!SendPacket(E_SEND_REP_DATA, m_sSendBuf, m_iBufLen))
+			{
+				CHECK_RET(ERR_NET_SEND_FAILED, "Send data to peer failed.");
+			}
+			m_iBufLen = 0;
+		}
+		m_tFlushTime = TMdbNtcDateTime::GetCurTime();
+		TADD_FUNC("Finish");
+		return iRet;
+	}
+
+
     /******************************************************************************
     * 函数名称	:  LoadData
     * 函数描述	: 从对端加载数据
@@ -707,7 +791,14 @@
                     continue;
                 }
 
-                iRet = LoadOneTable(pTable->sTableName, sRoutinglist);
+				
+				if(sTblName[0] != 0
+					&& TMdbNtcStrFunc::StrNoCaseCmp(sTblName,"all") != 0
+					&& TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName,sTblName) != 0)
+					
+					continue;
+				
+                iRet = LoadOneTable(pTable->sTableName, sRoutinglist, pShmDSN->GetInfo()->m_bIsMemLoad);
                 if (ERR_TAB_NO_TABLE == iRet)
                 {
                     TADD_WARNING("Table[%s] does not exist in peer MDB.", pTable->sTableName);
@@ -770,14 +861,11 @@
         return m_iRepHostID;
     }
 
-
-    int TMdbRepDataClient::LoadOneTable(const char* sTableName, const char* sRoutinglist)
-    {
+	int TMdbRepDataClient::SetLoadMsg(const char* sTableName, const char* sRoutinglist, bool bIsMemLoad, char * sMsgBuf)
+	{
         TADD_FUNC("Start.");
-        TADD_NORMAL("Load table[%s], routing_list = [%s]", sTableName, sRoutinglist);
-        int iRet = 0;
-        char sMsgBuf[MAX_REP_SEND_BUF_LEN];
-        if (atoi(sRoutinglist) == DEFALUT_ROUT_ID)
+		int iRet = 0;
+		if (atoi(sRoutinglist) == DEFALUT_ROUT_ID)
         {
              snprintf(sMsgBuf, MAX_REP_SEND_BUF_LEN, "%s%s", LOAD_DATA_START_FLAG, sTableName);//格式：Load:TableName|routinglist
         }
@@ -785,23 +873,123 @@
         {
              snprintf(sMsgBuf, MAX_REP_SEND_BUF_LEN, "%s%s|%s", LOAD_DATA_START_FLAG, sTableName,  sRoutinglist);//格式：Load:TableName|routinglist
         }
-       
+		if(bIsMemLoad)
+		{
+			snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "#");
+			TMdbShmDSN * pShmDSN = TMdbShmMgr::GetShmDSN(m_strDsn.c_str());
+			TMdbTable * pTable = pShmDSN->GetTableByName(sTableName);
+			CHECK_OBJ(pTable);
+			for(int i = 0; i<pTable->iColumnCounts; i++)
+	    	{
+				snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%d,%d,", pTable->tColumn[i].sName
+					, pTable->tColumn[i].iDataType, pTable->tColumn[i].iColumnLen);
+				if(pTable->tColumn[i].bIsDefault)
+				{
+					if(pTable->tColumn[i].iDataType == DT_Blob)
+					{
+						std::string encoded;
+	                    encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pTable->tColumn[i].iDefaultValue),strlen(pTable->tColumn[i].iDefaultValue));
+	                    snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%s", "Y", encoded.c_str());
+					}
+					else if(pTable->tColumn[i].iDataType == DT_DateStamp)
+					{
+						if(pTable->tColumn[i].iColumnLen == sizeof(int))
+                        {
+                            snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%d", "Y", \
+								(int)TMdbDateTime::StringToTime(pTable->tColumn[i].iDefaultValue,pShmDSN->GetInfo()->m_iTimeDifferent));
+                        }
+                        else if(pTable->tColumn[i].iColumnLen == sizeof(long long))
+                        {
+                            snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%lld", "Y", \
+								(long long)TMdbDateTime::StringToTime(pTable->tColumn[i].iDefaultValue,pShmDSN->GetInfo()->m_iTimeDifferent));
+                        }
+                        else if(pTable->tColumn[i].iColumnLen >= 14)
+                        {
+                            snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%s", "Y", pTable->tColumn[i].iDefaultValue);
+                        }
+					}
+					else
+					{
+						snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s,%s", "Y", pTable->tColumn[i].iDefaultValue);
+					}
+				}
+				else
+				{
+					snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s", "N");
+				}
+				if(i<pTable->iColumnCounts-1)
+				{
+					snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "@");
+				}
+	    	}
+        	snprintf(sMsgBuf+strlen(sMsgBuf), MAX_REP_SEND_BUF_LEN-strlen(sMsgBuf), "%s%s%s", pTable->iOneRecordNullOffset<0?"$N":"$Y", MdbNtcIsBigEndian()?"%B":"%L", "&Y");//格式：Load:TableName|routinglist&bIsMemLoad
+		}//Load:table_name|routing_id1,routing_id2...#col_name1,col_type,col_len,is_default,default_value@ col_name2,col_type,col_len,is_default,default_value@..$bEnableNull%bIsBigEndian&bIsMemLoad
+        
+        TADD_FUNC("Finish.");
+        return iRet;
+	}
+
+    int TMdbRepDataClient::LoadOneTable(const char* sTableName, const char* sRoutinglist, bool bIsMemLoad)
+    {
+        TADD_FUNC("Start.");
+        TADD_NORMAL("Load table[%s], routing_list = [%s], bIsMemLoad = [%s]", sTableName, sRoutinglist, bIsMemLoad?"&Y":"N");
+        int iRet = 0;
+        char sMsgBuf[MAX_REP_SEND_BUF_LEN] = {0};
+		CHECK_RET(SetLoadMsg(sTableName,sRoutinglist,bIsMemLoad,sMsgBuf), "SetLoadMsg failed.");
         if (SendPacket(E_LOAD_FROM_REP, sMsgBuf))
         {
-            TADD_NORMAL("Send load data request OK.");
+            TADD_FLOW("Send load data request [%s] OK.", sMsgBuf);
         }
         else
         {
-            CHECK_RET(ERR_NET_SEND_FAILED, "Send load data request failed.");
+            CHECK_RET(ERR_NET_SEND_FAILED, "Send load data request [%s] failed.", sMsgBuf);
         }
 
-        /*QuickMDB::*/TMdbMsgInfo* pMsg = NULL;
+        TMdbMsgInfo* pMsg = NULL;
+		if(bIsMemLoad)
+		{
+			while(true)
+			{
+				if (GetMsg(pMsg) == ERROR_SUCCESS)
+				{
+					if(TMdbNtcStrFunc::StrNoCaseCmp(pMsg->GetBuffer(), HOST_ENDIAN_NOT_MATCH)==0)
+					{
+						TADD_DETAIL("Get endian not match msg.");
+						bIsMemLoad = false;
+						break;
+					}
+					else if(TMdbNtcStrFunc::StrNoCaseCmp(pMsg->GetBuffer(), HOST_ENDIAN_MATCH)==0)
+					{
+						TADD_DETAIL("Get endian match msg.");
+						break;
+					}
+					else
+					{
+						continue;
+					}
+				}
+			}
+		}
+
+		if(bIsMemLoad)
+		{
+			m_pLoadDataTool->SetUploadTable(sTableName);
+		}
+        pMsg = NULL;
         bool bOver = false;//是否收到上载结束标识
         while(!bOver)
         {
             if (GetMsg(pMsg) == ERROR_SUCCESS)
             {
-                iRet = m_pLoadDataTool->UploadData(pMsg->GetBuffer(), pMsg->GetLength(), bOver);
+            	CHECK_RET(m_pLoadDataTool->SetbTool(bTool),"SetbTool failed");
+                if(bIsMemLoad)
+        		{
+					iRet = m_pLoadDataTool->UploadMemData(pMsg->GetBuffer(), pMsg->GetLength(), bOver);
+        		}
+				else
+				{
+            		iRet = m_pLoadDataTool->UploadData(pMsg->GetBuffer(), pMsg->GetLength(), bOver);
+				}
                 if (iRet != ERROR_SUCCESS)
                 {
                     TADD_ERROR(iRet, "pLoadDataTool->UploadData failed, Msg = [%s]", pMsg->GetBuffer());
@@ -810,6 +998,13 @@
         }
         if (bOver)
         {
+        	if(bIsMemLoad)
+    		{
+	        	//表数据处理完毕，重建索引
+				TMdbExecuteEngine tExecEngine;
+				CHECK_RET(tExecEngine.ReBuildTableFromPage(m_strDsn.c_str(),TMdbShmMgr::GetShmDSN(m_strDsn.c_str())->GetTableByName(sTableName)),"ReBuildTableFromPage failed.");
+			    TADD_NORMAL_TO_CLI(FMT_CLI_SUCCESS,"Rebuild Index.");
+    		}
             TADD_NORMAL("Load Table[%s] over.", sTableName);
         }
         TADD_FUNC("Finish.");
@@ -848,7 +1043,7 @@
         }
 
         TADD_NORMAL("Start to Add listen.");
-        bRet = /*QuickMDB::*/TMdbNtcEngine::AddListen(sIP, iPort, new(std::nothrow) TMdbWinntTcpProtocol());
+        bRet = TMdbNtcEngine::AddListen(sIP, iPort, new(std::nothrow) TMdbWinntTcpProtocol());
         if (bRet)
         {
             TADD_NORMAL("Start to listen(%d) OK", iPort);
@@ -863,7 +1058,7 @@
         this->InitEventPump(m_iWorkThreadNum);//初始化工作线程数据量
         if (!this->IsStart())
         {
-            bRet = /*QuickMDB::*/TMdbNtcEngine::Start();
+            bRet = TMdbNtcEngine::Start();
             if (bRet)
             {
                 TADD_NORMAL("Start NTC Engine OK");
@@ -880,7 +1075,7 @@
         return bRet;
     }
 
-    bool TMdbRepNTCServer::OnConnect(/*QuickMDB::*/TMdbConnectEvent *pEventInfo, /*QuickMDB::*/TMdbEventPump *pEventPump)
+    bool TMdbRepNTCServer::OnConnect(TMdbConnectEvent *pEventInfo, TMdbEventPump *pEventPump)
     {
         TADD_FUNC("Start.");
         bool bRet = true;
@@ -949,7 +1144,7 @@
         }
 
         TADD_NORMAL("Start to Add listen.");
-        bRet = /*QuickMDB::*/TMdbNtcEngine::AddListen(sIP, iPort, NULL);
+        bRet = TMdbNtcEngine::AddListen(sIP, iPort, NULL);
         if (bRet)
         {
             TADD_NORMAL("Start to listen(%d) OK", iPort);
@@ -964,7 +1159,7 @@
         this->InitEventPump(m_iWorkThreadNum);//初始化工作线程数据量
         if (!this->IsStart())
         {
-            bRet = /*QuickMDB::*/TMdbNtcEngine::Start();
+            bRet = TMdbNtcEngine::Start();
             if (bRet)
             {
                 TADD_NORMAL("Start mdbServer OK");
@@ -997,11 +1192,11 @@
         m_arRcvEngine.Clear();
     }
 
-    bool TMdbRepDataServer::OnConnect(/*QuickMDB::*/TMdbConnectEvent *pEventInfo, /*QuickMDB::*/TMdbEventPump *pEventPump)
+    bool TMdbRepDataServer::OnConnect(TMdbConnectEvent *pEventInfo, TMdbEventPump *pEventPump)
     {
         TADD_NORMAL("Start.");
         bool bRet = true;
-        /*QuickMDB::*/TMdbNtcEngine::OnConnect(pEventInfo, pEventPump);
+        TMdbNtcEngine::OnConnect(pEventInfo, pEventPump);
 
         TADD_NORMAL("Finish.");
         return bRet;
@@ -1025,7 +1220,7 @@
             }
         }
 
-        /*QuickMDB::*/TMdbNtcEngine::OnDisconnect(pEventInfo, pEventPump);
+        TMdbNtcEngine::OnDisconnect(pEventInfo, pEventPump);
         TADD_FUNC("Finish.");
         return bRet;
 
@@ -1050,7 +1245,7 @@
         bool bRet = true;
         TADD_DETAIL("Length=[%d],Buffer=[%s]", pEventInfo->pMsgInfo->GetLength(),pEventInfo->pMsgInfo->GetBuffer());
 
-        if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pEventInfo->pMsgInfo->GetBuffer(), REP_HEART_BEAT)==0)//心跳包
+        if (TMdbNtcStrFunc::StrNoCaseCmp(pEventInfo->pMsgInfo->GetBuffer(), REP_HEART_BEAT)==0)//心跳包
         {
             TADD_DETAIL("Recv check package from [%s:%d]\n", pEventInfo->pPeerInfo->GetRemoteAddrInfo().c_str(), pEventInfo->pPeerInfo->GetRemotePort());
         }
@@ -1107,23 +1302,59 @@
         return iRet;
     }
 
-    int TMdbRepDataServer::DealLoadRequest(const char* pData, /*QuickMDB::*/TMdbPeerInfo* pPeerInfo)
+    int TMdbRepDataServer::DealLoadRequest(const char* pData, TMdbPeerInfo* pPeerInfo)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
+		bool bIsMemLoad = false;
         //数据格式Load:TableName|routinglist
-        /*QuickMDB::*/TMdbNtcSplit tSplit;
-        tSplit.SplitString(pData+strlen(LOAD_DATA_START_FLAG), '|');
+        TADD_NORMAL("LOAD CMD: [%s]", pData);
+		TMdbNtcSplit tSplitLoadType, tSplitEndian, tSplitTableInfo;
+        TMdbNtcSplit tSplitRouteId;
+		const char * psRemoteTableInfo = NULL;
+		tSplitLoadType.SplitString(pData+strlen(LOAD_DATA_START_FLAG), '&');
+        if (tSplitLoadType.GetFieldCount() == 2 && tSplitLoadType[1][0] == 'Y')
+        {
+        	tSplitEndian.SplitString(tSplitLoadType[0], '%');
+			if(tSplitEndian[1][0] == MdbNtcIsBigEndian()?'Y':'N')
+			{
+				bIsMemLoad = true;
+				if (!pPeerInfo->PostMessage(HOST_ENDIAN_MATCH, strlen(HOST_ENDIAN_MATCH)))
+		        {
+		            CHECK_RET(ERR_NET_SEND_FAILED, "Send endian match info to Rep failed..");
+		        }
+			}
+			else
+			{
+				bIsMemLoad = false;
+				if (!pPeerInfo->PostMessage(HOST_ENDIAN_NOT_MATCH, strlen(HOST_ENDIAN_NOT_MATCH)))
+		        {
+		            CHECK_RET(ERR_NET_SEND_FAILED, "Send endian NOT match info to Rep failed..");
+		        }
+			}
+			tSplitTableInfo.SplitString(tSplitEndian[0], '#');
+			if(tSplitTableInfo.GetFieldCount() != 2)
+			{
+				CHECK_RET(ERR_APP_INVALID_PARAM, "Invalid Msg format[%s]", pData);
+			}
+			psRemoteTableInfo = tSplitTableInfo[1];//用于校验表结构
+			tSplitRouteId.SplitString(tSplitTableInfo[0], '|');//内存传输模式加载命令
+        }
+		else
+		{
+			tSplitRouteId.SplitString(tSplitLoadType[0], '|');//普通模式加载命令
+		}
+        
         const char *psRoutinglist = NULL;
         const char *psTableName = NULL;
-        if (tSplit.GetFieldCount() == 2)
+        if (tSplitRouteId.GetFieldCount() == 2)
         {
-            psTableName = tSplit[0];
-            psRoutinglist = tSplit[1];
+            psTableName = tSplitRouteId[0];
+            psRoutinglist = tSplitRouteId[1];
         }
-        else if (tSplit.GetFieldCount() == 1)//兼容1.2版本，不匹配路由条件， 加载所有路由数据，请求加载数据格式为：Load:TableName
+        else if (tSplitRouteId.GetFieldCount() == 1)//兼容1.2版本，不匹配路由条件， 加载所有路由数据，请求加载数据格式为：Load:TableName
         {
-            psTableName = tSplit[0];
+            psTableName = tSplitRouteId[0];
         }
         else
         {
@@ -1133,14 +1364,14 @@
         TRepServerDataSend *m_pDataSend = new(std::nothrow) TRepServerDataSend();
         CHECK_OBJ(m_pDataSend);
         CHECK_RET(m_pDataSend->Init(m_strDsn.c_str()), "TRepServerDataSend Init failed.");
-        CHECK_RET(m_pDataSend->SendData(psTableName, psRoutinglist, pPeerInfo), "TRepServerDataSend SendData failed.");
+        CHECK_RET(m_pDataSend->SendData(psTableName, psRoutinglist, pPeerInfo, bIsMemLoad, psRemoteTableInfo), "TRepServerDataSend SendData failed.");
 
         SAFE_DELETE(m_pDataSend);
         TADD_FUNC("Finish.");
         return iRet;
     }
 
-    int TMdbRepDataServer::DealRcvData(const char* pData, int iLength, /*QuickMDB::*/TMdbPeerInfo* pPeerInfo)
+    int TMdbRepDataServer::DealRcvData(const char* pData, int iLength, TMdbPeerInfo* pPeerInfo)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -1191,16 +1422,31 @@
         TADD_FUNC("Start.");
         int iRet = 0;
         m_pMdbCfg = pMdbCfg;
+		m_pShmDsn = TMdbShmMgr::GetShmDSN(m_pMdbCfg->GetDSN()->sName);
+		memset(sDsnName, 0, sizeof(sDsnName));
+		SAFESTRCPY(sDsnName, sizeof(sDsnName), m_pMdbCfg->GetDSN()->sName);
         m_bDataOver = false;
         m_iMsgBufLen = MAX_REP_SEND_BUF_LEN*2;
         m_psMesgBuf = new(std::nothrow)char[m_iMsgBufLen];
+		m_pCurTable = NULL;
+		m_pCurTS = NULL;
+		m_cStorage = 'N';
         CHECK_OBJ(m_psMesgBuf);
-
+		CHECK_RET(m_tPageCtrl.SetDSN(sDsnName), "SetDsn failed.");
+		CHECK_RET(m_tVarcharCtrl.Init(sDsnName), "Init failed.");
+		m_iTempLen = 0;
+		
+		for(int i = 0; i<MAX_COLUMN_COUNTS; i++)
+		{
+			m_iVarColPos[i] = -1;
+		}
+		m_iVarColCount = 0;
+		
         try
         {
             m_pDataBase = new(std::nothrow) TMdbDatabase();
             CHECK_OBJ(m_pDataBase);
-            if(m_pDataBase->ConnectAsMgr(pMdbCfg->GetDSN()->sName) == false)
+            if(m_pDataBase->ConnectAsMgr(sDsnName) == false)
             {
                 CHECK_RET(ERR_APP_INVALID_PARAM,"ConnectAsMgr [%s] error.",pMdbCfg->GetDSN()->sName);
             }
@@ -1223,6 +1469,36 @@
         return iRet;
     }
 
+	int TMdbLoadDataTool::SetUploadTable(const char* sTableName)
+	{
+		int iRet  = 0;
+		m_pCurTable = m_pShmDsn->GetTableByName(sTableName);
+		CHECK_OBJ(m_pCurTable);
+		m_pCurTS = m_pShmDsn->GetTableSpaceAddrByName(m_pCurTable->m_sTableSpace);
+        m_cStorage = m_pCurTS->m_bFileStorage?'Y':'N';
+		CHECK_RET(m_tTSCtrl.Init(sDsnName, m_pCurTable->m_sTableSpace),"m_tTSctrl.Init() failed.");
+		CHECK_RET(m_tRowCtrl.Init(sDsnName, m_pCurTable), "m_tRowCtrl.Init() failed.");
+		for(int i = 0; i<MAX_COLUMN_COUNTS; i++)
+		{
+			m_iVarColPos[i] = -1;
+		}
+		m_iVarColCount = 0;
+		//获取表中varchar及blob字段位置信息
+		for (int i = 0; i < m_pCurTable->iColumnCounts; i++)
+		{
+			if(DT_VarChar == m_pCurTable->tColumn[i].iDataType || DT_Blob == m_pCurTable->tColumn[i].iDataType)
+			{
+				m_iVarColPos[m_iVarColCount++] = i;
+			}
+		}
+		return iRet;
+	}
+	
+	int TMdbLoadDataTool::SetbTool(bool bToolFlag)
+	{
+		bTool =  bToolFlag;
+		return 0;
+	}
     int TMdbLoadDataTool::UploadData(const char* sDataBuf, int iBufLen, bool &bOver)
     {
         TADD_FUNC("Start. %s", sDataBuf);
@@ -1254,6 +1530,44 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+	
+	int TMdbLoadDataTool::UploadMemData(const char* sDataBuf, int iBufLen, bool &bOver)
+	{
+		TADD_FUNC("Start. %s", sDataBuf);
+		int iRet = 0;
+		m_bDataOver = false;
+		bOver = false;
+		if (iBufLen <=0)
+		{
+			return iRet;
+		}
+		
+		//拼接数据，上次遗留数据+本次新接收数据
+		CombineData(sDataBuf, iBufLen);
+		iRet = DealWithMemMsgBuf();
+		if(iRet == 0 && m_bDataOver)//收到到备机数据结束标识或者出错，需要关闭链接
+		{
+			bOver = true;
+		}
+		else if(ERR_TAB_NO_TABLE == iRet)//表在对端不存在
+		{
+			TADD_WARNING("Table does not exist in peer MDB.");
+			bOver = true;
+		}
+		else if(ERR_TAB_LOAD_FROM_PEER_FAILED == iRet)//对端发送数据错误
+		{
+			TADD_ERROR(ERR_TAB_LOAD_FROM_PEER_FAILED, "Table load from peer MDB failed.");
+			bOver = true;
+		}
+		else if (iRet < 0)
+		{
+			TADD_ERROR(iRet, "Deal with receive data error.");
+		}
+
+		TADD_FUNC("Finish.");
+		return iRet;
+	}
 
     int TMdbLoadDataTool::DealWithMsgBuf()
     {
@@ -1287,7 +1601,133 @@
             {
                 TADD_DETAIL("#####New Table.");
                 m_iCurPos+=4;
-                int ipos = /*QuickMDB::*/TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], "!!");
+                int ipos = TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], "!!");
+				strTableName.clear();
+                strTableName.assign(m_psMesgBuf, m_iCurPos, ipos);
+                if(TMdbNtcStrFunc::IsDigital(strTableName.c_str()))
+                {// 1.2 版本
+                    int iTableId = TMdbNtcStrFunc::StrToInt(strTableName.c_str());
+                    TMdbTable* pTable = m_pMdbCfg->GetTableByTableId(iTableId);
+                    if(NULL == pTable)
+                    {
+                        CHECK_RET(ERR_TAB_NO_TABLE,"not find table[%s]",strTableName.c_str());
+                    }
+                    strTableName.assign(pTable->sTableName);
+                }
+				
+                TADD_NORMAL("Table[%s] start.", strTableName.c_str());
+				
+                m_pCurQuery = m_pLoadDao->GetQuery(strTableName, false);
+				m_pMdbSelQuery = m_pLoadDao->GetMdbSelQuery(strTableName);
+				m_pMdbUptQuery = m_pLoadDao->GetMdbUpdateQuery(strTableName);
+				
+				m_vKeyNo.clear();
+				CHECK_RET(m_pLoadDao->GetPrimaryKey(m_vKeyNo),"GetPrimaryKey failed");;
+				
+                //CHECK_OBJ(m_pCurQuery);
+                /*TMdbTable* pTable =m_pMdbCfg->GetTable(strTableName.c_str());
+                pTable->bIsNeedLoadFromOra = false;*/
+                
+                TShmList<TMdbTable>::iterator itor = m_pShmDsn->m_TableList.begin();
+                for(;itor != m_pShmDsn->m_TableList.end();++itor)
+                {
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(itor->sTableName, strTableName.c_str()) == 0)
+                    {
+                        itor->bIsNeedLoadFromOra = false;
+                        break;
+                    }
+                }
+
+                m_iCurPos+=ipos;
+                continue;
+            }
+
+            if(m_psMesgBuf[m_iCurPos] == '!' && m_psMesgBuf[m_iCurPos+1] == '!' && m_psMesgBuf[m_iCurPos+2] == '&')
+            {
+                TADD_DETAIL("#####Table End.");
+                int ipos = TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], ".OK");
+                if(ipos != -1)
+                {
+                    m_iCurPos = m_iCurPos+ipos+3;
+                }
+                else
+                {
+                    SaveRecord(m_iCurPos);
+                    break;
+                }
+                continue;
+            }
+
+            if(m_psMesgBuf[m_iCurPos] == '!' && m_psMesgBuf[m_iCurPos+1] == '!' && m_psMesgBuf[m_iCurPos+2] == ',')
+            {
+                TADD_DETAIL("#####New Record.");
+                m_iCurPos+=2;
+                int iNextPos = TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], "!!");
+                if(iNextPos != -1)
+                {
+                    /*CHECK_RET(GetOneRecord(iNextPos),"GetOneRecord(%d) failed.",iNextPos);
+                    CHECK_RET(Execute(),"Excute failed.");*/
+                    GetOneRecord(iNextPos);
+                    Execute();
+                }
+                else//剩余记录不完整
+                {
+                    m_iCurPos-=2;
+                    TADD_DETAIL("Left record [%s]",&m_psMesgBuf[m_iCurPos]);
+                    SaveRecord(m_iCurPos);
+                    break;
+                }
+                continue;
+            }
+            else
+            {
+                m_iCurPos++;
+            }
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	int TMdbLoadDataTool::DealWithMemMsgBuf()
+    {
+        TADD_FUNC(" Start.");
+        int iRet = 0;
+
+        while(true)
+        {
+        	TADD_DETAIL("m_psMesgBuf[m_iCurPos] = [%s]", &m_psMesgBuf[m_iCurPos]);
+            if(m_iCurPos + 10 >= m_iMsgLen)
+            {
+                SaveRecord(m_iCurPos);
+                TADD_DETAIL("m_iCurPos = %d, m_iMsgLen = %d", m_iCurPos, m_iMsgLen);
+                break;
+            }
+
+            if(strncmp(&(m_psMesgBuf[m_iCurPos]),REP_TABLE_NO_EXIST,strlen(REP_TABLE_NO_EXIST)) == 0)
+            {
+                TADD_FUNC("Table does not exist in peer MDB.");
+                return ERR_TAB_NO_TABLE;
+            }
+
+            if(strncmp(&(m_psMesgBuf[m_iCurPos]),REP_TABLE_ERROR,strlen(REP_TABLE_ERROR)) == 0)
+            {
+                TADD_FUNC("Table load from peer MDB failed.");
+                return ERR_TAB_LOAD_FROM_PEER_FAILED;
+            }
+
+            if(m_psMesgBuf[m_iCurPos]== 'L' && m_psMesgBuf[m_iCurPos+1] == 'o' && m_psMesgBuf[m_iCurPos+2] == 'a'
+                && strncmp(&m_psMesgBuf[m_iCurPos], LOAD_DATA_END_FLAG, strlen(LOAD_DATA_END_FLAG))==0)//收到结束标识
+            {
+                TADD_DETAIL("#####Load Data End.");
+                m_bDataOver = true;
+                return 0;
+            }
+
+            if(m_psMesgBuf[m_iCurPos] == '@' && m_psMesgBuf[m_iCurPos+1] == '@' && m_psMesgBuf[m_iCurPos+2] == '!')//表的开头
+            {
+                TADD_DETAIL("#####New Table.");
+                m_iCurPos+=4;
+                int ipos = TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], "!!");
 				strTableName.clear();
                 strTableName.assign(m_psMesgBuf, m_iCurPos, ipos);
                 if(TMdbNtcStrFunc::IsDigital(strTableName.c_str()))
@@ -1307,10 +1747,10 @@
                 /*TMdbTable* pTable =m_pMdbCfg->GetTable(strTableName.c_str());
                 pTable->bIsNeedLoadFromOra = false;*/
                 
-                TShmList<TMdbTable>::iterator itor = TMdbShmMgr::GetShmDSN(m_pMdbCfg->GetDSN()->sName)->m_TableList.begin();
-                for(;itor != TMdbShmMgr::GetShmDSN(m_pMdbCfg->GetDSN()->sName)->m_TableList.end();++itor)
+                TShmList<TMdbTable>::iterator itor = m_pShmDsn->m_TableList.begin();
+                for(;itor != m_pShmDsn->m_TableList.end();++itor)
                 {
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(itor->sTableName, strTableName.c_str()) == 0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(itor->sTableName, strTableName.c_str()) == 0)
                     {
                         itor->bIsNeedLoadFromOra = false;
                         break;
@@ -1324,7 +1764,7 @@
             if(m_psMesgBuf[m_iCurPos] == '!' && m_psMesgBuf[m_iCurPos+1] == '!' && m_psMesgBuf[m_iCurPos+2] == '&')
             {
                 TADD_DETAIL("#####Table End.");
-                int ipos = /*QuickMDB::*/TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], ".OK");
+                int ipos = TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], ".OK");
                 if(ipos != -1)
                 {
                     m_iCurPos = m_iCurPos+ipos+3;
@@ -1340,22 +1780,28 @@
             if(m_psMesgBuf[m_iCurPos] == '!' && m_psMesgBuf[m_iCurPos+1] == '!' && m_psMesgBuf[m_iCurPos+2] == ',')
             {
                 TADD_DETAIL("#####New Record.");
-                m_iCurPos+=2;
-                int iNextPos = /*QuickMDB::*/TMdbNtcStrFunc::FindString(&m_psMesgBuf[m_iCurPos], "!!");
-                if(iNextPos != -1)
-                {
-                    /*CHECK_RET(GetOneRecord(iNextPos),"GetOneRecord(%d) failed.",iNextPos);
-                    CHECK_RET(Execute(),"Excute failed.");*/
-                    GetOneRecord(iNextPos);
-                    Execute();
-                }
-                else//剩余记录不完整
-                {
-                    m_iCurPos-=2;
-                    TADD_DETAIL("Left record [%s]",&m_psMesgBuf[m_iCurPos]);
-                    SaveRecord(m_iCurPos);
-                    break;
-                }
+				m_iTempLen = 0;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+3] - '0')*100000;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+4] - '0')*10000;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+5] - '0')*1000;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+6] - '0')*100;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+7] - '0')*10;
+				m_iTempLen += (int)(m_psMesgBuf[m_iCurPos+8] - '0');
+
+				if(m_iCurPos + m_iTempLen >= m_iMsgLen)
+		        {
+		            SaveRecord(m_iCurPos);
+		            TADD_DETAIL("m_iCurPos = %d, m_iMsgLen = %d", m_iCurPos, m_iMsgLen);
+		            break;
+		        }
+				else
+				{
+			        memcpy(m_sTempRecord,&m_psMesgBuf[m_iCurPos],m_iTempLen);
+			        TADD_DETAIL("Record:[%s]", m_sTempRecord);
+			        m_sTempRecord[m_iTempLen] = 0;
+			        m_iCurPos = m_iCurPos + m_iTempLen;
+					ExecuteMemData();
+				}
                 continue;
             }
             else
@@ -1389,7 +1835,7 @@
         for(int i = 2; i<=iNextPos; i=iPos+2+i)
         {
             m_paramValue[0] = 0;
-            iPos = /*QuickMDB::*/TMdbNtcStrFunc::FindString(&m_sTempRecord[i], ",@");
+            iPos = TMdbNtcStrFunc::FindString(&m_sTempRecord[i], ",@");
             if(iPos != -1)
             {
                 if(iPos >= MAX_VALUE_LEN)
@@ -1417,34 +1863,189 @@
         return iRet;
     }
 
+	int TMdbLoadDataTool::ExecuteForMdbReLoadUpdate(size_t iColCount,int* iDropIndex)
+	{
+		int iCount = 0;
+		size_t i = 0,j = 0;
+		//update
+
+		//update里面其他的非主键列
+		for(i=0; i<iColCount; i++)
+		{
+			if(iDropIndex[i] == 1)
+			{
+				continue;
+			}
+		
+			for(j=0; j<m_vKeyNo.size(); j++)
+				if(i ==  m_vKeyNo[j])
+					break;
+							
+			if(j<m_vKeyNo.size())
+				continue;
+							
+			if(IsNULL(m_vParam[i].c_str()))
+			{
+				m_pMdbUptQuery->SetParameterNULL(iCount);
+			}
+			else
+			{
+				m_pMdbUptQuery->SetParameter(iCount, m_vParam[i].c_str());
+			}
+				iCount++;
+		}
+		
+		
+		//update里面的主键列
+		for(i=0; i<iColCount; i++)
+		{
+			if(iDropIndex[i] == 1)
+			{
+				continue;
+			}
+		
+			for(j=0; j<m_vKeyNo.size(); j++)
+				if(i ==  m_vKeyNo[j])
+					break;
+							
+			if(j<m_vKeyNo.size())
+			{
+				m_pMdbUptQuery->SetParameter(iCount, m_vParam[i].c_str());
+				iCount++;
+			}
+							
+		}
+		
+		m_pMdbUptQuery->Execute();
+		m_pMdbUptQuery->Commit();
+		return 0;
+		
+	}
+
+	
+	int TMdbLoadDataTool::ExecuteForMdbReLoadInsert(size_t iColCount,int* iDropIndex)
+	{
+		int iCount = 0;
+		size_t i = 0;
+		
+		for(i=0; i<iColCount; i++)
+		{
+			if(iDropIndex[i] == 1)
+			{
+				continue;
+			}
+			if(IsNULL(m_vParam[i].c_str()))
+			{
+				m_pCurQuery->SetParameterNULL(iCount);
+			}
+			else
+			{
+				m_pCurQuery->SetParameter(iCount, m_vParam[i].c_str());
+			}
+			iCount++;
+		}
+		
+		m_pCurQuery->Execute();
+		m_pCurQuery->Commit();
+		return 0;
+	}
+	
+	int TMdbLoadDataTool::ExecuteForMdbReLoad(size_t iColCount,int* iDropIndex)
+	{
+		
+		size_t i = 0,j = 0;
+		int iCnt = 0;
+		int iRet = 0;
+		//select
+		for(i=0; i<iColCount; i++)
+		{
+			if(iDropIndex[i] == 1)
+			{
+				continue;
+			}
+			for(j=0; j<m_vKeyNo.size(); j++)
+				if(i ==  m_vKeyNo[j])
+					break;
+					
+			if(j< m_vKeyNo.size())
+			{
+					
+				m_pMdbSelQuery->SetParameter(iCnt, m_vParam[i].c_str());
+				iCnt++;
+			}
+		
+		}
+		
+		m_pMdbSelQuery->Execute();
+		m_pMdbSelQuery->Open();
+			 
+		if(m_pMdbSelQuery->Next())
+		{
+			//update
+			CHECK_RET(ExecuteForMdbReLoadUpdate(iColCount,iDropIndex),"ExecuteForMdbReLoadInsert failed");
+					
+		
+		}
+		else
+		{
+			
+			//insert
+			CHECK_RET(ExecuteForMdbReLoadInsert(iColCount,iDropIndex),"ExecuteForMdbReLoadInsert failed");
+					
+		}
+
+		return iRet;
+	}
+
+	
     int TMdbLoadDataTool::Execute()
     {
         TADD_FUNC("Start.");
         int iRet = 0;
 		int iDropIndex[128] = {0};
 		int iCount = 0;
+		size_t i = 0;
+		
         try
         {
         	m_pMdbCfg->GetDropColumnIndex(strTableName.c_str(), iDropIndex);
-            int iColCount = m_vParam.size();
-            for(int i=0; i<iColCount; i++)
-            {
-            	if(iDropIndex[i] == 1)
-        		{
-					continue;
-        		}
-                if(IsNULL(m_vParam[i].c_str()))
-                {
-                    m_pCurQuery->SetParameterNULL(iCount);
-                }
-                else
-                {
-                    m_pCurQuery->SetParameter(iCount, m_vParam[i].c_str());
-                }
-				iCount++;
-            }
-            m_pCurQuery->Execute();
-            m_pCurQuery->Commit();
+            size_t iColCount = m_vParam.size();
+
+			//来自于命令mdbReload的调用的处理
+			if(bTool)
+			{
+				
+				CHECK_RET(ExecuteForMdbReLoad(iColCount,iDropIndex),"ExecuteForMdbReLoadInsert failed");	
+ 
+			}
+
+			else
+			{
+				iCount = 0;
+				//insert
+			 		for(i=0; i<iColCount; i++)
+            		{
+            			if(iDropIndex[i] == 1)
+        				{
+							continue;
+        				}
+                		if(IsNULL(m_vParam[i].c_str()))
+                		{
+                    		m_pCurQuery->SetParameterNULL(iCount);
+                		}
+                		else
+                		{
+                    		m_pCurQuery->SetParameter(iCount, m_vParam[i].c_str());
+                		}
+						iCount++;
+			 		}
+
+					m_pCurQuery->Execute();
+            		m_pCurQuery->Commit();
+
+			}
+			
+            
         }
         catch(TMdbException& e)
         {
@@ -1453,6 +2054,90 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+	int TMdbLoadDataTool::ExecuteMemData()
+	{
+		TADD_FUNC("Start.");
+		int iRet = 0;
+		int iCurPos = 0;
+		int iVarLen = 0;
+	    int iWhichPos = -1;
+	    unsigned int iRowId = 0;
+		TMdbColumn * pVarColumn = NULL;
+		
+		//插入varchar及blob数据并更新临时记录中的地址
+		iCurPos += m_pCurTable->iOneRecordSize + 9;
+		for(int i = 0; i<m_iVarColCount; i++)
+		{
+			pVarColumn = &m_pCurTable->tColumn[m_iVarColPos[i]];
+			if(!m_tRowCtrl.IsColumnNull(pVarColumn, m_sTempRecord+9))
+			{
+				iVarLen = 0;
+				if(m_sTempRecord[iCurPos]==',' && m_sTempRecord[iCurPos+1]=='@')
+				{
+					iVarLen += (int)(m_sTempRecord[iCurPos+2] - '0')*1000;
+					iVarLen += (int)(m_sTempRecord[iCurPos+3] - '0')*100;
+					iVarLen += (int)(m_sTempRecord[iCurPos+4] - '0')*10;
+					iVarLen += (int)(m_sTempRecord[iCurPos+5] - '0');
+				}
+				else
+				{
+					TADD_ERROR(ERR_APP_DATA_INVALID, "Varchar/blob column data position error.");
+					return ERR_APP_DATA_INVALID;
+				}
+				do
+	            {
+	                iWhichPos = -1;
+	                iRowId = 0;
+					CHECK_RET(m_tVarcharCtrl.Insert(&m_sTempRecord[iCurPos+6], iVarLen, iWhichPos, iRowId,m_cStorage),"Insert Varchar Faild,ColoumName=[%s],iVarCharlen[%d]",pVarColumn->sName,iVarLen);
+					TADD_FLOW("iWhichPos = [%d], iRowID = [%u], m_cSorage = [%c]", iWhichPos, iRowId, m_cStorage);
+	                m_tVarcharCtrl.SetStorgePos(iWhichPos, iRowId, m_sTempRecord+9+pVarColumn->iOffSet);
+					TADD_FLOW("m_sTempRecord+9+pVarColumn->iOffSet[0] = [%d], m_sTempRecord+9+pVarColumn->iOffSet[1] = [%d]", (m_sTempRecord+9+pVarColumn->iOffSet)[0]-'0', (int*)&((m_sTempRecord+9+pVarColumn->iOffSet)[1]));
+					iCurPos += iVarLen+6;
+	            }while(0);
+			}
+		}
+		
+		//将定长记录插入表空闲页中
+		while(1)
+        {   //申请一块新空间
+        	m_pCurFreePage = NULL;
+			CHECK_RET(m_tTSCtrl.GetFreePage(m_pCurTable, m_pCurFreePage), "m_tTSCtrl.GetFreePage() failed.");
+			CHECK_RET(m_tPageCtrl.Attach((char *)m_pCurFreePage, m_pCurTable->bReadLock, true), "Can't Attach to page.");
+	        CHECK_RET(m_tPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
+            int iDataOffset = 0;
+			TMdbRowID tRowID;
+            iRet = m_pCurFreePage->GetFreeRecord(iDataOffset,m_pCurTable->iOneRecordSize);
+            if(iRet == ERR_PAGE_NO_MEMORY)
+            {//page没有空间了，无需报错
+            	TADD_DETAIL("Current page is Full.");
+                CHECK_RET(m_tTSCtrl.TablePageFreeToFull(m_pCurTable,m_pCurFreePage),"FreeToFull() error.iRet=[%d]",iRet);
+        		m_tPageCtrl.UnWLock();//解页锁
+                continue;
+            }
+            else if(0 != iRet)
+            {//其他错误
+                CHECK_RET_BREAK(iRet,"GetFreeRecord failed,page=[%s]", m_pCurFreePage->ToString().c_str());
+            }
+            tRowID.SetDataOffset(m_pCurFreePage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
+            tRowID.SetPageID(m_pCurFreePage->m_iPageID);
+            memcpy((char *)m_pCurFreePage+iDataOffset, m_sTempRecord+9, m_pCurTable->iOneRecordSize);
+            //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
+            SAFESTRCPY(m_pCurFreePage->m_sUpdateTime,sizeof(m_pCurFreePage->m_sUpdateTime),m_pShmDsn->GetInfo()->sCurTime);
+            ++(m_pCurFreePage->m_iRecordCounts); 
+            m_pCurFreePage->m_iPageLSN = m_pShmDsn->GetInfo()->GetLSN();
+            TADD_DETAIL("page_id=[%d],offsetPos=[%d],rowid=[%d].",m_pCurFreePage->m_iPageID,iDataOffset,tRowID.m_iRowID);
+			break;
+        }
+        if(iRet == 0)
+        {
+            m_tTSCtrl.SetPageDirtyFlag(m_pCurFreePage->m_iPageID);
+        }
+        m_tPageCtrl.UnWLock();//解页锁
+		TADD_FUNC("Finish.");
+		return iRet;
+	}
+	
 
     void TMdbLoadDataTool::CombineData(const char* pDataBuf, int iBufLen)
     {

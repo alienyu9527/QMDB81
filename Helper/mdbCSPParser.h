@@ -55,7 +55,7 @@ using namespace std;
 #define CSP_APP_SEND_PARAM_ARRAY 340  //批量绑定变量
 #define CSP_APP_QMDB_INFO 350 //获取qmdb信息
 #define SIZE_MSG_AVP_HEAD 43
-
+#define SIZE_MSG_BIN_HEAD 16
 static char  CSP_AVP_STRING[]=
 "##CSP_APP_SEND_SQL\n"
 "AVP_NAME                                     AVP-LEVLE            AVP_CODE  M-FLAG        DATA_TYPE \n"
@@ -378,6 +378,7 @@ public:
     void BinToCnvt(unsigned char* pszMsg); 
     void CnvtToBinPlus(unsigned char* pszMsg,unsigned int SessionId); 
     void BinToCnvtPlus(unsigned char* pszMsg); 
+    void Parse(unsigned char* pszMsg){memcpy(&iLen,&pszMsg[0],SIZE_MSG_BIN_HEAD);};
     
     void Clear();
     void SetVersion(int iVer){iVersion = iVer;};
@@ -392,10 +393,11 @@ public:
     //int iIsBigEndian;
     unsigned int iLen;
     unsigned short int iCmdCode;
+    unsigned short int iAnsCodePos;
     unsigned int iSessionId;
-    unsigned int iAnsCodePos;
-    char sSendTime[7]; //表示时分秒
     unsigned int isequence; //序列
+    //以上变量顺序请保持!!!
+    char sSendTime[7]; //表示时分秒
     unsigned int iCurrentAvpFlag;//当前avp的标识
     void Print();//打印消息包头信息
 };

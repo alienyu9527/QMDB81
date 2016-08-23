@@ -135,8 +135,9 @@ int TMdbCtrl::Create()
         CHECK_RET(ERR_APP_PROC_ALREADY_EXIST,"Create(%s):[%s] is stll exist!please kill it first.",m_sDsn,sProcName);
     }
 	#endif
-	
+
     CHECK_RET(CreateSysMem(),"(%s)CreateSysMem() failed.",m_sDsn);//创建共享内存
+	CHECK_RET(CreateSBBufShm(),"(%s)CreateSBBufShm() failed.",m_sDsn);//创建分片备份链路缓存
     CHECK_RET(CreateTableSpace(),"(%s) :CreateTableSpace() failed.",m_sDsn);//创建表空间
     CHECK_RET(CreateVarChar(),"(%s) :CreateVarChar() failed.",m_sDsn);//创建varchar区
     CHECK_RET(CreateTable(),"(%s) :CreateTable() failed.",m_sDsn);//初始化表
@@ -424,6 +425,25 @@ int TMdbCtrl::CreateSysMem()
     TADD_FUNC("Finish.");
     return iRet;
 }
+
+int TMdbCtrl::CreateSBBufShm()
+{
+	TADD_FUNC("START");
+	int iRet = 0;
+	
+    TMdbShmDSN * pShmDSN = TMdbShmMgr::GetShmDSN(m_sDsn);
+    CHECK_OBJ(pShmDSN);
+    if(m_pConfig->GetIsStartShardBackupRep())
+    {
+		CHECK_RET(m_tSBCfgCtrl.Init(m_sDsn), "m_tSBCfgCtrl init failed.");
+		CHECK_RET(m_tSBCfgCtrl.GetShardBuckupInfo(), "GetShardBuckupInfo failed.");
+		CHECK_RET(pShmDSN->CreateShardBakBufAreaShm(m_sDsn), "CreateShardBakBufAreaShm failed.");
+    }
+	CHECK_RET(pShmDSN->Attach(), "Attach failed.");
+	TADD_FUNC("END");
+	return iRet;
+}
+
 //创建表空间
 int TMdbCtrl::CreateTableSpace()
 {
@@ -458,7 +478,7 @@ int TMdbCtrl::LoadSysData()
 {
     TADD_FUNC("Start.");
     int iRet = 0;
-    TMdbDatabase *mdb = new TMdbDatabase();
+    TMdbDatabase *mdb = new(std::nothrow) TMdbDatabase();
     CHECK_OBJ(mdb);
     try
     {
@@ -652,6 +672,8 @@ int TMdbCtrl::LoadFromStandbyHost()
     TADD_FUNC("Finish.");
     return iRet;
 }
+
+
 
 int TMdbCtrl::LoadFromShardBackupHost()
 {
@@ -880,7 +902,7 @@ int TMdbCtrl::LoadSequence()
 	//从文件加载sequence
     char* pBuff = NULL;
     int iBuffSize = MAX_SEQUENCE_COUNTS* sizeof(TMemSeq);
-    pBuff = new char[iBuffSize];
+    pBuff = new(std::nothrow) char[iBuffSize];
     if(pBuff == NULL)
     {
         SAFE_CLOSE(m_pSeqFile);
@@ -967,7 +989,7 @@ int TMdbCtrl::CheckSystem()
     TMdbDSN* pDsn = pMdbShmDSN->GetInfo();
     CHECK_OBJ(pDsn);
     //校验CREATE操作和START操作之间时间间隔是否超时，如果超时需要重新create操作
-    if(pDsn->m_bIsRep)
+    if(pDsn->m_bIsShardBackup)
     {
         char sCurTime[MAX_TIME_LEN] = {0};
         if(m_pConfig->GetDSN()->m_iRepFileTimeout == 0)
@@ -1014,13 +1036,13 @@ int TMdbCtrl::GetCSMethod(int iAgentPort)
 	int iuseNtc = 0;
 	for(j=0; j<MAX_AGENT_PORT_COUNTS; j++)
 	{
-		TADD_NORMAL("iNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNtcPort[j],iAgentPort);
+		//TADD_NORMAL("iNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNtcPort[j],iAgentPort);
 		if(iAgentPort ==  m_pConfig->GetDSN()->iNtcPort[j])
 				break;
 	}
 	for(k=0; k<MAX_AGENT_PORT_COUNTS; k++)
 	{
-		TADD_NORMAL("iNoNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNoNtcPort[k],iAgentPort);
+		//TADD_NORMAL("iNoNtcPort:%d,iAgentPort:%d",m_pConfig->GetDSN()->iNoNtcPort[k],iAgentPort);
 		if(iAgentPort ==  m_pConfig->GetDSN()->iNoNtcPort[k])
 				break;
 	}
@@ -1081,14 +1103,24 @@ int TMdbCtrl::GetProcToStart(std::vector<std::string > & vProcToStart)
     //  如果需要，启动分片备份进程
     if(m_pConfig->GetIsStartShardBackupRep())
     {
+    	TMdbShmRepMgr * pShmMgr = new(std::nothrow)TMdbShmRepMgr(m_sDsn);
+        CHECK_OBJ(pShmMgr);
+        CHECK_RET(pShmMgr->Attach(), "TMdbShmRepMgr Attach failed.");
+        const TMdbShmRep * pShmRep = pShmMgr->GetRoutingRep();
+		
         sprintf(sProcFullName, "mdbRep %s", m_sDsn);
         vProcToStart.push_back(sProcFullName);
-        
-        sprintf(sProcFullName, "mdbRepClient %s", m_sDsn);
+		
+        for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+    	{
+	        sprintf(sProcFullName, "mdbRepClient %s %d", m_sDsn, pShmRep->m_arHosts[i].m_iHostID);
+	        vProcToStart.push_back(sProcFullName);
+    	}
+		
+        sprintf(sProcFullName, "mdbRepServer %s", m_sDsn);
         vProcToStart.push_back(sProcFullName);
-        
-         sprintf(sProcFullName, "mdbRepServer %s", m_sDsn);
-        vProcToStart.push_back(sProcFullName);
+
+		SAFE_DELETE(pShmMgr);
     }
     sprintf(sProcFullName, "mdbFlushRep %s", m_sDsn);
     vProcToStart.push_back(sProcFullName);

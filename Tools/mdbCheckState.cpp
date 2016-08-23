@@ -157,7 +157,7 @@ void TMDBCheckState::CheckOraRep()
 void TMDBCheckState::CheckPeerRep()
 {
     TMdbDSN    *m_pDsn = m_pShmDSN->GetInfo();
-    if (!m_pDsn->m_bIsRep)
+    if (!m_pDsn->m_bIsShardBackup)
     {
         cout<<"DSN["<<m_pDsn->sName<<"] is not Peer Rep."<<endl;
         return;

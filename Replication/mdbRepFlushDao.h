@@ -31,8 +31,11 @@
         TMdbQuery* CreateQuery(const char * sSQL,int iNodePos,TMdbDatabase* ptDB);
     public:
         char m_sSQL[MAX_SQL_LEN];
-        TMdbQuery * m_pQuery;//执行sql
-
+		char m_sMdbSelSQL[MAX_SQL_LEN];
+		char m_sMdbUptSQL[MAX_SQL_LEN];
+        TMdbQuery * m_pQuery;//执行sql insert
+        TMdbQuery * m_pMdbSelQuery;//执行sql select
+		 TMdbQuery * m_pMdbUptQuery;//执行sql update
     };
     
     /**
@@ -49,6 +52,10 @@
         TMdbQuery * GetSelectQuery(TMdbRepRecd & tRecd)throw (TMdbException);
         TMdbQuery * GetLoadQuery(const char* sRoutinglist);
         TMdbQuery* GetRecdQuery()throw (TMdbException);
+		TMdbQuery* GetMdbSelQuery(std::string strTableName)throw (TMdbException);
+		TMdbQuery* GetMdbUpdateQuery(std::string strTableName)throw (TMdbException);
+		int  SetMdbSelectSQL(TFlushDAONode *pNode)throw (TMdbException);
+		int  SetMdbUpdateSQL(TFlushDAONode *pNode)throw (TMdbException);
         
     private:
         int SetSQL(TFlushDAONode *pNode, int iSqlType)throw (TMdbException);
@@ -79,7 +86,12 @@
     public:
         int Init(TMdbDatabase *pDataBase,TMdbConfig* pMdbCfg);
         TMdbQuery* GetQuery(std::string strTableName, bool bSelect, const char* sRoutinglist = NULL)throw (TMdbException);
-    private: 
+		int GetPrimaryKey(std::vector <int > &  vKeyNo);
+		TMdbQuery* GetMdbSelQuery(std::string strTableName)throw (TMdbException);
+		TMdbQuery* GetMdbUpdateQuery(std::string strTableName)throw (TMdbException);
+		int SetMdbSelectSQL(TFlushDAONode *pNode)throw (TMdbException);
+		int SetMdbUpdateSQL(TFlushDAONode *pNode)throw (TMdbException);
+	private: 
         int SetSelectSQL(TFlushDAONode *pNode, const char* sRoutinglist=NULL)throw (TMdbException);
         int SetInsertSQL(TFlushDAONode *pNode)throw (TMdbException);
     public:
@@ -87,7 +99,7 @@
         TMdbDatabase *m_pDataBase;
         std::string m_strTableName;//表名
         std::vector<std::string> m_arCols;//非主键列集合
-        
+         std::vector<std::string> m_priCols;//primary key column names
         TMdbConfig* m_pMdbCfg;
     };
 

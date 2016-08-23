@@ -175,11 +175,11 @@ int TMdbSqlParser::ParseSQL(const char * sSql)
             m_tError.FillErrMsg(ERR_OS_NO_MEMROY,"Engine  is null,sql=[%s].",sSql);
             break;
         }
-        int i = 0;
+        unsigned int i = 0;
         while( sSql[i]!=0 && 0 == m_tError.GetErrCode())
         {
             sLastToken.z = &sSql[i];
-            sLastToken.n = GetToken((unsigned char*)&sSql[i],&tokenType);
+            sLastToken.n = static_cast<unsigned int>(GetToken((unsigned char*)&sSql[i],&tokenType));
             i += sLastToken.n;
             switch( tokenType )
             {
@@ -1045,7 +1045,7 @@ int TMdbSqlParser::CollectWhereIndex()
     {
         CHECK_RET_FILL(OptimizeWhereClause(m_stSqlStruct.pWhere,m_stSqlStruct.tWhereOrClause),ERR_SQL_INVALID, "Optimize Where failed.");//优化where 条件
         CHECK_RET_FILL(GetWhereIndex(m_stSqlStruct.vIndexUsed,m_stSqlStruct.tWhereOrClause),ERR_SQL_INVALID,"Get Where Index failed.");//搜集索引
-        CHECK_RET_FILL(CheckLPM(m_stSqlStruct.pWhere),ERR_SQL_INVALID, "CheckLPM failed.");//检测where语句中最长匹配索引
+        CHECK_RET_FILL(CheckLPM(m_stSqlStruct.pWhere, m_stSqlStruct.vIndexUsed),ERR_SQL_INVALID, "CheckLPM failed.");//检测where语句中最长匹配索引
 	}
     TADD_FUNC("Finish.vIndexUsed[%d].",m_stSqlStruct.vIndexUsed.size());
     return iRet;
@@ -1210,26 +1210,35 @@ int TMdbSqlParser::GetWhereIndex(std::vector< ST_INDEX_VALUE > & vIndexValue,ST_
     TADD_FUNC("Finish.vIndex.size=[%d],vIndexColumn.size=[%d]",vIndexValue.size(),vIndexColumn.size());
     return iRet;
 }
+
 //最长匹配不进行相等判断，需要做特殊处理
-int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr)
+int TMdbSqlParser::CheckLPM(ST_EXPR * pstExpr,std::vector< ST_INDEX_VALUE > & vIndexValue)
 {
 	TADD_FUNC("Start.");
     int iRet = 0;
     if(NULL == pstExpr){return 0;}
-	CheckLPM(pstExpr->pLeft);
-	CheckLPM(pstExpr->pRight);
+	CheckLPM(pstExpr->pLeft,vIndexValue);
+	CheckLPM(pstExpr->pRight,vIndexValue);
 	if(pstExpr->pExprValue->pColumn)
 	{	
 		int iColNoPos = 0;
 		ST_TABLE_INDEX_INFO * pTableIndex = m_MdbIndexCtrl.GetIndexByColumnPos(pstExpr->pExprValue->pColumn->iPos,iColNoPos);
-		if(pTableIndex && (iColNoPos == 0) && pTableIndex->pIndexInfo->m_iAlgoType==INDEX_TRIE)
+		if(pTableIndex && pTableIndex->pIndexInfo->m_iAlgoType==INDEX_TRIE)
 		{
-			MemValueSetProperty(pstExpr->pExprValue, MEM_LPM);
-			printf("Where %s set LPM\n",pstExpr->pExprValue->pColumn->sName);
+			for(size_t i=0; i<vIndexValue.size(); i++)
+			{
+				ST_INDEX_VALUE stIndexValue = vIndexValue[i];
+				if(0 == TMdbNtcStrFunc::StrNoCaseCmp(stIndexValue.pstTableIndex->pIndexInfo->sName, pTableIndex->pIndexInfo->sName))
+				{
+					MemValueSetProperty(pstExpr->pExprValue, MEM_LPM);
+					printf("Where %s set LPM\n",pstExpr->pExprValue->pColumn->sName);
+				}
+			}		
 		}
 	}
 	return iRet;
 }
+
 /******************************************************************************
 * 函数名称	:  GetSubWhereIndex
 * 函数描述	:  获取子where条件中的index
@@ -2420,6 +2429,7 @@ int TMdbSqlParser::AddUserAttribute(Token * pPassword,Token * pAccess)
     else
     {
         sAccess = new (std::nothrow)char[2];
+		CHECK_OBJ_FILL(sAccess);
         strcpy(sAccess,"A");
     }
     do{
@@ -4337,11 +4347,19 @@ int TMdbSqlParser::SetDsnRepAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sA
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_rep") == 0)
     {
-    CONVERT_Y_N(sAttrValue,pDsn->bIsRep);
+    	CONVERT_Y_N(sAttrValue,pDsn->bIsRep);
+    }
+    else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_mem_load") == 0)
+    {
+    CONVERT_Y_N(sAttrValue,pDsn->bIsMemLoad);
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_peer_rep") == 0)
     {
-    CONVERT_Y_N(sAttrValue,pDsn->bIsPeerRep);
+    	CONVERT_Y_N(sAttrValue,pDsn->bIsPeerRep);
+    }
+    else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_online_rep") == 0)
+    {
+    	CONVERT_Y_N(sAttrValue,pDsn->bIsOnlineRep);
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_ReadOnlyAttr") == 0)
     {
@@ -4557,6 +4575,8 @@ void TMdbSqlParser::InitDsnAttrName()
     m_mapDsnAttrName["ora_rep_counts"] = "ora-rep-counts";
     m_mapDsnAttrName["is_ora_rep"] = "is-ora-rep";
     m_mapDsnAttrName["is_rep"] = "is-rep";
+    m_mapDsnAttrName["is_shard_backup"] = "is-shard-backup";
+	m_mapDsnAttrName["is_online_rep"] = "is-online-rep";
     m_mapDsnAttrName["is_peer_rep"] = "is-peer-rep";
     m_mapDsnAttrName["is_capture_router"] = "is-capture-router";
     m_mapDsnAttrName["is_disk_storage"] = "is-disk-storage";
@@ -4619,6 +4639,8 @@ void TMdbSqlParser::InitDsnAttrName()
     m_mapDsnAttrName["is_reload_encrypt"] = "Is-Reload-Encrypt";
     m_mapDsnAttrName["reload_cfg_name"] = "Reload-Cfg-Name";
     m_mapDsnAttrName["reload_db_type"] = "Reload-Db-Type";
+
+	m_mapDsnAttrName["is_use_ntc"] = "is-use-ntc";
 	
     TADD_FUNC("Finish.");
 }

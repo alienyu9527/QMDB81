@@ -16,6 +16,9 @@
 
 #include "Helper/TThreadLog.h"
 #include "Agent/mdbAgentServer.h"
+#ifdef _REDIS
+#include "Redis/server.h"
+#endif
 //#include "Helper/mdbProcess.h"
 
 //#define SAFE_CLOSE(_fp) if(NULL != _fp){fclose(_fp);_fp=NULL;}
@@ -93,12 +96,15 @@ int main(int argc, char* argv[])
         TADD_START(argv[1],sName, 0, false ,true);
         
         int iAgentPort = TMdbNtcStrFunc::StrToInt(argv[2]);
-		int iuseNtc = TMdbNtcStrFunc::StrToInt(argv[3]);
 		if(iAgentPort <= 0) 
 		{
 			TADD_ERROR(ERROR_UNKNOWN, "Invalid agent-port[%d]!", iAgentPort);
 			return -1;
 		}
+		#ifdef _REDIS
+        mdbRedisServermain(argv[1],iAgentPort);
+		#else
+		int iuseNtc = TMdbNtcStrFunc::StrToInt(argv[3]);
 		if(iuseNtc == 1)
         {
         	//NTC
@@ -127,6 +133,7 @@ int main(int argc, char* argv[])
 			
 
 		}
+		#endif
         if(iRet != 0)
         {
             TADD_ERROR(ERROR_UNKNOWN,"mdbagent run faild");  

@@ -55,7 +55,7 @@
         m_pCurFile = fopen(m_sTempFile.c_str(),"a+");
         CHECK_OBJ(m_pCurFile);
         
-        m_pParser = new TMdbRepRecdDecode();
+        m_pParser = new(std::nothrow) TMdbRepRecdDecode();
         CHECK_OBJ(m_pParser );
 
         TMdbDateTime::GetCurrentTimeStr(m_sTime);

@@ -65,6 +65,9 @@ ST_KEYWORD g_stKeywords[] =
     { "quit", 	CMD_QUIT, "Quit using mdbRichSQL", false },
     { "quit;", 	CMD_QUIT, "Quit using mdbRichSQL", false },
     { "desc", 	CMD_DESC, "DESC <table>.", false },
+    //mjx sql tool add start
+    { "show",	CMD_SHOW_INFO, "show sys para info", false},
+    //mjx sql tool add end
     { "tables", CMD_TABLES,"Show all tables.", false },
     { "tables;", CMD_TABLES,"Show all tables.", false },
 
@@ -180,7 +183,7 @@ static char *local_getline(const char *zPrompt, FILE *in)
         fflush(stdout);
     }
     nLine = 100;
-    zLine = (char *)malloc( nLine );
+    zLine = (char *)malloc( static_cast<size_t>(nLine) );
     if( zLine==0 ) return 0;
     n = 0;
     while( 1 )
@@ -190,7 +193,7 @@ static char *local_getline(const char *zPrompt, FILE *in)
             nLine = nLine*2 + 100;
             char *sTemp;
             sTemp = zLine;
-            zLine = (char *)realloc(sTemp, nLine);
+            zLine = (char *)realloc(sTemp, static_cast<size_t>(nLine));
             //zLine = (char *)realloc(zLine, nLine);
             if( zLine==0 )
             {
@@ -226,7 +229,7 @@ static char *local_getline(const char *zPrompt, FILE *in)
             break;
         }
     }
-    zLine = (char *)realloc( zLine, n+1 );
+    zLine = (char *)realloc( zLine, static_cast<size_t>(n+1) );
     return zLine;
 }
 
@@ -448,7 +451,7 @@ int TMdbRichSQL::Start(const bool bIsOffline)
             }
             SAFESTRCPY(sCmdStr,sizeof(sCmdStr),sLine);
             char sCmd[MAX_CMD_LEN] = {0};//截取第一个命令。
-            strncpyEx(sCmd,sCmdStr,strlen(sCmdStr),' ');
+            strncpyEx(sCmd,sCmdStr,static_cast<int>(strlen(sCmdStr)),' ');
             ST_KEYWORD * pCmd = FindCmd(sCmd);
             int iLineCount = 1;
             char sPrompt[8] = {0};
@@ -461,7 +464,7 @@ int TMdbRichSQL::Start(const bool bIsOffline)
                 TrimLeftOrRightSpecialChar(sLine);
                 sCmdStr[strlen(sCmdStr) + 1] = '\0';//末尾添加一个空格
                 sCmdStr[strlen(sCmdStr)] = ' ';
-                SAFESTRCPY(sCmdStr+strlen(sCmdStr),sizeof(sCmdStr)-strlen(sCmdStr),sLine);
+                SAFESTRCPY(sCmdStr+strlen(sCmdStr),static_cast<int>(sizeof(sCmdStr)-strlen(sCmdStr)),sLine);
             }
             add_history(sCmdStr); //添加到历史记录
             if(!bIsOffline)
@@ -628,6 +631,11 @@ int TMdbRichSQL::ExecOnLineCommand(ST_KEYWORD * pCmd,char * sCmdStr)
     case CMD_ENV:
         Env();
         break;
+	//mjx sql tool add start
+	case CMD_SHOW_INFO:
+		ShowSysParaInfo(pCmd,sCmdStr);
+		break;
+	//mjx sql tool add end
     case CMD_EXEC_SQL_FILE:
         if(false == ConfirmBeforeExecute(pCmd,sCmdStr))
         {//动态时，才确认
@@ -731,7 +739,6 @@ int TMdbRichSQL::ExecuteSQL(ST_KEYWORD * pCmd,const char * sSQL)
     char sTemp[4096] = {0};
     SAFESTRCPY(sTemp,sizeof(sTemp),sSQL);
     TMdbNtcStrFunc::ToUpper(sTemp);
-	/*
     if(TMdbNtcStrFunc::FindString(sTemp,"WHERE",0) == -1 
         && TMdbNtcStrFunc::FindString(sTemp,"INSERT",0) == -1 
         && TMdbNtcStrFunc::FindString(sTemp,"SELECT",0) == -1)
@@ -739,7 +746,6 @@ int TMdbRichSQL::ExecuteSQL(ST_KEYWORD * pCmd,const char * sSQL)
         printf("you should use 'where' condition.\n");
         return 0;
     }
-    */
     CHECK_OBJ(pCmd);
     CHECK_OBJ(sSQL);
     CHECK_OBJ((m_pQuery));
@@ -1016,7 +1022,7 @@ void TMdbRichSQL::GenSplitLine(char* pInOutStr,int iBuffLen,int iAddLen)
     if(!pInOutStr) return;
 	char sTempzhy[MAX_VALUE_LEN] = {0};
     snprintf(sTempzhy,sizeof(sTempzhy),"%s*",pInOutStr);
-    snprintf(pInOutStr,iBuffLen, "%s",sTempzhy) ;
+    snprintf(pInOutStr,static_cast<size_t>(iBuffLen), "%s",sTempzhy) ;
     for(int j=1; j<iAddLen; ++j)
     {
         char sTemTemp[MAX_VALUE_LEN] = {0};
@@ -1233,6 +1239,94 @@ ST_RICH_SQL_PROPERTY * TMdbRichSQL::GetProperty(const char * sName,int iID)
     return NULL;
 }
 
+//mjx sql tool add start
+int TMdbRichSQL::ShowOneParaInfo(char* sParaName)
+{
+	int iRet = 0;
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"log-level") == 0)
+		printf("log-level = %d(default 0 ,the value bigger, the log more detailed)\n",m_pConfig->GetDSN()->iLogLevel);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"Clean-Time") == 0)
+		printf("Clean-Time=%d(minutes,clean interval of deleting db records that have been transfered to qmdb) \n",m_pConfig->GetDSN()->iCleanTime);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"ora-rep-counts") == 0)
+		printf("ora-rep-counts=%d(defalut 1, the number of process to rep update oper to db)\n",m_pConfig->GetDSN()->iOraRepCounts);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"is-ora-rep") == 0)
+		printf("is-ora-rep=%s(oracle rep switch)\n",m_pConfig->GetDSN()->bIsOraRep?"Y":"N");
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"is-shard-backup") == 0)
+		printf("is-shard-backup=%s(shard backup switch)\n",m_pConfig->GetDSN()->m_bIsShardBackup?"Y":"N");
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"is-shard-backup") == 0)
+		printf("is-single-disaster=%s(single disaster switch)\n",m_pConfig->GetDSN()->m_bSingleDisaster?"Y":"N");
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"is-capture-router") == 0)
+		printf("is-capture-router=%s(capture router switch)\n",m_pConfig->GetDSN()->bIsCaptureRouter?"Y":"N");
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"Is-Seq-Cache") == 0)
+		printf("Is-Seq-Cache=%d(Sequence cache size)\n",m_pConfig->GetDSN()->m_iSeqCacheSize);
+	return iRet;
+}
+
+int TMdbRichSQL::ShowOneParaInfo2(char* sParaName)
+{
+	int iRet = 0;
+	
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"long-sql-time") == 0)
+		printf("long-sql-time=%d(default 3seconds)\n",m_pConfig->GetDSN()->m_iLongSqlTime);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"buf-size") == 0)
+		printf("buf-size=%d(qmdb buffer size default 256MB)\n",m_pConfig->GetDSN()->iLogBuffSize);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"file-size") == 0)
+		printf("file-size=%d(Synchronize files size,default 128MB)\n",m_pConfig->GetDSN()->iLogBuffSize);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"client-timeout") == 0)
+		printf("client-timeout=%d(default 3seconds)\n",m_pConfig->GetDSN()->iClientTimeout);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"manager-size") == 0)
+		printf("manager-size=%d(default 256MB)\n",static_cast<int>(m_pConfig->GetDSN()->iManagerSize));
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"data-size") == 0)
+		printf("data-size=%d(default 1024MB)\n",static_cast<int>(m_pConfig->GetDSN()->iDataSize));
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"Is-Use-NTC") == 0)
+		printf("is-use-ntc=%s(default Y)\n",m_pConfig->GetDSN()->m_bUseNTC?"Y":"N");
+	else 
+		TADD_ERROR(ERR_SQL_INVALID,"the show parameter is invalid");
+	return iRet;
+	
+}
+
+
+int TMdbRichSQL::ShowSysParaInfo(ST_KEYWORD * pCmd,const char * sCmdStr)
+{
+	TADD_FUNC("Start.");
+	int iRet = 0;
+	char sParaName[128];
+    
+    memset(sParaName, 0, sizeof(sParaName));
+    SAFESTRCPY(sParaName,sizeof(sParaName),sCmdStr + strlen(pCmd->sName.c_str()));
+    TMdbNtcStrFunc::Trim(sParaName);
+	//show all
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sParaName,"all") == 0)
+	{
+		printf("log-level = %d(default 0 ,the value bigger, the log more detailed)\n",m_pConfig->GetDSN()->iLogLevel);
+		printf("Clean-Time=%d(minutes,clean interval of deleting db records that have been transfered to qmdb) \n",m_pConfig->GetDSN()->iCleanTime);
+		printf("ora-rep-counts=%d(defalut 1, the number of process to rep update oper to db)\n",m_pConfig->GetDSN()->iOraRepCounts);
+		printf("is-ora-rep=%s(oracle rep switch)\n",m_pConfig->GetDSN()->bIsOraRep?"Y":"N");
+		printf("is-shard-backup=%s(shard backup switch)\n",m_pConfig->GetDSN()->m_bIsShardBackup?"Y":"N");
+		printf("is-capture-router=%s(capture router switch)\n",m_pConfig->GetDSN()->bIsCaptureRouter?"Y":"N");
+		
+		printf("is-single-disaster=%s(single disaster switch)\n",m_pConfig->GetDSN()->m_bSingleDisaster?"Y":"N");
+		printf("Is-Seq-Cache=%d(Sequence cache size)\n",m_pConfig->GetDSN()->m_iSeqCacheSize);
+		printf("long-sql-time=%d(default 3seconds)\n",m_pConfig->GetDSN()->m_iLongSqlTime);
+		printf("buf-size=%d(qmdb buffer size default 256MB)\n",m_pConfig->GetDSN()->iLogBuffSize);
+		printf("file-size=%d(Synchronize files size,default 128MB)\n",m_pConfig->GetDSN()->iLogBuffSize);
+		printf("client-timeout=%d(default 3seconds)\n",m_pConfig->GetDSN()->iClientTimeout);
+		printf("manager-size=%d(default 256MB)\n",static_cast<int>(m_pConfig->GetDSN()->iManagerSize));
+		printf("data-size=%d(default 1024MB)\n",static_cast<int>(m_pConfig->GetDSN()->iDataSize));
+		printf("is-use-ntc=%s(default Y)\n",m_pConfig->GetDSN()->m_bUseNTC?"Y":"N");
+			
+	}
+
+	else
+	{
+		iRet = ShowOneParaInfo(sParaName);
+		iRet = ShowOneParaInfo2(sParaName);
+
+	}
+	return iRet;
+}
+//mjx sql tool add end
 /******************************************************************************
 * 函数名称	:  Desc
 * 函数描述	:  输出表的描述
@@ -1315,6 +1409,12 @@ int TMdbRichSQL::Desc(ST_KEYWORD * pCmd,const char * sCmdStr)
         }
     }
     printf("\n");
+
+	//mjx sql tool add start
+	for(i=0; i< pTable->iIndexCounts; i++)
+		pTable->tIndex[i].Print(pTable);
+	//mjx sql tool add end
+	
     TADD_FUNC("TMdbSqlPlus::Desc() : Finish.");
     return iRet;
 }
@@ -1713,7 +1813,7 @@ int TMdbRichSQL::PushSqlParam(const char * sMsg,std::vector<ST_SQL> *pvSQL,std::
             stParam.iSqlSeq = iSqlSep;
             stParam.iIndex = i-1;
             stParam.sValue = mdbSplit[i];
-            //判断值类型 
+            //判断值类型 
             if(TMdbNtcStrFunc::IsDigital(mdbSplit[i]))
             {
                 stParam.iDataType = DT_Int;
@@ -1860,6 +1960,7 @@ int TMdbRichSQL::ShowClientSelectResult()
                 {
                     if(m_pCSQuery->Field(i).DataType() == DT_Int)
                     {
+                        iLen = 20;
                         printf("%-*lld", iLen, m_pCSQuery->Field(i).AsInteger());
                     }
                     else

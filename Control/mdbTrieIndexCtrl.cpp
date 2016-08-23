@@ -42,11 +42,47 @@
         return iRet;
     }
 
+	
+    int TMdbTrieIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn, TMdbTable* pTable, const char *sNewTableName, int& iFindIndexs)
+    {
+		int iRet  =0;
+		CHECK_RET(AttachTable(pMdbShmDsn, pTable),"Trie index attach table failed.");
+		for(int n=0; n<MAX_TRIE_SHMID_COUNT; ++n)
+	    {
+	        char * pBaseIndexAddr = pMdbShmDsn->GetTrieRootIndex(n);
+	        if(pBaseIndexAddr == NULL)
+	            continue;
+
+	        TMdbTrieRootIndexMgrInfo *pBIndexMgr = (TMdbTrieRootIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
+	        for(int j=0; j<MAX_TRIE_INDEX_COUNT && iFindIndexs<pTable->iIndexCounts; ++j)
+	        {
+	            if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
+	            {
+	                iFindIndexs++;
+	                SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
+	            }
+	            
+	        }
+	        if(iFindIndexs == pTable->iIndexCounts)
+	        {
+	            return iRet;
+	        }
+	        
+	        
+	    }
+
+		return iRet;
+	}
+	
 	// 1 RootNode   +   n TrieNode  +  n ConfictNode
     int TMdbTrieIndexCtrl::AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize)
     {
         int iRet = 0;
         CHECK_OBJ(pTable);
+
+		//根节点不需要申请那么多内存
+		iDataSize = iDataSize/64;  
+			
         TADD_FLOW("AddTableIndex Table=[%s],Size=[%lu] start.", pTable->sTableName,iDataSize);
 
 		//只需要申请一个根节点的空间
@@ -310,11 +346,11 @@
 		TADD_FUNC("Start.iConfIndexSize=[%lld].iDataSize=[%lu]",iBranchSize,iDataSize);
 		int iRet = 0;
 
-		if((size_t)iBranchSize > iDataSize -	10*1024*1024)
+		if((size_t)iBranchSize > iDataSize - 10*1024*1024)
 		{
 			//所需空间太大一个内存块都不够放//预留10M空间
 			CHECK_RET(-1,"DataSize is[%luM],it's too small,must > [%lldM],please change it",
-					  iDataSize/1024/1024, iBranchSize/1024/1024);
+					  iDataSize/1024/1024+10, iBranchSize/1024/1024);
 		}
 
 		TMdbTrieBlock* pBlock = NULL;
@@ -325,7 +361,7 @@
 		bool bFound = false;
 		while(pBlock != NULL)
 		{
-			if(pBlock->iSize > iBranchSize)
+			if(pBlock->iSize >= iBranchSize)
 			{
 				bFound = true;
 				break;
@@ -338,7 +374,8 @@
 		if(bFound)
 		{
 			CHECK_RET(RemoveBlock(pBlock, pBranchMgr->iFreeBlockId,false),"Remove free conflict block failed.");
-			pFreeBlock = pBlock;
+			pFreeBlock = pBlock;			
+			TADD_NORMAL("Branch  Find FreeBlock : %d,next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
 			return iRet;
 		}
 		else
@@ -366,6 +403,8 @@
 			pFreeBlock->iBlockId = pBranchMgr->iTotalBlocks;
 			pBranchMgr->iTotalBlocks++;
 			pFreeBlock->tMutex.Create();
+			
+			TADD_NORMAL("Branch  Create FreeBlock : %d,next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
 			 
 			CHECK_RET(m_pMdbDsn->tMutex.UnLock(true, m_pMdbDsn->sCurTime),"unlock failed.");
 			
@@ -395,7 +434,7 @@
         bool bFound = false;
         while(pBlock != NULL)
         {
-            if(pBlock->iSize > iConflictSize)
+            if(pBlock->iSize >= iConflictSize)
             {
                 bFound = true;
                 break;
@@ -409,6 +448,7 @@
         {
             CHECK_RET(RemoveBlock(pBlock, pMgr->iFreeBlockId,true),"Remove free conflict block failed.");
             pFreeBlock = pBlock;
+			TADD_NORMAL("Conf  Find FreeBlock : %d,Next:%d\n",pFreeBlock->iBlockId, pFreeBlock->iNextBlock);
             return iRet;
         }
         else
@@ -435,6 +475,7 @@
              pFreeBlock->iSize = iConflictSize;             
              pFreeBlock->iBlockId = pMgr->iTotalBlocks;
              pMgr->iTotalBlocks++;
+			 TADD_NORMAL("Conf  Create FreeBlock : %d,Next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
              pFreeBlock->tMutex.Create();
              
              CHECK_RET(m_pMdbDsn->tMutex.UnLock(true, m_pMdbDsn->sCurTime),"unlock failed.");
@@ -516,6 +557,7 @@
 		CHECK_OBJ(pRoot);
 
 		TMdbTrieIndexNode* pCur = pRoot;
+		pCur->m_iFatherPos = -1;
 
 		int cPos = 0;
 		int iChrIndex = 0;
@@ -530,36 +572,57 @@
 			}
 	    	iChrIndex = sTrieWord[cPos] - '0';
 			
-			//当前孩子节点是空的,就填一个上去
-	    	if(-1 == pCur->m_iChildrenPos[iChrIndex])  
-	    	{
-				if(tTrieIndex.pBranchIndex->iFreeHeadPos < 0)
-		        {
-		            CHECK_RET(ApplyNewBranchNode(tTrieIndex),"no more free branch node space.");
-		        }
-				
+			//当前孩子节点是空的,就填一个上去				
+			//节点加锁,添加孩子节点与其他线程排斥
+			pCur->tMutex.Lock(true);
+			do
+			{
+		    	if(-1 == pCur->m_iChildrenPos[iChrIndex])  
+		    	{
+					if(tTrieIndex.pBranchIndex->iFreeHeadPos < 0)
+			        {
+			            CHECK_RET_BREAK(ApplyNewBranchNode(tTrieIndex),"no more free branch node space.");
+			        }
+					
 
-				int iFreePos = tTrieIndex.pBranchIndex->iFreeHeadPos;
-				TMdbTrieIndexNode* pFreeNode = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId,iFreePos,sizeof(TMdbTrieIndexNode),false);				
-		        CHECK_OBJ(pFreeNode);
-		        pFreeNode->m_ch = sTrieWord[cPos];
-				pCur->m_iChildrenPos[iChrIndex] = iFreePos;	
-				tTrieIndex.pBranchIndex->iFreeHeadPos = pFreeNode->m_iNextPos; 
-				tTrieIndex.pBranchIndex->iFreeNodeCounts--;
-			}
+					int iFreePos = tTrieIndex.pBranchIndex->iFreeHeadPos;
+					TMdbTrieIndexNode* pFreeNode = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId,iFreePos,sizeof(TMdbTrieIndexNode),false);				
+			        CHECK_OBJ_BREAK(pFreeNode);
+			        pFreeNode->m_ch = sTrieWord[cPos];
+					pFreeNode->m_iFatherPos = pCur->m_iCurPos;
+					pFreeNode->m_iCurPos = iFreePos;
+					pCur->m_iChildrenPos[iChrIndex] = iFreePos;	
+					tTrieIndex.pBranchIndex->iFreeHeadPos = pFreeNode->m_iNextPos;  
+					tTrieIndex.pBranchIndex->iFreeNodeCounts --;
+				}	
+			}while(0);			
+			pCur->tMutex.UnLock(true);
+
+			
+			CHECK_RET(iRet,"Fill ChildNode Failed.")
+
 
 			if(0 == sTrieWord[cPos+1])
 			{				
 				pCur = (TMdbTrieIndexNode*)GetAddrByIndexNodeId(tTrieIndex.pBranchIndex->iHeadBlockId, pCur->m_iChildrenPos[iChrIndex] ,sizeof(TMdbTrieIndexNode),false);
-				if(pCur->m_NodeInfo.m_tRowId.IsEmpty())
+
+				//节点加锁，写排斥
+				pCur->tMutex.Lock(true);
+				do
 				{
-					pCur->m_NodeInfo.m_tRowId = rowID;
-				}
-				else
-				{
-					InsertConflictNode(pCur->m_NodeInfo, tTrieIndex, rowID);	
-				}
-				break;
+					if(pCur->m_NodeInfo.m_tRowId.IsEmpty())
+					{
+						pCur->m_NodeInfo.m_tRowId = rowID;
+					}
+					else
+					{
+						CHECK_RET_BREAK(InsertConflictNode(pCur->m_NodeInfo, tTrieIndex, rowID),"InsertConflictNode failed.");	
+					}
+				}while(0);
+				pCur->tMutex.UnLock(true);
+
+				
+				return iRet;
 			}
 			else
 			{
@@ -599,7 +662,7 @@
         TADD_FUNC("Start.");
         int iRet = 0;
 
-        int iNewCount = m_pAttachTable->iTabLevelCnts;
+        int iNewCount = m_pAttachTable->iTabLevelCnts/16;
         int iNodeSize = sizeof(TMdbTrieConfIndexNode);
         MDB_UINT64 iConflictSize = iNewCount * iNodeSize;
         TMdbTrieBlock* pBlock = NULL;
@@ -623,7 +686,7 @@
         
         CHECK_RET(pBlock->tMutex.Lock(true, &(m_pMdbDsn->tCurTime)),"lock block failed.");
         
-        char* pAddr = m_pMdbShmDsn->GetMhashConfShmAddr(pBlock->iShmID);
+        char* pAddr = m_pMdbShmDsn->GetTrieConfShmAddr(pBlock->iShmID);
         TMdbTrieConfIndexNode* pNode = (TMdbTrieConfIndexNode*)pAddr;
         for(int i = pBlock->iStartNode; i <= pBlock->iEndNode; i++)
         {
@@ -649,11 +712,11 @@
         TADD_FUNC("Start.");
         int iRet = 0;
 
-        int iNewCount = m_pAttachTable->iTabLevelCnts;
+        int iNewCount = m_pAttachTable->iTabLevelCnts/8;
         int iNodeSize = sizeof(TMdbTrieIndexNode);
         MDB_UINT64 iBaseSize = iNewCount * iNodeSize;
         TMdbTrieBlock* pBlock = NULL;
-        CHECK_RET(GetFreeBranchShm(iBaseSize, m_pMdbDsn->m_iDataSize,pBlock), "Get Free Conflict index shm failed.");
+        CHECK_RET(GetFreeBranchShm(iBaseSize, m_pMdbDsn->m_iDataSize,pBlock), "Get Free Branch index shm failed.");
 
         CHECK_RET(m_pMdbDsn->tMutex.Lock(true, &(m_pMdbDsn->tCurTime)),"lock dsn failed.");
         do
@@ -719,6 +782,8 @@
 		for(; sTrieWord[cPos] != 0; ++cPos)
 		{
 			CHECK_OBJ(pCur);
+			if(!isdigit(sTrieWord[cPos])){return iRet;}
+			
 			iChrIndex = sTrieWord[cPos] - '0';
 
 			//匹配失败
@@ -731,6 +796,8 @@
 
 		}
 
+		//节点加锁，写排斥
+		pCur->tMutex.Lock(true);
 		if(pCur->m_NodeInfo.m_tRowId == rowID)
 		{
 			pCur->m_NodeInfo.m_tRowId.Clear();
@@ -743,7 +810,9 @@
 			{
 				TADD_WARNING("rowID %d On TrieConflictList  cannot be found.",rowID);
 			}
-		}
+		}		
+		pCur->tMutex.UnLock(true);
+		
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -905,11 +974,14 @@
 			TMdbTrieBlock* pBlock = GetBlockById(tIndexInfo.pConflictIndex->iHeadBlockId, true);
 			while(pBlock)
 			{
+				int iNextBlockId = pBlock->iNextBlock;
+				
+				TADD_NORMAL("Conf  Return Block:%d,next:%d\n",pBlock->iBlockId,iNextBlockId);
 				if(AddBlock(pConfMgr->iFreeBlockId, pBlock, true) < 0)
 				{
 					break;
 				}			
-				pBlock = GetBlockById(pBlock->iNextBlock, true);
+				pBlock = GetBlockById(iNextBlockId, true);
 			}
 			tIndexInfo.pConflictIndex->iFreeHeadPos = -1;
 		    tIndexInfo.pConflictIndex->iFreeNodeCounts = 0;
@@ -924,11 +996,13 @@
 			pBlock = GetBlockById(tIndexInfo.pBranchIndex->iHeadBlockId, false);
 			while(pBlock)
 			{
-				if(AddBlock(pBranchMgr->iFreeBlockId, pBlock, true) < 0)
+				int iNextBlockId = pBlock->iNextBlock;
+				TADD_NORMAL("Branch  Return Block:%d,next:%d\n",pBlock->iBlockId,iNextBlockId);				
+				if(AddBlock(pBranchMgr->iFreeBlockId, pBlock, false) < 0)
 				{
 					break;
 				}			
-				pBlock = GetBlockById(pBlock->iNextBlock, true);
+				pBlock = GetBlockById(iNextBlockId, false);
 			}
 			tIndexInfo.pBranchIndex->iFreeHeadPos = -1;
 		    tIndexInfo.pBranchIndex->iFreeNodeCounts = 0;
@@ -972,9 +1046,30 @@
 			iBICounts,stIndexInfo.pBranchIndex->iFreeHeadPos,stIndexInfo.pBranchIndex->iFreeNodeCounts);
         OutPutInfo(bConsole,"[ConfilictIndex] counts=[%d]，FreeHeadPos=[%d],FreeNodes=[%d]\n",
 			iCICounts,stIndexInfo.pConflictIndex->iFreeHeadPos,stIndexInfo.pConflictIndex->iFreeNodeCounts);
+
+
+		TMdbTrieBranchIndexMgrInfo* pBranchMgr =m_pMdbShmDsn->GetTrieBranchMgr();
+		CHECK_OBJ(pBranchMgr);
+		OutPutInfo(bConsole,"BranchBlock:");					
+		TMdbTrieBlock* pBlock = GetBlockById(stIndexInfo.pBranchIndex->iHeadBlockId, false);
+		while(pBlock)
+		{
+			OutPutInfo(bConsole,"%d-",pBlock->iBlockId);					
+			pBlock = GetBlockById(pBlock->iNextBlock, false);
+		}
+
+		TMdbTrieConflictIndexMgrInfo* pConfMgr =m_pMdbShmDsn->GetTrieConfMgr();
+		CHECK_OBJ(pConfMgr);
+		OutPutInfo(bConsole,"ConfBlock:");					
+		pBlock = GetBlockById(stIndexInfo.pConflictIndex->iHeadBlockId, true);
+		while(pBlock)
+		{
+			OutPutInfo(bConsole,"%d-",pBlock->iBlockId);					
+			pBlock = GetBlockById(pBlock->iNextBlock, true);
+		}
 		
 		int iMaxDep = iDetialLevel;
-        if(iMaxDep >0 )
+        if(iMaxDep >1 )
         {//详细信息
            PrintIndexInfoDetail(iMaxDep,bConsole,stIndexInfo);
         }
@@ -1173,6 +1268,7 @@
         if(iHeadId < 0)
         {
             iHeadId= pBlockToAdd->iBlockId;
+            pBlockToAdd->iNextBlock = -1;
         }
         else
         {

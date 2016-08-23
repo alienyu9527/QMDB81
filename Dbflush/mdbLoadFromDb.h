@@ -132,7 +132,7 @@ using namespace std;
         * зїеп		:  li.shugang
         *******************************************************************************/
         int LoadAll(const char* pszTable, const char * pszFilterSql=NULL);    
-        
+        int LoadTables(const char* pszTable, const char * pszFilterSql,TMdbDatabase *mdb,TMdbDAOLoad *dao);
     private:    
         bool FilterTable(TMdbTable* pTable, const char* psTabName);
 

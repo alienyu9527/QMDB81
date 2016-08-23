@@ -29,7 +29,7 @@
     }\
     else\
     {\
-        MDBXMLElement * pSysAttr = new MDBXMLElement("section");\
+        MDBXMLElement * pSysAttr = new(std::nothrow) MDBXMLElement("section");\
         pSys->LinkEndChild(pSysAttr);\
         pSysAttr->SetAttribute("name", name);\
         pSysAttr->SetAttribute("value",value);\
@@ -44,7 +44,7 @@
     }\
     else\
     {\
-        MDBXMLElement * pSysAttr = new MDBXMLElement("section");\
+        MDBXMLElement * pSysAttr = new(std::nothrow) MDBXMLElement("section");\
         pSys->LinkEndChild(pSysAttr);\
         pSysAttr->SetAttribute("name", name);\
         if(value)\

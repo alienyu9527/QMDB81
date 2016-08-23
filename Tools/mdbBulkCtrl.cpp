@@ -13,7 +13,7 @@
 #define BULK_NULL "NULL"//导入时识别文件中的空格式，导出时空输出为
  
 #define BULK_IN_SET_PARA  do{\
-if(strcmp(BULK_NULL,pBegin) == 0)\
+if(TMdbNtcStrFunc::StrNoCaseCmp(BULK_NULL,pBegin) == 0)\
 {\
     m_tConnCtrl.m_pQuery->SetParameterNULL(iColumnIndex);\
 }\
@@ -53,7 +53,7 @@ int TMdbConnectCtrl::CreateMdbQuery(const char * psDsnName)
     //m_sDsn = psDsnName;
     if(NULL == m_pDBLink)
     {
-        m_pDBLink = new TMdbDatabase();
+        m_pDBLink = new(std::nothrow) TMdbDatabase();
         CHECK_OBJ(m_pDBLink);
     }
     try
@@ -289,6 +289,18 @@ TMdbBuckOutData::TMdbBuckOutData()
     m_iDataSrc = 0;//默认从mdb
     m_pMdbTable = NULL;
     memset(m_sSelectSQL,0,sizeof(m_sSelectSQL));
+
+	m_bAllTable = false;
+	
+	memset(m_sTsFormat,0,sizeof(m_sTsFormat));
+	memset(m_sFilterToken,0,sizeof(m_sFilterToken));
+	memset(m_sFileName,0,sizeof(m_sFileName));
+
+	memset(m_sStrQuote,0,sizeof(m_sStrQuote));
+	
+	m_pShmDSN = NULL;
+	
+	
 }
 
 TMdbBuckOutData::~TMdbBuckOutData()
@@ -304,14 +316,64 @@ TMdbBuckOutData::~TMdbBuckOutData()
 * 返回值    :  0 - 成功!0 -失败
 * 作者		: 
 *******************************************************************************/
-int TMdbBuckOutData::Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,
-    const char *sTableName,const char* pOraSQLFile)
+int TMdbBuckOutData::Init(TMdbShmDSN * pShmDSN,int iExptType,const char*pDumpFile,
+    const char *sTableName,const char* sTsFormat,const char* sFilterToken,const char* sStrQuote,const char* pSQLFile)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
     CHECK_OBJ(pShmDSN);
     CHECK_OBJ(pDumpFile);
     CHECK_OBJ(sTableName);
+	CHECK_OBJ(sTsFormat);
+	CHECK_OBJ(sStrQuote);
+	//日期时间的格式
+	SAFESTRCPY(m_sTsFormat,sizeof(m_sTsFormat),sTsFormat);
+
+	//全表或者单表的判断，处理
+	if(TMdbNtcStrFunc::StrNoCaseCmp(sTableName, "all") == 0)
+	{
+		m_bAllTable = true;
+		//dump数据的文件名
+		SAFESTRCPY(m_sFileName,sizeof(m_sFileName),pDumpFile);
+		m_pShmDSN = pShmDSN;
+		//return 0;
+	}
+
+	//字段之间的分隔符,默认,
+	if(sFilterToken[0] == 0)
+	{
+		m_sFilterToken[0] = ',';
+		m_sFilterToken[1] = '\0';
+	}
+
+	else
+	{
+		m_sFilterToken[0] = sFilterToken[0];
+		m_sFilterToken[1] = '\0';
+	}
+
+	//字符串的输出表示, 单引号或者双引号
+	if(sStrQuote[0] == 0)
+	{
+		m_sStrQuote[0] = '\'';
+		m_sStrQuote[1] = '\0';
+	}
+
+	else if(sStrQuote[0] == '\'' || sStrQuote[0] == '"')
+	{
+		m_sStrQuote[0] = sStrQuote[0];
+		m_sStrQuote[1] = '\0';
+	}
+	else
+	{
+		TADD_ERROR(ERR_APP_INVALID_PARAM,"string quote is not valid");
+		return ERR_APP_INVALID_PARAM;
+	}
+	
+	//所有的表的导出，下面的暂时不做
+	if(m_bAllTable ==  true)
+		return 0;
+
     //写文件句柄
     CHECK_RET(m_tWriter.Init(pDumpFile),"Failed to initialize.");
     //内存表
@@ -326,18 +388,35 @@ int TMdbBuckOutData::Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,
         TADD_ERROR(ERR_TAB_COLUMN_DATA_TYPE_INVALID,"Table[%s] containing BLOB columns cannot export data.",sTableName);
         return ERR_TAB_COLUMN_DATA_TYPE_INVALID;
     }
+	if(iExptType ==  0)
+		m_iDataSrc = 0;	//从mdb export
+	else
+		m_iDataSrc = 1;  //从oracle export
+
+		
     //查询句柄，获取sql
-    if(pOraSQLFile) 
-    {//从ora导出
-        m_iDataSrc = 1;//从oracle 读取数据，默认从mdb
-        CHECK_RET(GetOraSQL(pOraSQLFile),"Failed to get query SQL,Table-name = %s.",sTableName);
-        CHECK_RET(m_tConnCtrl.CreateOraQuery(pShmDSN->GetInfo()->sName),"Create OraQuery failed.");
+    if(pSQLFile && pSQLFile[0] != 0) 
+    {
+       
+        CHECK_RET(GetOraSQL(pSQLFile),"Failed to get query SQL,Table-name = %s.",sTableName);
+        //CHECK_RET(m_tConnCtrl.CreateOraQuery(pShmDSN->GetInfo()->sName),"Create OraQuery failed.");
     }
     else
-    {//从mdb导出
+    {
+    	
         CHECK_RET(GetMdbSQL(m_pMdbTable),"Failed to get query SQL,Table-name = %s.",sTableName);
-        CHECK_RET(m_tConnCtrl.CreateMdbQuery(pShmDSN->GetInfo()->sName),"Create MdbQuery failed.");
+        //CHECK_RET(m_tConnCtrl.CreateMdbQuery(pShmDSN->GetInfo()->sName),"Create MdbQuery failed.");
     }
+	if(m_iDataSrc == 1)
+	{
+		CHECK_RET(m_tConnCtrl.CreateOraQuery(pShmDSN->GetInfo()->sName),"Create OraQuery failed.");
+
+	}
+	else
+	{
+		CHECK_RET(m_tConnCtrl.CreateMdbQuery(pShmDSN->GetInfo()->sName),"Create MdbQuery failed.");
+
+	}
     TADD_FUNC("Finish.");
     return iRet;
 }
@@ -350,18 +429,94 @@ int TMdbBuckOutData::Init(TMdbShmDSN * pShmDSN,const char*pDumpFile,
 * 返回值    :  0 - 成功!0 -失败
 * 作者		:  
 *******************************************************************************/
+bool TMdbBuckOutData::FilterTable(TMdbTable* pTable)
+{
+	
+	if(pTable->bIsSysTab)
+	{
+		return false;
+	}
+	
+		
+	return true;
+}
+
+int TMdbBuckOutData::ExportDataForAllTable()
+{
+	int iRet = 0;
+	TShmList<TMdbTable>::iterator itor = m_pShmDSN->m_TableList.begin();
+    for(;itor != m_pShmDSN->m_TableList.end();++itor)
+     {
+         TMdbTable * pTable = &(*itor);
+         if(pTable->sTableName[0]== 0){continue;}
+         // 过滤系统表和表空间
+         if(FilterTable(pTable) == false)
+         {
+             continue;
+         }
+		 //包含blob的列
+		 if(IsBlobTable(m_pMdbTable))
+    	{
+        	continue;
+    	}
+          m_pMdbTable = pTable;  
+
+		  char sFileName[MAX_PATH_FILE] ={0};
+		  snprintf(sFileName,sizeof(sFileName),"%s_%s",m_sFileName,m_pMdbTable->sTableName);
+		  
+		  m_tWriter.Init(sFileName);
+
+		  CHECK_RET(GetMdbSQL(m_pMdbTable),"Failed to get query SQL,Table-name = %s.",m_pMdbTable->sTableName);
+        
+    
+		if(m_iDataSrc == 1)
+		{
+			//norep的表去掉
+			 if(pTable->iRepAttr == REP_NO_REP)
+        	{
+            	continue;
+        	}
+			CHECK_RET(m_tConnCtrl.CreateOraQuery(m_pShmDSN->GetInfo()->sName),"Create OraQuery failed.");
+			CHECK_RET(WriteTextFileFromOra(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
+		}
+		else
+		{
+			CHECK_RET(m_tConnCtrl.CreateMdbQuery(m_pShmDSN->GetInfo()->sName),"Create MdbQuery failed.");
+			CHECK_RET(WriteTextFileFromMdb(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
+		}
+
+		m_tWriter.Write();
+		m_tWriter.Clear();
+		m_tConnCtrl.Destroy();
+          
+     }
+     return iRet;
+
+}
+
+
 int TMdbBuckOutData::ExportData()
 {
     TADD_FUNC("Start.");
     int iRet = 0;
-    if(1 == m_iDataSrc)
-    {//从ora导出
-        CHECK_RET(WriteTextFileFromOra(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
-    }
-    else
-    {//从 mdb导出
-        CHECK_RET(WriteTextFileFromMdb(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
-    }
+	if(m_bAllTable == true)
+	{
+		ExportDataForAllTable();
+
+	}
+	else
+	{
+		if(1 == m_iDataSrc)
+	    {//从ora导出
+	        CHECK_RET(WriteTextFileFromOra(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
+	    }
+	    else
+	    {//从 mdb导出
+	        CHECK_RET(WriteTextFileFromMdb(m_pMdbTable),"Failed to export SQL file,TableName = [%s].",m_pMdbTable->sTableName);
+	    }
+
+	}
+    
     TADD_FUNC("Finish.");
     return iRet;
 
@@ -393,6 +548,44 @@ bool TMdbBuckOutData::IsBlobTable(TMdbTable *pMdbTable)
     return false;
 }
 
+int TMdbBuckOutData::FormateDate(char* sMdbDate,char* sFormatDate )
+{
+	char year[5] = {0};
+	char month[3] = {0};
+	char day[3] = {0};
+	char hour[3] = {0};
+	char mins[3] = {0};
+	char secs[3] = {0};
+						
+	year[0] = sMdbDate[0];
+	year[1] = sMdbDate[1];
+	year[2] = sMdbDate[2];
+	year[3] = sMdbDate[3];
+						
+	month[0] = sMdbDate[4];
+	month[1] = sMdbDate[5];
+
+	day[0] = sMdbDate[6];
+	day[1] = sMdbDate[7];
+
+	hour[0] = sMdbDate[8];
+	hour[1] = sMdbDate[9];
+
+	mins[0] = sMdbDate[10];
+	mins[1] = sMdbDate[11];
+
+	secs[0] = sMdbDate[12];
+	secs[1] = sMdbDate[13];
+
+	if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat, "YYYYMMDDHHMMSS") == 0)
+		snprintf(sFormatDate,MAX_NAME_LEN,"%s%s%s%s%s%s",year,month,day,hour,mins,secs);
+	else if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat, "YYYY-MM-DD HH:MM:SS") == 0)
+		snprintf(sFormatDate,MAX_NAME_LEN,"%s-%s-%s %s:%s:%s",year,month,day,hour,mins,secs);
+
+	else
+		snprintf(sFormatDate,MAX_NAME_LEN,"%s%s%s%s%s%s",year,month,day,hour,mins,secs);
+	return 0;				
+}
 /******************************************************************************
 * 函数名称  :  WriteTextFileFromMdb()
 * 函数描述  :  写文件，逗号分隔字段
@@ -406,7 +599,7 @@ int TMdbBuckOutData::WriteTextFileFromMdb(TMdbTable *pMdbTable)
     TADD_FUNC("Start.");
     int iRet = 0;
     int iCount = 0;
-    int iLen = 0;
+    size_t  iLen = 0;
     char sValues[MAX_VALUE_LEN] = {0};
     CHECK_OBJ(pMdbTable);
     try
@@ -424,26 +617,47 @@ int TMdbBuckOutData::WriteTextFileFromMdb(TMdbTable *pMdbTable)
                 if(m_tConnCtrl.m_pQuery->Field(i).isNULL())
                 {
                     snprintf(sValues+iLen,\
-                        sizeof(sValues)-iLen,"%s,",BULK_NULL);
+                        sizeof(sValues)-iLen,"%s%s",BULK_NULL,m_sFilterToken);
                     continue;
                 }
                 if(pMdbTable->tColumn[i].iDataType == DT_Int)
                 {
                     snprintf(sValues+iLen,\
                         sizeof(sValues)-iLen,\
-                        "%lld,",m_tConnCtrl.m_pQuery->Field(i).AsInteger());
+                        "%lld%s",m_tConnCtrl.m_pQuery->Field(i).AsInteger(),m_sFilterToken);
                 }
                 else if(pMdbTable->tColumn[i].iDataType == DT_DateStamp)
                 {
-                    snprintf(sValues+iLen,\
+                    
+
+					if(m_sTsFormat[0] == 0)
+                    {
+                    	snprintf(sValues+iLen,\
                         sizeof(sValues)-iLen,\
-                        "%s,",m_tConnCtrl.m_pQuery->Field(i).AsString());
+                        "%s%s",m_tConnCtrl.m_pQuery->Field(i).AsString(),m_sFilterToken);
+                	}
+					// 'YYYYMMDDHHMMSS',YYYY-MM-DD HH:MM:SS
+					else
+					{
+						char sMdbDate[MAX_TIME_LEN] = {0};
+						char sFormatDate[MAX_NAME_LEN] = {0};
+						SAFESTRCPY(sMdbDate,sizeof(sMdbDate),m_tConnCtrl.m_pQuery->Field(i).AsString());
+						FormateDate(sMdbDate,sFormatDate);
+						snprintf(sValues+iLen,\
+                        	sizeof(sValues)-iLen,\
+                        		"%s%s",sFormatDate,m_sFilterToken);
+					}
                 }
                 else
                 {
+                	if(m_sStrQuote[0] == '"')
                     snprintf(sValues+iLen,\
                         sizeof(sValues)-iLen,\
-                        "'%s',",m_tConnCtrl.m_pQuery->Field(i).AsString());
+                        "\"%s\"%s",m_tConnCtrl.m_pQuery->Field(i).AsString(),m_sFilterToken);
+					else if(m_sStrQuote[0] == '\'')
+					snprintf(sValues+iLen,\
+                        sizeof(sValues)-iLen,\
+                        "'%s'%s",m_tConnCtrl.m_pQuery->Field(i).AsString(),m_sFilterToken);
                 }
             }
             iCount++;
@@ -494,16 +708,19 @@ int TMdbBuckOutData::WriteTextFileFromOra(TMdbTable *pMdbTable)
                 iLen = strlen(sValues);
                 if(m_tConnCtrl.m_pOraQuery->Field(i).isNULL())
                 {//空与空串的处理
+                	//mjx sql tool add start
+                    //NULL的处理要统一
+                    //mjx sql tool add end
                     if(pMdbTable->tColumn[i].iDataType == DT_Char 
                         || pMdbTable->tColumn[i].iDataType == DT_VarChar)
                     {
                         snprintf(sValues+iLen,\
-                            sizeof(sValues)-iLen,"%s,","''");
+                            sizeof(sValues)-iLen,"%s%s",BULK_NULL,m_sFilterToken);
                     }
                     else
                     {
                         snprintf(sValues+iLen,\
-                            sizeof(sValues)-iLen,"%s,",BULK_NULL);
+                            sizeof(sValues)-iLen,"%s%s",BULK_NULL,m_sFilterToken);
                     }
                 
                     continue;
@@ -512,19 +729,38 @@ int TMdbBuckOutData::WriteTextFileFromOra(TMdbTable *pMdbTable)
                 {
                     snprintf(sValues+iLen,\
                         sizeof(sValues)-iLen,\
-                        "%lld,",m_tConnCtrl.m_pOraQuery->Field(i).AsInteger());
+                        "%lld%s",m_tConnCtrl.m_pOraQuery->Field(i).AsInteger(),m_sFilterToken);
                 }
                 else if(pMdbTable->tColumn[i].iDataType == DT_DateStamp)
                 {
-                    snprintf(sValues+iLen,\
-                        sizeof(sValues)-iLen,\
-                        "%s,",m_tConnCtrl.m_pOraQuery->Field(i).AsString());
+                	if(m_sTsFormat[0] == 0)
+                    {
+                    	snprintf(sValues+iLen,\
+                        	sizeof(sValues)-iLen,\
+                        		"%s%s",m_tConnCtrl.m_pOraQuery->Field(i).AsString(),m_sFilterToken);
+                	}
+					// 'YYYYMMDDHHMMSS',YYYY-MM-DD HH:MM:SS
+					else
+					{
+						char sMdbDate[MAX_TIME_LEN] = {0};
+						char sFormatDate[MAX_NAME_LEN] = {0};
+						SAFESTRCPY(sMdbDate,sizeof(sMdbDate),m_tConnCtrl.m_pOraQuery->Field(i).AsString());
+						FormateDate(sMdbDate,sFormatDate);
+						snprintf(sValues+iLen,\
+                        	sizeof(sValues)-iLen,\
+                        		"%s%s",sFormatDate,m_sFilterToken);
+					}
                 }
                 else
                 {//字符串以单引号包括
+                	if(m_sStrQuote[0] == '"')
                     snprintf(sValues+iLen,\
                         sizeof(sValues)-iLen,\
-                        "'%s',",m_tConnCtrl.m_pOraQuery->Field(i).AsString());
+                        "\"%s\"%s",m_tConnCtrl.m_pOraQuery->Field(i).AsString(),m_sFilterToken);
+					else if(m_sStrQuote[0] == '\'')
+					snprintf(sValues+iLen,\
+                        sizeof(sValues)-iLen,\
+                        "'%s'%s",m_tConnCtrl.m_pOraQuery->Field(i).AsString(),m_sFilterToken);
                 }
                 
             }
@@ -568,7 +804,9 @@ int TMdbBuckOutData::GetMdbSQL(TMdbTable *pMdbTable)
     TADD_FUNC("Start.");
     int iRet = 0;
     memset(m_sSelectSQL,0,sizeof(m_sSelectSQL));
-    
+	//mjx sql tool add start
+    //mjx 给出了文件，用文件的
+    //mjx sql tool add end
     //首先拼写select部分
     SAFESTRCPY(m_sSelectSQL,sizeof(m_sSelectSQL),"select ");
     for(int i=0; i<pMdbTable->iColumnCounts; ++i)
@@ -627,7 +865,9 @@ int TMdbBuckOutData::GetOraSQL(const char* pOraSQLFile)
     TMdbNtcStrFunc::TrimRight(m_sSelectSQL,'\n');
     TMdbNtcStrFunc::TrimRight(m_sSelectSQL,' ');
     TMdbNtcStrFunc::TrimRight(m_sSelectSQL,';');
-    
+    //mjx sql tool add start
+    //没有文件，自己拼接sql生成
+    //mjx sql tool add end
     return 0;
     
 }
@@ -637,6 +877,11 @@ TMdbBuckInData::TMdbBuckInData()
     m_pFile = NULL;
     m_pMdbTable = NULL;
     memset(m_sInsertSQL,0,sizeof(m_sInsertSQL));
+	
+	memset(m_sTsFormat,0,sizeof(m_sTsFormat));
+	memset(m_sFilterToken,0,sizeof(m_sFilterToken));
+	memset(m_sStrQuote,0,sizeof(m_sStrQuote));
+	
 }
 
 TMdbBuckInData::~TMdbBuckInData()
@@ -644,14 +889,47 @@ TMdbBuckInData::~TMdbBuckInData()
     SAFE_CLOSE(m_pFile);
 }
 
-int TMdbBuckInData::Init(TMdbShmDSN * pShmDSN,const char * pDumpFile,const char *sTableName)
+int TMdbBuckInData::Init(TMdbShmDSN * pShmDSN,const char * pDumpFile,const char *sTableName,const char* sTsFormat,const char* sFilterToken, const char* sStrQuote)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
     CHECK_OBJ(pShmDSN);
     CHECK_OBJ(pDumpFile);
     CHECK_OBJ(sTableName);
-    
+    CHECK_OBJ(sTsFormat);
+
+	SAFESTRCPY(m_sTsFormat,sizeof(m_sTsFormat),sTsFormat);
+
+	if(sFilterToken[0] == 0)
+	{
+		m_sFilterToken[0] = ',';
+		m_sFilterToken[1] = '\0';
+	}
+
+	else if(sFilterToken[0] == '\'' || sFilterToken[0] == '"')
+	{
+		m_sFilterToken[0] = sFilterToken[0];
+		m_sFilterToken[1] = '\0';
+	}
+	else
+	{
+		TADD_ERROR(ERR_APP_INVALID_PARAM,"string quote is not valid");
+		return ERR_APP_INVALID_PARAM;
+	}
+
+	//字符串的输出表示, 单引号或者双引号
+	if(sStrQuote[0] == 0)
+	{
+		m_sStrQuote[0] = '\'';
+		m_sStrQuote[1] = '\0';
+	}
+
+	else
+	{
+		m_sStrQuote[0] = sStrQuote[0];
+		m_sStrQuote[1] = '\0';
+	}
+	
     m_pMdbTable = pShmDSN->GetTableByName(sTableName);
     if(NULL == m_pMdbTable)
     {
@@ -710,7 +988,7 @@ int TMdbBuckInData::ImportTextFile()
             //去除换行符\n \t 等
             TMdbNtcStrFunc::FormatChar(sBufMsg);
             //跳过空行以及注释航行
-            if (sBufMsg[0] == '\n' || sBufMsg[0] == 0)
+            if (sBufMsg[0] == '\n' || sBufMsg[0] == 0 || sBufMsg[0] == '#')
             {
                 continue;
             }
@@ -892,6 +1170,51 @@ int TMdbBuckInData::ParseData(const char* pData)
 
 }
 
+int TMdbBuckInData::ParseDateStamp(char* pBegin,int iColumnIndex )
+{
+	//时间类型的格式解析
+	int i = 0;
+	char strDate[6][10] = {0};
+	char * ptr = pBegin;
+	char strSplit[10]={0};
+	int iPos = 0;
+	while(*ptr != 0)
+	if(*ptr >= '0' && *ptr<='9')
+	{
+		strSplit[i]= *ptr;
+		ptr++;
+		i++;
+	}
+	else
+	{
+		ptr++;
+		strSplit[i] = '\0';
+		if(iPos<=5)
+			SAFESTRCPY(strDate[iPos],10,strSplit);
+		else
+			break;
+		i = 0;
+							
+		iPos++;
+											
+	}
+	
+	if(iPos <=5 )
+	{
+		if(i != 0)
+		{
+			strSplit[i] = '\0';
+			SAFESTRCPY(strDate[iPos],10,strSplit);
+		}
+	}
+		
+	char strFormatDate[MAX_TIME_LEN] = {0};
+	snprintf(strFormatDate,sizeof(strFormatDate),"%s%s%s%s%s%s",strDate[0],strDate[1],strDate[2],strDate[3],strDate[4],strDate[5]);
+	m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,strFormatDate);
+
+	return 0;
+
+}
 //字符串中带逗号的处理
 int TMdbBuckInData::ParseDataPlus(const char* pData)
 {
@@ -922,7 +1245,8 @@ int TMdbBuckInData::ParseDataPlus(const char* pData)
             //不合并分支--逻辑清晰一点
             if(m_pMdbTable->tColumn[iColumnIndex].iDataType == DT_Int)
             {//整数不会以引号开始
-                if((pEnd = strchr(pBegin,',')) != NULL)
+               // if((pEnd = strchr(pBegin,',')) != NULL)
+               if((pEnd = strchr(pBegin,m_sFilterToken[0])) != NULL)
                 {//123,
                     //if(iColumnIndex == iColumnEnd)
                     if(bColumnEnd)
@@ -950,9 +1274,11 @@ int TMdbBuckInData::ParseDataPlus(const char* pData)
             }
             else
             {//字符串可以由引号，也可以不用
-                if(*pBegin != '\'')
+
+                if(*pBegin != m_sStrQuote[0])
                 {//没有单引号
-                    if((pEnd = strchr(pBegin,',')) != NULL)
+                   // if((pEnd = strchr(pBegin,',')) != NULL)
+                   if((pEnd = strchr(pBegin,m_sFilterToken[0])) != NULL)
                     {
                         //if(iColumnIndex == iColumnEnd)
                         if(bColumnEnd)
@@ -961,12 +1287,92 @@ int TMdbBuckInData::ParseDataPlus(const char* pData)
                             return ERR_TAB_COLUMN_NUM_EXCEED_MAX;//字段太多
                         }
                         *pEnd = 0;
-                        BULK_IN_SET_PARA;
+						//以begin开头的字符串如果是时间类型
+
+						if(m_pMdbTable->tColumn[iColumnIndex].iDataType == DT_DateStamp)
+						{
+
+							
+							if(TMdbNtcStrFunc::StrNoCaseCmp(BULK_NULL,pBegin) == 0)
+								m_tConnCtrl.m_pQuery->SetParameterNULL(iColumnIndex);
+							else
+							{
+
+								
+								if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYYMMDDHHMMSS") == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin);
+								}
+								else if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYY-MM-DD HH:MM:SS") == 0)
+								{
+									ParseDateStamp(pBegin,iColumnIndex);
+									
+								}
+
+								else if(m_sTsFormat[0] == 0)
+								{								
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin);
+								}
+								else
+								{
+									TADD_ERROR(ERR_APP_INVALID_PARAM,"date format not support");
+									return ERR_APP_INVALID_PARAM;
+								}
+									
+
+							}
+
+						}
+						
+						else
+						{
+							BULK_IN_SET_PARA;
+						}
+                        
                         pBegin = pEnd + 1;
                     }
                     else if(bColumnEnd)//if(iColumnIndex == iColumnEnd)
                     {
-                        BULK_IN_SET_PARA;
+                        //BULK_IN_SET_PARA;
+                        
+						if(m_pMdbTable->tColumn[iColumnIndex].iDataType == DT_DateStamp)
+						{
+
+							
+							if(TMdbNtcStrFunc::StrNoCaseCmp(BULK_NULL,pBegin) == 0)
+								m_tConnCtrl.m_pQuery->SetParameterNULL(iColumnIndex);
+							else
+							{
+								if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYYMMDDHHMMSS") == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin);
+								}
+								else if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYY-MM-DD HH:MM:SS") == 0)
+								{
+									ParseDateStamp(pBegin,iColumnIndex);
+									
+								}
+
+								else if(m_sTsFormat[0] == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin);
+								}
+								else
+								{
+									TADD_ERROR(ERR_APP_INVALID_PARAM,"date format not support");
+									return ERR_APP_INVALID_PARAM;
+								}
+									
+
+							}
+
+						}
+						
+						else
+						{
+							BULK_IN_SET_PARA;
+						}
+                        
                         *pBegin = 0;
                     }
                     else
@@ -979,8 +1385,15 @@ int TMdbBuckInData::ParseDataPlus(const char* pData)
                 else //if(*(pBegin) == '\'')
                 {//有单引号
                     //if((pEnd = strstr(pBegin,"\',")) != NULL)
-                    iFoundIndex = TMdbNtcStrFunc::FindString(pBegin,"\',");//找结束位置
-                    if(iFoundIndex > 0)
+                    //iFoundIndex = TMdbNtcStrFunc::FindString(pBegin,"\',");//找结束位置
+                    char strFilter[3] = {0};
+					strFilter[0] = *pBegin;
+					strFilter[1] = m_sFilterToken[0];
+					strFilter[2] = '\0';
+					
+
+					iFoundIndex = TMdbNtcStrFunc::FindString(pBegin,strFilter);//找结束位置
+					if(iFoundIndex > 0)
                     {//'abc',
                         if(bColumnEnd)//if(iColumnIndex == iColumnEnd)
                         {
@@ -990,13 +1403,81 @@ int TMdbBuckInData::ParseDataPlus(const char* pData)
                     
                         *(pBegin + iFoundIndex) = 0;
                         //*pEnd = 0;
-                        m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+                        if(m_pMdbTable->tColumn[iColumnIndex].iDataType == DT_DateStamp)
+                        {
+                        	if(TMdbNtcStrFunc::StrNoCaseCmp(BULK_NULL,pBegin+1) == 0)
+								m_tConnCtrl.m_pQuery->SetParameterNULL(iColumnIndex);
+							else
+							{
+								
+								if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYYMMDDHHMMSS") == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+								}
+								else if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYY-MM-DD HH:MM:SS") == 0)
+								{
+									
+									ParseDateStamp(pBegin+1,iColumnIndex);
+									
+								}
+
+								else if(m_sTsFormat[0] == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+								}
+								else
+								{
+									TADD_ERROR(ERR_APP_INVALID_PARAM,"date format not support");
+									return ERR_APP_INVALID_PARAM;
+								}
+
+							}
+
+                        }
+                        else
+						{
+							m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+                        }
                         pBegin += iFoundIndex + 2;
                     }
                     else if(bColumnEnd)//if(iColumnIndex == iColumnEnd)
                     {//'def'
                         *(pBufEnd-2) = 0;//去除最后一个单引号
-                        m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+
+						
+                        if(m_pMdbTable->tColumn[iColumnIndex].iDataType == DT_DateStamp)
+                        {
+                        	if(TMdbNtcStrFunc::StrNoCaseCmp(BULK_NULL,pBegin+1) == 0)
+								m_tConnCtrl.m_pQuery->SetParameterNULL(iColumnIndex);
+							else
+							{
+								
+								if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYYMMDDHHMMSS") == 0)
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+								else if(TMdbNtcStrFunc::StrNoCaseCmp(m_sTsFormat,"YYYY-MM-DD HH:MM:SS") == 0)
+								{
+									ParseDateStamp(pBegin+1,iColumnIndex);
+									
+								}
+
+								else if(m_sTsFormat[0] == 0)
+								{
+									m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+								}
+								else
+								{
+									TADD_ERROR(ERR_APP_INVALID_PARAM,"date format not support");
+									return ERR_APP_INVALID_PARAM;
+								}
+
+							}
+
+                        }
+						else
+						{
+							m_tConnCtrl.m_pQuery->SetParameter(iColumnIndex,pBegin+1);
+						}
+                        
                         *pBegin = 0;
                     }
                     else
@@ -1129,25 +1610,25 @@ int TMdbBulkCtrl::Init(const char * pDsn)
 * 返回值    :  0 - 成功!0 -失败
 * 作者		:  
 *******************************************************************************/
-int TMdbBulkCtrl::ImportData(const char * pDumpFile,const char *sTableName)
+int TMdbBulkCtrl::ImportData(const char * pDumpFile,const char *sTableName,const char * sTsFormat,const char* sFilterToken,const char* sStrQuote)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
     CHECK_OBJ(pDumpFile);
     CHECK_OBJ(sTableName);
-    CHECK_RET(m_tImportData.Init(m_pShmDSN,pDumpFile,sTableName),"Failed to initialize.");
+    CHECK_RET(m_tImportData.Init(m_pShmDSN,pDumpFile,sTableName,sTsFormat,sFilterToken,sStrQuote),"Failed to initialize.");
     CHECK_RET(m_tImportData.ImportData(),"Failed to import file[%s]",pDumpFile);
     TADD_FUNC("Finish.");
     return iRet;
 }
 
-int TMdbBulkCtrl::ExportData(const char * pDumpFile,const char *sTableName,const char* pOraSQLFile)
+int TMdbBulkCtrl::ExportData(int iExptType,const char * pDumpFile,const char *sTableName,const char* pOraSQLFile,const char * sTsFormat,const char* sFilterToken,const char* sStrQuote)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
     CHECK_OBJ(pDumpFile);
     CHECK_OBJ(sTableName);
-    CHECK_RET(m_tExportData.Init(m_pShmDSN,pDumpFile,sTableName,pOraSQLFile),"Failed to initialize.");
+    CHECK_RET(m_tExportData.Init(m_pShmDSN,iExptType,pDumpFile,sTableName,sTsFormat,sFilterToken,sStrQuote,pOraSQLFile),"Failed to initialize.");
     CHECK_RET(m_tExportData.ExportData(),"Failed to import file[%s]",pDumpFile);
     TADD_FUNC("Finish.");
     return iRet;

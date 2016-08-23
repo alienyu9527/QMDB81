@@ -505,7 +505,7 @@
             if(m_pMgrInfo == NULL) return 0;
             if (m_pMgrInfo->uiPushTimes < m_pMgrInfo->uiPopTimes) //说明push已经溢出，从头开始计数了
             {
-                return m_pMgrInfo->uiPushTimes + /*QuickMDB::*/MDB_NTC_ZS_MAX_UINT32 - m_pMgrInfo->uiPopTimes;
+                return m_pMgrInfo->uiPushTimes + MDB_NTC_ZS_MAX_UINT32 - m_pMgrInfo->uiPopTimes;
             }
             else
             {

@@ -1521,7 +1521,7 @@ int TMdbDAOLoad::GetLoadAsNormalSQL(char sSQL[],const int iSize,const char* sFil
 void TMdbDAOLoad::AddRouteIDForLoadSQL(const char* sRoutingList)
 {
     //TADD_NORMAL("TMdbDAOLoad::AddRouteIDForLoadSQL(sRoutingList = %s)", sRoutingList);
-    if (NULL == sRoutingList || '\0' == sRoutingList[0] || /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(sRoutingList, DEFALUT_ROUT_ID_STRING) == 0)
+    if (NULL == sRoutingList || '\0' == sRoutingList[0] || TMdbNtcStrFunc::StrNoCaseCmp(sRoutingList, DEFALUT_ROUT_ID_STRING) == 0)
     {
         return;
     }
@@ -1566,13 +1566,13 @@ bool TMdbDAOLoad::HasWhereCond(const char* sTableName, const char * sLoadSQL)
         iLen ++;
     }
 
-    /*QuickMDB::*/TMdbNtcSplit tSplit;
+    TMdbNtcSplit tSplit;
     tSplit.SplitString(sTmpSQL, ' ');
     for (int i = 0; i < tSplit.GetFieldCount()-2; i++)
     {
-        if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i], "from") == 0
-            && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i+1], sTableName) == 0
-            && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i+1], sTableName) == 0
+        if (TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i], "from") == 0
+            && TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i+1], sTableName) == 0
+            && TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i+1], sTableName) == 0
             && (tSplit[i+2], "where") == 0)
         {
             bRet = true;

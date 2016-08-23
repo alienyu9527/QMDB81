@@ -13,9 +13,6 @@
 
 //namespace QuickMDB{
 
-#ifdef WIN32
-int TMutex::iErrCode=0;
-#endif
 TMutex::TMutex(bool bFlag)
 {
     bIsCreate = false;
@@ -53,18 +50,6 @@ int TMutex::Create()
     m_tCurTime.tv_sec  = 0;
     m_tCurTime.tv_usec = 0;
 
-#ifdef WIN32
-    TMutex::iErrCode=0;
-    int iRet = 0;
-    mutex = CreateMutex(NULL,0,NULL);
-    if(mutex == NULL)
-    {
-        iErrCode=GetLastError();
-        printf("CreateMutex error: %d\n", GetLastError());
-        return -1;
-    }
-
-#else
     //设置互斥锁属性
     int iRet = pthread_mutexattr_init(&mattr);
     if(iRet != 0)
@@ -94,9 +79,6 @@ int TMutex::Create()
         return iRet;
     }
 
-#endif
-
-
     bIsCreate = true;
 
     bIsLock = false;
@@ -115,22 +97,6 @@ int TMutex::Create()
 *******************************************************************************/
 int TMutex::Destroy()
 {
-#ifdef WIN32
-    int iRet=0;
-    TMutex::iErrCode=0;
-    if(bIsCreate == false)
-        return 0;
-    if(mutex == NULL)
-    {
-        return ERROR_SEM_PARAMETER;
-    }
-    if(CloseHandle(mutex)==FALSE)
-    {
-        iRet=ERROR_SEM_DESTROY;
-    }
-    iErrCode=GetLastError();
-
-#else
     if(bIsCreate == false)
         return 0;
 
@@ -147,7 +113,6 @@ int TMutex::Destroy()
     {
         return iRet;
     }
-#endif
     bIsCreate = false;
     m_iLockPID = -1;
     return iRet;
@@ -215,11 +180,9 @@ int TMutex::Lock(bool bFlag, struct timeval *tCurtime)
 *******************************************************************************/
 int TMutex::TryLock()
 {
-#ifdef WIN32
-    return 0;
-#else
+
     return pthread_mutex_trylock(&mutex); /* acquire the mutex */
-#endif
+
 }
 
 /******************************************************************************
@@ -267,111 +230,165 @@ int TMutex::UnLock(bool bFlag, const char* pszTime)
 }
 
 
-/******************************************************************************
-* 函数名称	:  GetErrMsg()
-* 函数描述	:  获取错误信息
-* 输入		:  无
-* 输出		:  无
-* 返回值	:  错误信息
-* 作者		:  li.shugang
-*******************************************************************************/
-const char* TMutex::GetErrMsg(int iErrno)
+
+
+TMiniMutex::TMiniMutex(bool bFlag)
 {
-    return strerror(iErrno);
+    bIsCreate = false;
+    bIsLock   = false;
+    if(bFlag)
+    {
+        int iRet = Create();
+        if(iRet == 0)
+            bIsCreate = true;
+    }
 }
 
-/******************************************************************************
-* 函数名称	:  GetErrorCode()
-* 函数描述	:  获取错误码，仅限win32系统使用
-* 输入		:  无
-* 输出		:  无
-* 返回值	:  错误码
-* 作者		:  li.shugang
-*******************************************************************************/
-#ifdef WIN32
-int TMutex::GetErrorCode()
+
+TMiniMutex::~TMiniMutex()
 {
-    return TMutex::iErrCode;
+    Destroy();
 }
+
+int TMiniMutex::Create()
+{
+	if(bIsCreate) return 0;
+	
+    bIsCreate = false;
+    bIsLock   = false;
+
+    //设置互斥锁属性
+    int iRet = pthread_mutexattr_init(&mattr);
+    if(iRet != 0)
+    {
+        return iRet;
+    }
+
+    //默认：进程间使用
+    iRet = pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+    if(iRet != 0)
+    {
+        return iRet;
+    }
+
+#ifdef OS_HP
+    iRet =  pthread_mutexattr_setspin_np(&mattr, PTHREAD_MUTEX_SPINONLY_NP);
+    if(iRet != 0)
+    {
+        return iRet;
+    }
 #endif
 
-/******************************************************************************
-* 函数名称	:  GetErrMsgByCode()
-* 函数描述	:  通过错误码获取错误信息
-* 输入		:  iErrCode 错误码
-* 输出		:  无
-* 返回值	:  错误信息
-* 作者		:  li.shugang
-*******************************************************************************/
-const char* TMutex::GetErrMsgByCode(int iErrCode,int iDetailCode)
+    //设置互斥锁
+    iRet = pthread_mutex_init(&mutex, &mattr);
+    if(iRet != 0)
+    {
+        return iRet;
+    }
+
+    bIsCreate = true;
+
+    bIsLock = false;
+
+    return iRet;
+}
+
+
+int TMiniMutex::Destroy()
 {
-    static string  strErrMsg="";
+    if(bIsCreate == false)
+        return 0;
 
-    strErrMsg="TSem::ErrMsg=";
+    //释放互斥锁属性
+    int iRet = pthread_mutexattr_destroy(&mattr);
+    if(iRet != 0)
+    {
+        return iRet;
+    }
 
-    switch(iErrCode)
+    //释放互斥锁
+    iRet = pthread_mutex_destroy(&mutex);
+    if(iRet != 0)
     {
-    case ERROR_SEM_PARAMETER:
-    {
-        strErrMsg=strErrMsg+"Sem Input parameter error";
-        break;
+        return iRet;
     }
-    case ERROR_SEM_CREATE:
+
+    bIsCreate = false;
+    return iRet;
+}
+
+int TMiniMutex::Lock(bool bFlag)
+{
+    if(bFlag)
     {
-        strErrMsg=strErrMsg+"Sem Create action error";
-        break;
+    	int iRet = 0;
+        int iCount = 0;
+        while(iCount < 5)
+        {
+            iRet = pthread_mutex_lock(&mutex);
+            if(iRet != 0)
+            {
+                iCount++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if(iCount >=5)
+        {
+            printf("Lock Failed");
+            return iRet;
+        }
+        bIsLock = true;
+        return iRet;
+
     }
-    case ERROR_SEM_OPEN:
+    else
     {
-        strErrMsg=strErrMsg+"Sem Open action error";
-        break;
+        return 0;
     }
-    case ERROR_SEM_SET_VALUE:
-    {
-        strErrMsg=strErrMsg+"Sem Set value action error";
-        break;
-    }
-    case ERROR_SEM_DESTROY:
-    {
-        strErrMsg=strErrMsg+"Sem Destroy action error";
-        break;
-    }
-    case ERROR_SEM_P_OPERATION:
-    {
-        strErrMsg=strErrMsg+"Sem P action error";
-        break;
-    }
-    case ERROR_SEM_V_OPERATION:
-    {
-        strErrMsg=strErrMsg+"Sem V action error";
-        break;
-    }
-    case ERROR_SEM_EXIST:
-    {
-        strErrMsg=strErrMsg+"Sem has existed";
-        break;
-    }
-    case ERROR_SEM_FTOK:
-    {
-        strErrMsg=strErrMsg+"Unix ftok() error";
-        break;
-    }
-    case ERROR_SEM_GETVAL:
-    {
-        strErrMsg=strErrMsg+"Unix semctl(GETVAL) error";
-        break;
-    }
-    default:
-    {
-        strErrMsg="";
-        break;
-    }
-    }//end of swtich(iErrCode)
+}
 
 
+int TMiniMutex::TryLock()
+{
+    return pthread_mutex_trylock(&mutex); /* acquire the mutex */
+}
 
-    return strErrMsg.c_str();
 
+int TMiniMutex::UnLock(bool bFlag)
+{
+    if(bFlag)
+    {
+    	int iRet = 0;
+        bIsLock = false;
+		
+        int iCount = 0;
+        while(iCount < 5)
+        {
+            iRet = pthread_mutex_unlock(&mutex);
+            if(iRet != 0)
+            {
+                iCount++;
+            }
+            else
+            {
+                break;
+            }
+        }
+        if(iCount >=5)
+        {
+            printf("UnLock Failed");
+            return iRet;
+        }
+        return iRet;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 
@@ -761,3 +778,4 @@ const char* TOMutex::GetErrMsgByCode(int iErrCode,int iDetailCode)
 }
 
 //}
+

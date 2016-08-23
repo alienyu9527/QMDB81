@@ -4,13 +4,13 @@ clean:
 	rm -f *.o  libmdbTools.$(TRUESUFFIX)
 
 ALL_OBJS= mdbInfo.o mdbChangeLog.o mdbMutexCtrl.o mdbDataCmp.o mdbBulkCtrl.o\
-					mdbOverdueDataCtrl.o mdbCheckState.o mdbDataExport.o mdbDataPumpCtrl.o mdbImage.o mdbDbFlushMdb.o mdbAlterInfo.o
+					mdbOverdueDataCtrl.o mdbCheckState.o mdbDataExport.o mdbDataPumpCtrl.o mdbImage.o mdbDbFlushMdb.o mdbAlterInfo.o mdbExptDDLCtrl.o
 
 
 ALL_EXES= mdbSQL.exe mdbSetLog.exe mdbShow.exe mdbObserve.exe mdbStartCheck.exe mdbUnlock.exe mdbDataCheck.exe \
 					mdbIndexLook.exe mdbCleanRestoreTool.exe mdbStat.exe mdbDbTableRecordStat.exe mdbReLoad.exe mdbExport.exe \
 					mdbDataPump.exe mdbDataImage.exe mdbFlushCache.exe mdbCreateTable.exe mdbDropTable.exe mdbBulkCp.exe \
-					mdbServerTool.exe mdbAlterTool.exe mdbSize.exe mdbChkPnt.exe mdbParseRepLog.exe
+					mdbServerTool.exe mdbAlterTool.exe mdbSize.exe mdbChkPnt.exe mdbParseRepLog.exe mdbSchema.exe
 
 all:	$(ALL_OBJS) 
 	$(AR) libmdbTools.$(TRUESUFFIX)  $(ALL_OBJS) 
@@ -40,6 +40,8 @@ build: $(ALL_EXES)
 	cp mdbSize $(PROJECT_DIR)/bin
 	cp mdbChkPnt $(PROJECT_DIR)/bin
 	cp mdbParseRepLog $(PROJECT_DIR)/bin
+	cp mdbSchema      $(PROJECT_DIR)/bin
+
 install: all
 	cp -rf *.$(TRUESUFFIX)  $(PROJECT_DIR)/lib
 

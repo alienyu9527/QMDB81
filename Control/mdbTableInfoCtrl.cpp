@@ -141,7 +141,13 @@ catch(...)\
     	{
     		CHECK_RET(-1,"table[%s] is not exist....",pTableName);
     	}
-		char * sTableSpace = new char[MAX_NAME_LEN];
+		char * sTableSpace = new(std::nothrow) char[MAX_NAME_LEN];
+		if(sTableSpace ==  NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new sTableSpace");
+			return ERR_OS_NO_MEMROY;
+
+		}
 		memset(sTableSpace, 0, MAX_NAME_LEN);
 		if(m_pTable->m_sTableSpace == NULL)
 		{

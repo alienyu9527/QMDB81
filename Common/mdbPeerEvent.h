@@ -117,7 +117,7 @@ public:
      * 
      * @return TMdbNtcStringBuffer
      */
-    /*QuickMDB::*/TMdbNtcStringBuffer PrintAllPump();
+    TMdbNtcStringBuffer PrintAllPump();
 protected:
     /**
      * @brief 预分发，仅仅是为了获得适合的事件泵，并不分发
@@ -131,7 +131,7 @@ protected:
         return GetLeastEventPump();
     }
 protected:
-    /*QuickMDB::*/TMdbNtcAutoArray m_arrayPump;///< 消息泵数组    
+    TMdbNtcAutoArray m_arrayPump;///< 消息泵数组    
 };
 
 /**
@@ -162,7 +162,7 @@ class TMdbProactor;
  * @brief 事件信息
  * 
  */
-class TMdbEventInfo:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbEventInfo:public TMdbNtcBaseObject
 {
 public:
     MDB_ZF_DECLARE_OBJECT(TMdbEventInfo);
@@ -273,7 +273,7 @@ public:
      * @return TMdbNtcStringBuffer
      * @retval 断开的原因
      */
-    inline /*QuickMDB::*/TMdbNtcStringBuffer GetDisconnectReason()
+    inline TMdbNtcStringBuffer GetDisconnectReason()
     {
         return pPeerInfo->sDisconnectReason;
     }
@@ -366,7 +366,7 @@ class TMdbErrorEvent:public TMdbPeerEvent
 {
     MDB_ZF_DECLARE_OBJECT(TMdbErrorEvent);
 public:
-    /*QuickMDB::*/TMdbNtcStringBuffer   sErrorInfo;
+    TMdbNtcStringBuffer   sErrorInfo;
     TMdbErrorEvent(TMdbPeerInfo* pPeerInfo = NULL):TMdbPeerEvent(pPeerInfo)
     {
     }

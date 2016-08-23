@@ -68,9 +68,14 @@ int CheckParam(int argc, char* argv[],std::string & sDsn,std::string & sName,std
     CommandLineParser clp(argc, argv);
     clp.set_check_condition("-c", 1);
     clp.set_check_condition("-n", 0);
-    clp.set_check_condition("-t", 0, 1);
-    clp.set_check_condition("-s", 0, 1);
-    clp.set_check_condition("-q", 0, 1);  
+    //clp.set_check_condition("-t", 0, 1);
+    //clp.set_check_condition("-s", 0, 1);
+    //clp.set_check_condition("-q", 0, 1); 
+    
+    clp.set_check_condition("-t", 1);
+    clp.set_check_condition("-s", 1);
+    clp.set_check_condition("-q", 1);  
+	
     clp.set_check_condition("-p", 0);
     clp.set_check_condition("-d", 0);  
     clp.set_check_condition("-o", 0);  
@@ -93,6 +98,7 @@ int CheckParam(int argc, char* argv[],std::string & sDsn,std::string & sName,std
         }
         else if("-t" == opt || "-s" == opt || "-q" == opt)
         {
+        	
             sName = args[0];
             sOper = opt;
         }

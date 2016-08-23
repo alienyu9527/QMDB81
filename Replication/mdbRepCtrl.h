@@ -90,5 +90,20 @@
         bool m_bSvrConn; // 配置服务端是否连接
     };
 
+	class TMdbShardBuckupCfgCtrl
+	{
+	public:
+		TMdbShardBuckupCfgCtrl();
+		~TMdbShardBuckupCfgCtrl();
+		int Init(const char * pszDSN);
+		int GetShardBuckupInfo();
+	public:
+		const char * m_sDsn;
+		TMdbRepConfig * m_pRepConfig;
+		bool m_bSvrConnFlag;
+		TMdbRepMonitorClient * m_pMonitorClient;
+		TMdbShmRepMgr * m_pShmMgr;
+	};
+	
 //}
 #endif

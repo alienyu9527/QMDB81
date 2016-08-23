@@ -34,10 +34,12 @@
     private:
         TMdbProcCtrl m_tProcCtrl;//进程管理
         TMdbQueue m_tMdbQueueCtrl; //内存缓冲管理器
+        TMdbOnlineRepQueue m_tMdbOnlineRepQueueCtrl[MAX_ALL_REP_HOST_COUNT]; //内存缓冲管理器
         TMdbShmDSN * m_pShmDsn;
         TMdbDSN * m_pDsn;
         TMdbOraLog m_mdbDBlog;
         TRoutingRepLog m_mdbReplog;
+		TRoutingRepLogDispatcher m_mdbRepDispatcher;
         TMdbRedoLog m_mdbRedolog;
         TMdbCaptureLog m_tCaptureLog;
         TMdbRedoLogParser m_LogParser;

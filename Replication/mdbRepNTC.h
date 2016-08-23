@@ -13,6 +13,12 @@
 #include "Control/mdbRepCommon.h"
 #include "Replication/mdbRepFileParser.h"
 #include "Replication/mdbRepFlushDao.h"
+#include "Control/mdbTableSpaceCtrl.h"
+#include "Control/mdbVarcharMgr.h"
+#include "Control/mdbPageCtrl.h"
+#include "Control/mdbRowCtrl.h"
+#include "Control/mdbExecuteEngine.h"
+
 using std::endl;
 //using namespace QuickMDB;
 
@@ -91,7 +97,7 @@ using std::endl;
     * @brief NTC同步客户端封装
     * 
     */
-    class TMdbRepNTCClient: public /*QuickMDB::*/TMdbSyncEngine
+    class TMdbRepNTCClient: public TMdbSyncEngine
     {
     public:
         TMdbRepNTCClient();
@@ -157,8 +163,8 @@ using std::endl;
         *******************************************************************************/
         bool NeedReconnect();
     protected:
-        //virtual bool OnConnect(/*QuickMDB::*/TMdbConnectEvent* pEventInfo, /*QuickMDB::*/TMdbEventPump* pEventPump);
-        //virtual bool OnDisconnect(/*QuickMDB::*/TMdbDisconnectEvent* pEventInfo, /*QuickMDB::*/TMdbEventPump* pEventPump);
+        //virtual bool OnConnect(TMdbConnectEvent* pEventInfo, TMdbEventPump* pEventPump);
+        //virtual bool OnDisconnect(TMdbDisconnectEvent* pEventInfo, TMdbEventPump* pEventPump);
         //virtual bool OnTimeOut(TMdbTimeoutEvent* pEventInfo, TMdbEventPump* pEventPump);
 
     public:
@@ -230,7 +236,7 @@ using std::endl;
     * @brief 分片备份同步数据发送端client
     * 
     */
-    class TMdbRepDataClient:public /*QuickMDB::*/TMdbSyncEngine
+    class TMdbRepDataClient:public TMdbSyncEngine
     {
     public:
         TMdbRepDataClient();
@@ -285,7 +291,7 @@ using std::endl;
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-        int GetMsg(/*QuickMDB::*/TMdbMsgInfo* &pMsg);
+        int GetMsg(TMdbMsgInfo* &pMsg);
 
         /******************************************************************************
         * 函数名称	:  Disconnect
@@ -332,9 +338,29 @@ using std::endl;
         * 输入		:  
         * 输出		:  
         * 返回值	:  0 - 成功 !0 -失败
-        * 作者		:  jiang.lili
+        * 作者		:  jiang.xiaolong
         *******************************************************************************/ 
         int SendData(const char* sFileName);
+
+		/******************************************************************************
+        * 函数名称	:  SendData
+        * 函数描述	: 将一条同步记录数据发送至对端
+        * 输入		:  
+        * 输出		:  
+        * 返回值	:  0 - 成功 !0 -失败
+        * 作者		:  jiang.lili
+        *******************************************************************************/ 
+        int SendData(const char* sOneRecord, int iLen);
+
+		/******************************************************************************
+		* 函数名称	:  SendData
+		* 函数描述	: 将缓存中残留数据发送至对端
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功 !0 -失败
+		* 作者		:  jiang.xiaolong
+		*******************************************************************************/ 
+		int SendData();
 
         /******************************************************************************
         * 函数名称	:  LoadData
@@ -382,15 +408,18 @@ using std::endl;
         }
 
     private:
-        int LoadOneTable(const char* sTableName, const char* sRoutinglist);
+		int SetLoadMsg(const char* sTableName, const char* sRoutinglist, bool bIsMemLoad, char * sMsgBuf);
+        int LoadOneTable(const char* sTableName, const char* sRoutinglist, bool bIsMemLoad = false);
 
     public:
         eRepConnState m_eState;
+		bool bTool;
+		char sTblName[MAX_NAME_LEN];
 
     protected:
         int m_iHeartbeat;
         TMdbSharedPtr<TMdbPeerInfo> m_pPeerInfo; 
-        /*QuickMDB::*/TMdbRecvMsgEvent* m_pMsgEvent;
+        TMdbRecvMsgEvent* m_pMsgEvent;
 
         int m_iTimeOut;        
         time_t m_tConnStateTime;
@@ -402,17 +431,19 @@ using std::endl;
         int m_iLocHostID;
         char m_sSendBuf[MAX_REP_SEND_BUF_LEN];
         int m_iBufLen;
+		time_t m_tFlushTime;
         TMdbRepFileParser *m_ptFileParser;//文件解析
         TMdbRepFileStat *m_ptRepFileStat;//文件记录操作统计
         std::string m_strIP;//对端IP
         int m_iPort;//对端端口号
+       
     };
 
     /**
     * @brief server端封装
     * 
     */	
-    class TMdbRepNTCServer:public /*QuickMDB::*/TMdbNtcEngine
+    class TMdbRepNTCServer:public TMdbNtcEngine
     {
     public:
         TMdbRepNTCServer();
@@ -438,7 +469,7 @@ using std::endl;
     * @brief 分片备份同步数据接收端server
     * 
     */
-    class TMdbRepDataServer:public /*QuickMDB::*/TMdbNtcEngine
+    class TMdbRepDataServer:public TMdbNtcEngine
     {
     public:
         TMdbRepDataServer(const char* sDsn);
@@ -454,17 +485,17 @@ using std::endl;
 
     private:
         //int DealEvent(TMdbRecvMsgEvent* pEventInfo);
-        int DealLoadRequest(const char* pData, /*QuickMDB::*/TMdbPeerInfo* pPeerInfo);//数据加载请求
+        int DealLoadRequest(const char* pData, TMdbPeerInfo* pPeerInfo);//数据加载请求
         int DealCleanFile(const char* pData);//清除同步文件
-        int DealRcvData(const char* pData, int iLength, /*QuickMDB::*/TMdbPeerInfo* pPeerInfo);//接收同步数据
+        int DealRcvData(const char* pData, int iLength, TMdbPeerInfo* pPeerInfo);//接收同步数据
 
         TRepServerDataRcv *GetRcvEngine(const char* strIP, int iPort);
     protected:
         int m_iHeartbeatWarning;//客户端心跳超时时间
         int m_iWorkThreadNum;//工作线程数量
     private:
-        /*QuickMDB::*/TMdbNtcAutoArray m_arRcvEngine;//数据接收引擎
-        /*QuickMDB::*/TMdbNtcString m_strDsn;//DSN名称
+        TMdbNtcAutoArray m_arRcvEngine;//数据接收引擎
+        TMdbNtcString m_strDsn;//DSN名称
     };
 
     class TMdbLoadDataTool
@@ -474,19 +505,31 @@ using std::endl;
         ~TMdbLoadDataTool();
     public:
         int Init(TMdbConfig* pMdbCfg);
+		int SetUploadTable(const char* sTableName);
         int UploadData(const char* pDataBuf, int iLen, bool &bOver);
+		int UploadMemData(const char* sDataBuf, int iBufLen, bool &bOver);
+		int SetbTool(bool bToolFlag);
     private:
         void CombineData(const char* sDataBuf, int iBufLen);
         int DealWithMsgBuf();
+		int DealWithMemMsgBuf();
         void SaveRecord(int iCurPos);
         int InitSQL(TMdbTable* pTable);
         int GetOneRecord(int iNextPos);
+		int  ExecuteForMdbReLoadUpdate(size_t iColCount,int* iDropIndex);
+		int  ExecuteForMdbReLoadInsert(size_t iColCount,int* iDropIndex);
+		int  ExecuteForMdbReLoad(size_t iColCount,int* iDropIndex);
         int Execute();
+		int ExecuteMemData();
         bool IsNULL(const char* sSrc);
     private:
         TMdbConfig* m_pMdbCfg;
+		TMdbShmDSN * m_pShmDsn;
+		char sDsnName[MAX_NAME_LEN];
         TMdbDatabase *m_pDataBase;
-        TMdbQuery *m_pCurQuery;
+        TMdbQuery *m_pCurQuery;  //insert
+		TMdbQuery *m_pMdbSelQuery; //select for mdb
+		TMdbQuery *m_pMdbUptQuery; //select for mdb
 
         bool m_bDataOver;
 
@@ -498,13 +541,27 @@ using std::endl;
         int m_iMsgLen;
         int m_iCurPos;
 
+		TMdbTableSpaceCtrl m_tTSCtrl;
+		TMdbVarCharCtrl m_tVarcharCtrl;
+		TMdbTable * m_pCurTable;
+		TMdbTableSpace * m_pCurTS;
+		char m_cStorage;
+		TMdbPage * m_pCurFreePage;
+		TMdbPageCtrl m_tPageCtrl;
+		TMdbRowCtrl m_tRowCtrl;
+		int m_iVarColPos[MAX_COLUMN_COUNTS];
+		int m_iVarColCount;
+
         char m_sTempRecord[MAX_VALUE_LEN];
+		int m_iTempLen;
         //int  m_iTempPos;
 
         std::vector<std::string> m_vParam;
         char m_paramValue[MAX_VALUE_LEN];
         TRepLoadDao * m_pLoadDao;
 		std::string strTableName;
+		std::vector<int> m_vKeyNo;
+		bool bTool;
     };
 
 //}

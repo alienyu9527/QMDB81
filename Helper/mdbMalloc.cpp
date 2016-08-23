@@ -69,7 +69,7 @@ using namespace std;
 		pNew = MallocRaw(iNewSize);
 		if(pNew != NULL)
 		{
-			memcpy(pNew,p,iOldSize);
+			memcpy(pNew,p,static_cast<size_t>(iOldSize));
 			free(p);
 		}
 		return pNew;
@@ -85,7 +85,7 @@ using namespace std;
 	*******************************************************************************/
 	void * TMdbMalloc::MallocRaw(int n)
 	{
-		return malloc(n);
+		return malloc(static_cast<size_t>(n));
 	}
 
 	/******************************************************************************
@@ -134,11 +134,11 @@ using namespace std;
 		CHECK_OBJ(sTemp);
 		do 
 		{
-			if(strlen(sTemp) >= iMaxLen)
+			if(strlen(sTemp) >= static_cast<size_t>(iMaxLen))
 			{
 				CHECK_RET(ERR_SQL_TOO_LONG,"name=[%s],max=len=[%d]",sTemp,iMaxLen);
 			}
-			TMdbNtcStrFunc::StrCopy(sName,sTemp,iMaxLen);
+			TMdbNtcStrFunc::StrCopy(sName,sTemp,static_cast<MDB_UINT32>(iMaxLen));
 		} while (0);
 		SAFE_DELETE(sTemp);
 		return iRet;
@@ -156,7 +156,7 @@ using namespace std;
 		char *zName;
 		if(sStr != NULL)
 		{
-			int iSize = strlen(sStr) + 1;
+			size_t iSize = strlen(sStr) + 1;
 			zName = new char[iSize];
 			memset(zName,0,iSize);
 			strncpy(zName,sStr,iSize);
@@ -362,7 +362,7 @@ using namespace std;
 			pArray = pNew;
 		}
 		z = (char*)pArray;
-		memset(&z[*pnEntry * szEntry], 0, szEntry);
+		memset(&z[*pnEntry * szEntry], 0, static_cast<size_t>(szEntry));
 		*pIdx = *pnEntry;
 		++*pnEntry;
 		return pArray;
@@ -510,7 +510,7 @@ using namespace std;
 		int iRet = 0;
 		if(0 == m_iCurSize)
 		{//暂没有空间
-			m_pAddr = (char *)QMDB_MALLOC->MallocRaw(iMinSize);
+			m_pAddr = (char *)QMDB_MALLOC->MallocRaw(static_cast<int>(iMinSize));
 			CHECK_OBJ(m_pAddr);
 			m_iCurSize = iMinSize;
 		}
@@ -520,7 +520,7 @@ using namespace std;
 		else if(iMinSize > m_iCurSize)
 		{//最小空间不够
 			SAFE_FREE(m_pAddr);
-			m_pAddr = (char *)QMDB_MALLOC->MallocRaw(iMinSize);
+			m_pAddr = (char *)QMDB_MALLOC->MallocRaw(static_cast<int>(iMinSize));
 			CHECK_OBJ(m_pAddr);
 			m_iCurSize = iMinSize;
 
@@ -555,7 +555,7 @@ using namespace std;
 			{
 				CHECK_RET(ERR_OS_NO_MEMROY,"valusSize[%lld] cannot insert,maxsize[%lld]",iValueSize,m_iMaxSize);
 			}
-			m_pAddr = (char *)QMDB_MALLOC->ReAlloc(m_pAddr,m_iCurSize,iExpandSize + m_iCurSize);
+			m_pAddr = (char *)QMDB_MALLOC->ReAlloc(m_pAddr,static_cast<int>(m_iCurSize),static_cast<int>(iExpandSize + m_iCurSize));
 			CHECK_OBJ(m_pAddr);
 			m_iCurSize += iExpandSize;
 		}

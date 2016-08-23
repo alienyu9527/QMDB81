@@ -361,6 +361,8 @@
             printf("        iEndPos = %d \n",pQueue->iEndPos );
             printf("        iTailPos = %d \n\n", pQueue->iTailPos);
         }
+		//打印分片备份链路缓存区
+		
         //变长存储区
         printf("VarChar and Blob Share Memory:\n");
         TMdbVarCharCtrl varcharCtrl;
@@ -819,7 +821,7 @@
 
         for (int i = 0; i<pShmRep->m_iRepHostCount; i++)
         {
-            printf("\t\tHost-ID = [%d] IP = [%s] Port = [%d]\n", pShmRep->m_arHosts[i].m_iHostID, pShmRep->m_arHosts[i].m_sIP, pShmRep->m_arHosts[i].m_iPort);
+            printf("\t\tHost-ID = [%d] IP = [%s] Port = [%d] SameEndian = [%s]\n", pShmRep->m_arHosts[i].m_iHostID, pShmRep->m_arHosts[i].m_sIP, pShmRep->m_arHosts[i].m_iPort, pShmRep->m_arHosts[i].m_bSameEndian?"true":"false");
         }
 
         //映射关系
@@ -894,6 +896,12 @@ TMdbSizeInfo::TMdbSizeInfo()
     m_pConfig   = NULL;
     m_pShmDSN   = NULL;
     m_pDsn      = NULL;
+	m_pShmMgr     = NULL;
+}
+
+TMdbSizeInfo::~TMdbSizeInfo()
+{
+	SAFE_DELETE(m_pShmMgr);
 }
 
 int TMdbSizeInfo::Init(const char * sDsn)
@@ -905,6 +913,12 @@ int TMdbSizeInfo::Init(const char * sDsn)
     CHECK_OBJ(m_pShmDSN);
     m_pDsn      = m_pShmDSN->GetInfo();
     CHECK_OBJ(m_pDsn);
+    if(m_pConfig->GetIsStartShardBackupRep())
+    {
+		m_pShmMgr = new (std::nothrow)TMdbShmRepMgr(m_pDsn->sName);
+	    CHECK_OBJ(m_pShmMgr);
+		CHECK_RET(m_pShmMgr->Attach(), "MdbShmRepMgr Attach Failed.");
+    }
     return iRet;
 }
 
@@ -920,6 +934,18 @@ void TMdbSizeInfo::PrintResourceInfo(bool bDetail)
         GetIndexBlockSize(data);
         GetVarcharBlockSize(data);
         GetSyncSize(data);
+		if(m_pConfig->GetIsStartShardBackupRep())
+	    {
+			const TMdbShmRep * pShmRep = m_pShmMgr->GetRoutingRep();
+			for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+			{
+				int iHostID = pShmRep->m_arHosts[i].m_iHostID;
+				if(iHostID != MDB_REP_EMPTY_HOST_ID)
+				{
+					GetSBSyncSize(iHostID, data);
+				}
+			}
+		}
         printf("%-16s %-16s %-16s\n","TotalSize(M)","UsedSize(M)","FreeSize(M)");
         printf("%-16.1f %-16.1f %-16.1f\n", data.dTotalSize, data.dUsedSize,data.dTotalSize - data.dUsedSize);
     }
@@ -946,6 +972,21 @@ void TMdbSizeInfo::PrintResourceInfo(bool bDetail)
         data.Clear();
         GetSyncSize(data);
         data.Print();
+		
+		if(m_pConfig->GetIsStartShardBackupRep())
+	    {
+			const TMdbShmRep * pShmRep = m_pShmMgr->GetRoutingRep();
+			for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+			{
+				int iHostID = pShmRep->m_arHosts[i].m_iHostID;
+				if(iHostID != MDB_REP_EMPTY_HOST_ID)
+				{
+					data.Clear();
+					GetSBSyncSize(iHostID, data);
+	        		data.Print();
+				}
+			}
+		}
     }
     printf("\n");
 }
@@ -1160,6 +1201,35 @@ void TMdbSizeInfo::GetSyncSize(TResourceSize &data )
     
 }
 
+void TMdbSizeInfo::GetSBSyncSize(int iHostID, TResourceSize &data)
+{
+    snprintf(data.sDataType,sizeof(data.sDataType),"ShardBuckupSyncBlock [%d]", iHostID);
+
+	TMdbShardBakBufArea & tSBBA = m_pDsn->m_arrShardBakBufArea;
+	TMdbOnlineRepMemQueue* pOLQueue = NULL;
+	if(iHostID != MDB_REP_EMPTY_HOST_ID && tSBBA.m_iShmID[iHostID] > 0)
+	{
+        pOLQueue = (TMdbOnlineRepMemQueue*)m_pShmDSN->GetShardBakBufAreaShm(iHostID);
+        if(NULL == pOLQueue) return;
+	}
+	else
+	{
+		return;
+	}
+	long iLeftSize = 0;
+    if(pOLQueue->iPushPos >= pOLQueue->iCleanPos)
+    {
+        iLeftSize = (pOLQueue->iTailPos - pOLQueue->iStartPos) - (pOLQueue->iPushPos - pOLQueue->iCleanPos);
+    }
+    else
+    {
+        iLeftSize = (pOLQueue->iCleanPos - pOLQueue->iPushPos);
+    }
+    data.dTotalSize += (double)tSBBA.m_iShmSize; 
+    data.dUsedSize  += (double)tSBBA.m_iShmSize-(double)iLeftSize*1.0/(1024*1024*1.0);
+}
+
+
 void TMdbSizeInfo::PrintTableInfo(const char *sTableName,int iCount)
 {
     if(NULL == sTableName) return;
@@ -1206,6 +1276,7 @@ void TMdbSizeInfo::GetOneTableSize(TMdbTable * pTable,TTableSize &tTableSize)
     if(tTableSize.iTotalCount <= 0)
     {//没有指定记录数，则使用内存中的记录数
         tTableSize.iTotalCount  = pTable->iRecordCounts;
+		
         tTableSize.iUsedCount   = pTable->iCounts;
     }
     else
@@ -1217,6 +1288,9 @@ void TMdbSizeInfo::GetOneTableSize(TMdbTable * pTable,TTableSize &tTableSize)
         tTableSize.iUsedCount  = 0;//如果指定了记录数，该项直接置0
     }
     tTableSize.dDataSize    = (double)(pTable->iOneRecordSize + (int)sizeof(TMdbPageNode))*tTableSize.iTotalCount*1.0/(1024*1024*1.0);
-    tTableSize.dIndexSize   = (double)(pTable->iIndexCounts * tTableSize.iTotalCount * (int)sizeof(TMdbIndexNode))*2.0/(1024*1024*1.0);
+	
+	tTableSize.dIndexSize   = (double)(pTable->iIndexCounts * 1.0 * tTableSize.iTotalCount * (int)sizeof(TMdbIndexNode))*2.0/(1024*1024*1.0);
+
+
 }
 

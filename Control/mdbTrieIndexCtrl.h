@@ -42,14 +42,25 @@
         {
         	m_ch = 0;
             m_NodeInfo.Clear();
+			m_iFatherPos = -1;
+			m_iCurPos = -1;
 			memset(m_iChildrenPos,-1,sizeof(m_iChildrenPos));
 			m_iNextPos = -1;
+			InitMutex();
         }
+
+		void InitMutex()
+		{
+			tMutex.Create();
+		}
 		
     public:
 		char m_ch;
+		int m_iFatherPos; //父节点位置
+		int m_iCurPos;   //自己的位置
 		int m_iChildrenPos[SET_SIZE];// 孩子节点位置
 		int m_iNextPos;//用于空闲链，记录下一个空闲节点的位置
+		TMiniMutex tMutex;
         TMdbTrieIndexNodeInfo m_NodeInfo; 
     };
 
@@ -135,7 +146,7 @@
             iTotalNodes = 0;
             iHeadBlockId = -1;
         }
-        size_t GetTotalCount(){return iTotalNodes;}//总个数
+        int GetTotalCount(){return iTotalNodes;}//总个数
         char cState;                //索引状态：’0’-未创建;’1’-在使用中;’2’-正在创建;’3’正在销毁
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iFreeHeadPos;         //空闲头结点位置
@@ -180,7 +191,7 @@
             iTotalNodes = 0;
             iHeadBlockId = -1;
         }
-        size_t GetTotalCount(){return iTotalNodes;}//总个数
+        int GetTotalCount(){return iTotalNodes;}//总个数
         char cState;                //索引状态：’0’-未创建;’1’-在使用中;’2’-正在创建;’3’正在销毁
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iFreeHeadPos;         //空闲头结点位置
@@ -229,7 +240,6 @@
 
 			pRootNode = NULL;
         }
-
         
         TMdbTrieRootIndexMgrInfo     * pRootIndexMgr;    //索引根节点管理区
         TMdbTrieRootIndex            * pRootIndex;    //索引根节点信息
@@ -263,6 +273,8 @@
         
         // add & delete index
         int AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize);
+		
+		int RenameTableIndex(TMdbShmDSN * pMdbShmDsn, TMdbTable* pTable, const char *sNewTableName, int& iFindIndexs);
 
         // index node operation (insert & delete & update)
         int InsertIndexNode(char*  sTrieWord,ST_TRIE_INDEX_INFO& tTrieIndex, TMdbRowID& rowID);//插入索引节点

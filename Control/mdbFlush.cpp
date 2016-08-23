@@ -167,7 +167,7 @@
         {
             if(NULL == m_pColmunPos[i] )
             {
-                m_pColmunPos[i] = new TCOLUMN_POS();
+                m_pColmunPos[i] = new(std::nothrow) TCOLUMN_POS();
                 if(NULL == m_pColmunPos[i])
                 {
                     //ц╩сп©у╪Д
@@ -408,7 +408,7 @@
 
 		if(NULL == m_psColmValueBuff)
         {
-            m_psColmValueBuff = new char[MAX_VALUE_LEN];
+            m_psColmValueBuff = new(std::nothrow) char[MAX_VALUE_LEN];
             if(NULL == m_psColmValueBuff)
             {
 
@@ -424,7 +424,7 @@
 
 		if(NULL == m_psNameBuff)
         {
-            m_psNameBuff = new char[MAX_VALUE_LEN];
+            m_psNameBuff = new(std::nothrow) char[MAX_VALUE_LEN];
             if(NULL == m_psNameBuff)
             {
 
@@ -440,7 +440,7 @@
 
 		if(NULL == m_psColmLenBuff)
         {
-            m_psColmLenBuff = new char[MAX_VALUE_LEN];
+            m_psColmLenBuff = new(std::nothrow) char[MAX_VALUE_LEN];
             if(NULL == m_psColmLenBuff)
             {
 
@@ -598,7 +598,7 @@
        // m_sDataBuf[0] = '\0';
         if(NULL == m_psDataBuff)
         {
-            m_psDataBuff = new char[MAX_VALUE_LEN];
+            m_psDataBuff = new(std::nothrow) char[MAX_VALUE_LEN];
             if(NULL == m_psDataBuff)
             {
 
@@ -636,7 +636,7 @@
         //m_sDataBuf[0] = '\0';
         if(NULL == m_psDataBuff)
         {
-            m_psDataBuff = new char[MAX_VALUE_LEN];
+            m_psDataBuff = new(std::nothrow) char[MAX_VALUE_LEN];
             if(NULL == m_psDataBuff)
             {
 

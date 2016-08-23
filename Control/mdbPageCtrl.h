@@ -68,9 +68,11 @@
         * 返回值	:  成功返回0，如果没有空间则返回-1
         * 作者		:  li.shugang
         *******************************************************************************/
-        int InsertData(unsigned char* pData, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
+        int InsertData(unsigned char* pData, int iLen, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
+        int InsertData(unsigned char* pData, int iLen, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
 	 //此函数内不加叶锁，页锁在函数外手动加	
-	 int InsertData_NoMutex(unsigned char* pData, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
+	 int InsertData_NoMutex(unsigned char* pData, int iLen, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
+	 int InsertData_NoMutex(unsigned char* pData, int iLen, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn=true);
 	 
         /******************************************************************************
         * 函数名称	:  DeleteData()

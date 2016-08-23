@@ -26,7 +26,7 @@
     {
         SAFE_DELETE(m_pMDB);
         SAFE_DELETE(m_pRepConfig);
-        
+        SAFE_DELETE(m_pShmMgr);
     }
 
     /******************************************************************************
@@ -48,6 +48,7 @@
 
         //读取配置文件
         m_pRepConfig = new (std::nothrow)TMdbRepConfig();
+		CHECK_OBJ(m_pRepConfig);
         CHECK_RET(m_pRepConfig->Init(sDsn), "RepConfig init failed.");
  
         //连接共享内存
@@ -167,7 +168,7 @@
                 }
                 else
                 {
-                    /*QuickMDB::*/TMdbNtcDateTime::Sleep(100);
+                    TMdbNtcDateTime::Sleep(100);
                 }
             }
          
@@ -185,7 +186,7 @@
         {
             TADD_NORMAL("Report state [%d]", E_MDB_STATE_CREATED);
             CHECK_RET(m_pMonitorClient->ReportState(m_pShmMgr->GetRoutingRep()->m_iHostID, E_MDB_STATE_CREATED), "Report state failed");    
-            /*QuickMDB::*/TMdbNtcDateTime::Sleep(100);//不增加sleep，mdbServer收不到状态信息
+            TMdbNtcDateTime::Sleep(100);//不增加sleep，mdbServer收不到状态信息
             m_pMonitorClient->Disconnect();
         }
         
@@ -265,7 +266,7 @@
     * 返回值	:  成功返回0，否则返回-1
     * 作者		:  jiang.lili
     *******************************************************************************/
-    int TMdbRepCtrl::DealServerCmd(/*QuickMDB::*/TRepNTCMsg &tCmd)
+    int TMdbRepCtrl::DealServerCmd(TRepNTCMsg &tCmd)
     {
         int iRet = 0;
         TADD_FUNC("Start.");
@@ -297,6 +298,11 @@
         TADD_FUNC("Start.");
         int iRet = 0;
        TMdbRepConfig *pConfig = new (std::nothrow)TMdbRepConfig();
+	   if(pConfig ==  NULL)
+	   	{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new TMdbRepConfig");
+			return ERR_OS_NO_MEMROY;
+	   	}
         CHECK_RET(pConfig->Init(sDsn), "RepConfig init failed.");
         TMdbRepMonitorClient *pMonitorClient = new(std::nothrow) TMdbRepMonitorClient();
         CHECK_OBJ(pMonitorClient);
@@ -321,7 +327,7 @@
         {
             CHECK_RET(pMonitorClient->ReportState(iHostID, eState), "Report state to mdbServer failed.");
 
-            /*QuickMDB::*/TMdbNtcDateTime::Sleep(100);//不增加sleep，mdbServer收不到状态信息
+            TMdbNtcDateTime::Sleep(100);//不增加sleep，mdbServer收不到状态信息
         }
 
         SAFE_DELETE(pConfig);
@@ -370,7 +376,7 @@
             //进程不存在
             system(sProcName);//启动进程
             TADD_DETAIL("system(%s) OK.",sProcName);
-            /*QuickMDB::*/TMdbNtcDateTime::Sleep(1000);
+            TMdbNtcDateTime::Sleep(1000);
             //等待进程启动
             int iCounts = 0;
             TMdbProc * pProc = NULL;
@@ -378,7 +384,7 @@
             {
                 if(TMdbOS::IsProcExist(sProcName) ==  false || NULL == pProc)
                 {
-                    /*QuickMDB::*/TMdbNtcDateTime::Sleep(1000);
+                    TMdbNtcDateTime::Sleep(1000);
                     if(iCounts%5 == 0)
                     {
                         TADD_NORMAL("Waiting for process=[%s] to start.", sProcName);
@@ -416,8 +422,93 @@
         TADD_FUNC("Finish");
         return iRet;
     }
-
-    
-
     #endif
+
+	TMdbShardBuckupCfgCtrl::TMdbShardBuckupCfgCtrl()
+	{
+		m_sDsn = NULL;
+		m_pRepConfig = NULL;
+		m_bSvrConnFlag = false;
+		m_pMonitorClient = NULL;
+		m_pShmMgr = NULL;
+	}
+
+	TMdbShardBuckupCfgCtrl::~TMdbShardBuckupCfgCtrl()
+	{
+		SAFE_DELETE(m_pShmMgr);
+		SAFE_DELETE(m_pMonitorClient); 
+        SAFE_DELETE(m_pRepConfig); 
+	}
+
+	int TMdbShardBuckupCfgCtrl::Init(const char * pszDSN)
+	{
+		TADD_FUNC("START");
+		int iRet = 0;
+		m_sDsn = pszDSN;
+		m_pRepConfig = new(std::nothrow)TMdbRepConfig();
+        CHECK_OBJ(m_pRepConfig);
+        CHECK_RET(m_pRepConfig->Init(m_sDsn),"TMdbRepConifg init failed");
+		m_bSvrConnFlag = false;
+		m_pMonitorClient = new(std::nothrow) TMdbRepMonitorClient();
+	    CHECK_OBJ(m_pMonitorClient);
+		m_pShmMgr = new (std::nothrow)TMdbShmRepMgr(m_sDsn);
+	    CHECK_OBJ(m_pShmMgr);
+		CHECK_RET(m_pShmMgr->Attach(), "MdbShmRepMgr Attach Failed.");
+		TADD_FUNC("END");
+		return iRet;
+	}
+	
+	int TMdbShardBuckupCfgCtrl::GetShardBuckupInfo()
+	{
+		TADD_FUNC("START.");
+		int iRet = 0;
+		//更新分片备份配置信息
+
+        m_bSvrConnFlag = false;
+	    if (m_pMonitorClient->Connect(m_pRepConfig->m_sServerIP.c_str(), m_pRepConfig->m_iServerPort))
+	    {
+	        m_bSvrConnFlag = true;
+	        TADD_NORMAL("Connect to Config Server[%s:%d] OK.", m_pRepConfig->m_sServerIP.c_str(), m_pRepConfig->m_iServerPort);
+	    }
+	    else if(m_pMonitorClient->Connect(m_pRepConfig->m_sRepServerIP.c_str(), m_pRepConfig->m_iRepServerPort))
+	    {
+	        m_bSvrConnFlag = true;
+	        TADD_NORMAL("Connect to Config Server[%s:%d] OK.", m_pRepConfig->m_sRepServerIP.c_str(), m_pRepConfig->m_iRepServerPort);
+	    }
+	    else
+	    {
+	        m_bSvrConnFlag = false;
+	        //CHECK_RET(-1, "Connect to Config Server failed.");
+	    }
+		
+		if(m_bSvrConnFlag)
+		{
+	        int iHostID = 0;
+	        int iHeartbeat = 0;
+			CHECK_RET(m_pMonitorClient->Register(m_pRepConfig->m_sLocalIP.c_str(), m_pRepConfig->m_iLocalPort, iHostID,iHeartbeat), "Register Failed.");
+			m_pShmMgr->SetHostID(iHostID);
+	        m_pShmMgr->SetHeartbeat(iHeartbeat);
+	        m_pShmMgr->SetMdbState(E_MDB_STATE_CREATING);
+			CHECK_RET(m_pMonitorClient->ReportState(iHostID, E_MDB_STATE_CREATING), "ReportState failed.");      
+
+	        //(2)向配置服务请求路由信息，写入共享内存
+	        CHECK_RET(m_pMonitorClient->RoutingRequest(iHostID, m_pShmMgr), "RoutingRequest failed.");
+	        //(8) 同步分片备份配置到本地配置文件
+	        TShbRepLocalConfig tLocalConfig;
+	        CHECK_RET(tLocalConfig.SyncLocalConfig(m_sDsn,m_pMonitorClient->GetSvrConfigMsg()),"sync Local config failed");
+		}
+		else
+		{
+			char sConfigStr[MAX_REP_SEND_BUF_LEN] = {0};
+
+	        TShbRepLocalConfig tLocalConfig;
+	        CHECK_RET(tLocalConfig.ReadLocalConfig(m_sDsn,sConfigStr, sizeof(sConfigStr)),"Get Local config content failed");
+	        
+	        CHECK_RET(m_pShmMgr->WriteRoutingInfo(sConfigStr, sizeof(sConfigStr)),"WriteLocalRoutingInfo failed");
+	        m_pShmMgr->SetHostID(tLocalConfig.m_iHostID);
+	        m_pShmMgr->SetHeartbeat(tLocalConfig.m_iHeartbeat);
+		}
+		TADD_FUNC("END.");
+		return iRet;
+	}
 //}

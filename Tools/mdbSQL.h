@@ -84,7 +84,8 @@ enum E_CMD_TYPE
 	CMD_EXEC_DDL =12,
 	CMD_EXEC_START = 13,
 	CMD_EXEC_DOWN = 14,
-	CM_MDB_ERR = 15
+	CM_MDB_ERR = 15,
+	CMD_SHOW_INFO = 16
 };
 
 //mdbSQL模式
@@ -160,6 +161,11 @@ private:
 	bool IsComplete(ST_KEYWORD * pCmd,const char * sStr);
 	int ExecuteClientSQL(ST_KEYWORD * pCmd,const char * sSQL);//执行CS SQL
 	int ShowClientSelectResult();//CS select结果
+	int ShowSysParaInfo(ST_KEYWORD * pCmd,const char * sCmdStr);
+	
+	
+	int ShowOneParaInfo(char* sParaName);
+	int ShowOneParaInfo2(char* sParaName);
 private:
 	int PushSqlParam(const char * sMsg,std::vector<ST_SQL> *pvSQL,std::vector<ST_PARAM> *pvPARAM);//ST_SQL push_back  and ST_PARAM push_back 
 	int AdjustVector(std::vector<ST_SQL> *pvSQL,std::vector<ST_PARAM> *pvPARAM);//ajust vector ST_SQL push_back

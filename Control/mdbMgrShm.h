@@ -18,9 +18,6 @@
 #include "Helper/mdbShmSTL.h"
 #include "Helper/mdbDictionary.h"
 #include "Control/mdbRepCommon.h"
-#include "Control/mdbTrieIndexCtrl.h"
-
-
 
 //namespace QuickMDB{
 
@@ -73,11 +70,14 @@
 
         int CreateShardBackupRepInfoShm(const char * pszDSN);
         int DestroyShardBackupRepInfoShm();
+		int CreateShardBakBufAreaShm(const char * pszDSN);//
+        int DetachShardBakBufArea(int iIndex);//断链同步区
+        int DestroyShardBakBufArea(int iIndex);//销毁同步区
+        TMdbShardBakBufArea * GetShardBakBufArea(){return &(m_pTMdbDSN->m_arrShardBakBufArea);}
         
     public:
         char * GetSyncAreaShm();//获取同步区共享内存
-        
-        // get hash index
+ char * GetShardBakBufAreaShm(int iHostID);        // get hash index
         char* GetBaseIndex(int iPos);
         char* GetConflictIndex(int iPos);	
 		char* GetHashMutex(int iPos);
@@ -102,7 +102,6 @@
 		int DetachTrieMgr();
 		int DestroyTrieMgr();
 		
-
 
     public:        
         char* GetDataShm(int iPos);
@@ -155,6 +154,7 @@
     private:
         TMdbShmRepMgr* m_pShmMgr;
         char * m_arrSyncAreaShm;   //同步区共享内存
+        char * m_arrShardBakBufAreaShm[MAX_SHM_ID]; //分片备份链路缓存区共享内存
         
         char* m_pBaseIndexShmAddr[MAX_SHM_ID];//基础索引地址
         char* m_pConflictIndexShmAddr[MAX_SHM_ID];//冲突索引地址

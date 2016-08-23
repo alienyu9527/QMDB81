@@ -43,7 +43,7 @@
         * 返回值    :  无
         * 作者      :  li.shugang
         *******************************************************************************/
-        void PrintLink(int iFlag=0, int lTid=0);
+        void PrintLink(int iFlag=0, int iPid=0);
         
 
         /******************************************************************************
@@ -186,7 +186,7 @@ public:
     };
 public:
     TMdbSizeInfo();
-    ~TMdbSizeInfo(){};
+    ~TMdbSizeInfo();
     
     int Init(const char * sDsn);
     void PrintResourceInfo(bool bDetail);//打印资源的内存占用
@@ -200,12 +200,14 @@ private:
     void GetMHashOtherSize(TResourceSize & data);
     void GetVarcharBlockSize(TResourceSize & data);
     void GetSyncSize(TResourceSize & data);
+	void GetSBSyncSize(int iHostID, TResourceSize &data);
     void GetOneTableSize(TMdbTable * pTable,TTableSize &tTableSize);
     
 private:
     TMdbConfig      *m_pConfig;
     TMdbShmDSN      *m_pShmDSN;
-    TMdbDSN         *m_pDsn;     
+    TMdbDSN         *m_pDsn; 
+	TMdbShmRepMgr   *m_pShmMgr;
 };
 
 

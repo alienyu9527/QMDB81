@@ -563,11 +563,11 @@
         #endif
 
         #ifdef OS_WINDOWS
-            #define mdb_ntc_thread_local(type, var) __declspec( thread )  /*QuickMDB::*/TMdbNtcThreadLocal<type> var
+            #define mdb_ntc_thread_local(type, var) __declspec( thread )  TMdbNtcThreadLocal<type> var
         #elif defined(OS_LINUX)
-            #define mdb_ntc_thread_local(type, var) __thread /*QuickMDB::*/TMdbNtcThreadLocal<type> var
+            #define mdb_ntc_thread_local(type, var) __thread TMdbNtcThreadLocal<type> var
         #else
-            #define mdb_ntc_thread_local(type, var) /*QuickMDB::*/TMdbNtcThreadLocal<type> var
+            #define mdb_ntc_thread_local(type, var) TMdbNtcThreadLocal<type> var
         #endif
         #define mdb_ntc_extern_thread_local extern mdb_ntc_thread_local
         #define mdb_ntc_static_thread_local static mdb_ntc_thread_local

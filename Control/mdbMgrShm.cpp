@@ -63,7 +63,10 @@
         m_pMdbIndexCtrl = new(std::nothrow)TMdbIndexCtrl();
         m_bTryAttach = false;
         m_arrSyncAreaShm = NULL;
-
+		for(int i = 0; i<MAX_SHM_ID; i++)
+		{
+			m_arrShardBakBufAreaShm[i] = NULL;
+		}
 		/*TADD_NORMAL("TMdbShmDSN::TMdbShmDSN clear connect port");
 		for(int i=0; i<MAX_AGENT_PORT_COUNTS; i++)
 		{
@@ -92,7 +95,7 @@
     int TMdbShmDSN::TryAttachEx(TMdbConfig &config)
     {
         TADD_FUNC("Start.");
-        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetInfo()->llValue;
+        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetDSN()->llValue;
         m_iMgrKey = GET_MGR_KEY(config.GetDSN()->llValue);
         char *pMgrAddr = NULL;
         return TMdbShm::AttachByKey(m_iMgrKey, pMgrAddr);
@@ -163,7 +166,11 @@
         CHECK_RET(ReAttachIndex(),"ReAttachIndex() failed");
         //链接同步区
         GetSyncAreaShm();
-        
+		//连接分片备份链路缓存区
+		for(int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
+		{			
+    		GetShardBakBufAreaShm(i);
+		}
         TADD_DETAIL("TMdbShmDSN::Attach() : iShmCounts=[%d].", m_pTMdbDSN->iShmCounts);
         //连接其他共享内存
         for(int i=0; i<m_pTMdbDSN->iShmCounts; ++i)
@@ -180,7 +187,7 @@
             {
                 *m_pVarcharShmID[i] = m_pTMdbDSN->iVarCharShmID[i];
                 CHECK_RET(TMdbShm::AttachByID(m_pTMdbDSN->iVarCharShmID[i], m_pVarcharShmAddr[i]),
-                          "Can't attach OtherShm=%d(0x%0x).", m_pTMdbDSN->iVarCharShmID[i], m_pTMdbDSN->iVarCharShmID[i]);
+                          "Can't attach VarcharShm=%d(0x%0x).", m_pTMdbDSN->iVarCharShmID[i], m_pTMdbDSN->iVarCharShmID[i]);
                 TADD_DETAIL("iShmID[%d], ShmAddr=%p.",m_pTMdbDSN->iVarCharShmID[i], m_pVarcharShmID[i]);
             }
         }
@@ -207,7 +214,7 @@
             TADD_FUNC("TMdbShmDSN::Attach() : Finish.");
             return 0;
         }
-        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetInfo()->llValue;
+        //m_iMgrKey = MANAGER_KEY + 1000000 * config.GetDSN()->llValue;
         m_iMgrKey = GET_MGR_KEY(config.GetDSN()->llValue);
         return Attach();
     }
@@ -322,7 +329,10 @@
         {  
             CHECK_RET(DetachSyncArea()," Can't detach sync area");
             CHECK_RET(DetachMhashMgr(),"Cant't detach mhash mgr shm");
-            
+            for(int i = 0; i<MAX_SHM_ID; i++)
+        	{
+				CHECK_RET(DetachShardBakBufArea(i)," Can't detach Shard-buckup-buffer area");
+        	}
             //断开基础索引的管理区
             for(int i=0; i<MAX_SHM_ID; ++i)
             {
@@ -349,8 +359,6 @@
                               m_pTMdbDSN->iMHashMutexShmID[i], m_pTMdbDSN->iMHashMutexShmID[i]);
                 }
 
-                
-                
                 if(m_pOtherShmAddr[i] != NULL)
                 {
                     CHECK_RET(TMdbShm::Detach(m_pOtherShmAddr[i])," Can't detach BaseIndex=%d(0x%0x).",
@@ -398,6 +406,10 @@
         if(m_bIsAttach)
         {    
             CHECK_RET(DestroySyncArea()," Can't destroy sync area]");
+			for(int i = 0; i<MAX_SHM_ID; i++)
+			{
+				CHECK_RET(DestroyShardBakBufArea(i)," Can't destroy shard-backup-buffer area]");
+			}
             CHECK_RET(DestroyMhashMgr()," Can't destroy mhash mgr area]");
 			CHECK_RET(DestroyTrieMgr()," Can't destroy trie mgr area]");
 			
@@ -417,6 +429,11 @@
                     CHECK_RET(TMdbShm::Destroy(m_pTMdbDSN->iConflictIndexShmID[i])," Can't Destroy ConflictIndex=%d(0x%0x).",
                               m_pTMdbDSN->iConflictIndexShmID[i], m_pTMdbDSN->iConflictIndexShmID[i]);
                 }
+				if(m_pHashMutexShmAddr[i] != NULL)
+                {
+                    CHECK_RET(TMdbShm::Destroy(m_pTMdbDSN->iHashMutexShmID[i])," Can't Destroy HashMutex=%d(0x%0x).",
+                              m_pTMdbDSN->iHashMutexShmID[i], m_pTMdbDSN->iHashMutexShmID[i]);
+                }
 
                 // m-hash index
                 if(m_pMHashBaseIndexShmAddr[i] != NULL)
@@ -430,6 +447,8 @@
                     CHECK_RET(TMdbShm::Destroy(m_pTMdbDSN->iMHashMutexShmID[i])," Can't Destroy m-hash mutex=%d(0x%0x).",
                               m_pTMdbDSN->iMHashMutexShmID[i], m_pTMdbDSN->iMHashMutexShmID[i]);
                 }
+
+                
                 
                 // other
                 if(m_pOtherShmAddr[i] != NULL)
@@ -595,13 +614,14 @@
         CHECK_RET(CreateSyncAreaShm(),"Can't create Rep share memory.");
         
         // 创建分片备份同步区
+		// 创建分片备份同步数据链路缓存
         if(config.GetIsStartShardBackupRep())
         {
-            CHECK_RET(CreateShardBackupRepInfoShm(pDSN->sName),"Can't create shard-backup share memory.");
-            //CHECK_RET(CreateSyncAreaShm(SA_SHARD_BACKUP),"Can't create shard-backup share memory.");
-        }       
-                
-        CHECK_RET(Attach(),"Attach failed.");
+			CHECK_RET(CreateShardBackupRepInfoShm(pDSN->sName),"Can't create shard-backup share memory.");
+			//CHECK_RET(GetShardBuckupInfo(pDSN->sName, config), "Get shard-backup config failed.");
+			//CHECK_RET(CreateShardBakBufAreaShm(pDSN->sName), "Can't create shard-backup-buf share memory.");
+        }
+        //CHECK_RET(Attach(),"Attach failed.");//等待分片备份链路缓存创建后再attach
         //观测点
         TObserveMgr tObMgr;
         tObMgr.InitObservePoint(m_ObserverList);//观测点初始化
@@ -646,11 +666,11 @@
             //根据要求创建共享内存
             //数据区大小由配置项配置
             CHECK_RET(TMdbShm::Create(m_pTMdbDSN->iShmKey[i], config.GetDSN()->iDataSize, m_pTMdbDSN->iShmID[i]),
-                      "Can't create manager share memory, errno=%d[%s].",errno, strerror(errno));
+                      "Can't create data area share memory, errno=%d[%s].",errno, strerror(errno));
             //链接到共享内存上面
             *m_pOtherShmID[i] = m_pTMdbDSN->iShmID[i];
             CHECK_RET(TMdbShm::AttachByID(m_pTMdbDSN->iShmID[i], m_pOtherShmAddr[i]),
-                      "Can't attach manager share memory, errno=%d[%s].", errno, strerror(errno));
+                      "Can't attach data area share memory, errno=%d[%s].", errno, strerror(errno));
             TADD_FLOW("SHM:ID =[%d].SIZE=[%lu].ADDRESS=[%p]",m_pTMdbDSN->iShmID[i],config.GetDSN()->iDataSize,m_pOtherShmAddr[i]);
             TADD_NORMAL("Create DataShm:[%d],size=[%luMB]",i,config.GetDSN()->iDataSize/(1024*1024));
             //初始化头信息
@@ -683,9 +703,9 @@
             //根据要求创建共享内存
             int iCounts = m_pTMdbDSN->iShmCounts;
             CHECK_RET_BREAK(TMdbShm::Create(m_pTMdbDSN->iShmKey[iCounts], config.GetDSN()->iDataSize, m_pTMdbDSN->iShmID[iCounts]),
-                      "Can't create manager share memory, errno=%d[%s].",errno, strerror(errno));
+                      "Can't create data area share memory, errno=%d[%s].",errno, strerror(errno));
             CHECK_RET_BREAK(TMdbShm::AttachByID(m_pTMdbDSN->iShmID[iCounts], m_pOtherShmAddr[iCounts]),
-                      "Can't attach manager share memory, errno=%d[%s].",errno, strerror(errno));
+                      "Can't attach data area share memory, errno=%d[%s].",errno, strerror(errno));
              //链接到共享内存上面
             *m_pOtherShmID[iCounts] = m_pTMdbDSN->iShmID[iCounts];
             //初始化头信息
@@ -755,11 +775,13 @@
             m_pTMdbDSN->iMHashBaseIdxShmKey[i] = m_iMgrKey + 37*i + 4;
             m_pTMdbDSN->iMHashBaseIdxShmID[i] = INITVAl;
 
+			m_pTMdbDSN->iHashMutexShmKey[i] = m_iMgrKey + 37*i + 16;
+			m_pTMdbDSN->iHashMutexShmID[i] = INITVAl;
 
             m_pTMdbDSN->iMHashMutexShmKey[i] = m_iMgrKey + 37*i + 5;
             m_pTMdbDSN->iMHashMutexShmID[i] = INITVAl;
-            
         }  
+
 
         m_pTMdbDSN->iMhashConfMgrShmId = INITVAl;
 
@@ -809,7 +831,17 @@
         SAFESTRCPY(tSA.m_sName,sizeof(tSA.m_sName),sSyncAreaName[0]);
         tSA.m_iSAType = 0;
         tSA.m_iShmID = INITVAl;
-        tSA.m_iShmKey = m_iMgrKey + 9;
+        tSA.m_iShmKey = m_iMgrKey + 15;
+
+		//初始化各分片备份链路缓冲区信息
+        const char * sShardBakBufAreaName[] = {"shard-backup-link-buffer"};
+        TMdbShardBakBufArea & tSBBA = m_pTMdbDSN->m_arrShardBakBufArea;
+        SAFESTRCPY(tSBBA.m_sName,sizeof(tSBBA.m_sName),sShardBakBufAreaName[0]);
+		for(int i = 0; i<MAX_SHM_ID; i++)
+		{
+	        tSBBA.m_iShmID[i] = INITVAl;
+	        tSBBA.m_iShmKey[i] = m_iMgrKey + 9*i + 157;
+		}
         
         m_pTMdbDSN->tMutex.Create();            //管理区共享锁        
         m_pTMdbDSN->m_SessionMutex.Create();            //事务ID共享锁
@@ -828,7 +860,11 @@
         CHECK_RET(m_VarCharList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iVarcharAddr),"m_VarCharList Attach failed.");
         CHECK_RET(m_MhashConfList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iMHashConfAddr),"m_MhashConfList attach failed.");
         CHECK_RET(m_MhashLayerList.Attach(m_tMgrShmAlloc, m_pTMdbDSN->iMHashLayerAddr),"m_MhashConfList attach failed.");
-        return iRet;
+
+		//cs link attach
+		CHECK_RET(m_PortLinkList.Attach(m_tMgrShmAlloc,m_pTMdbDSN->iPortLinkAddr),"m_PortLinkList Attach failed.");
+		
+		return iRet;
     }
 
 
@@ -868,7 +904,8 @@
         m_pTMdbDSN->m_arrSyncArea.SetFileAndSize(config.GetDSN()->sLogDir,config.GetDSN()->iLogFileSize,SA_ORACLE);
         m_pTMdbDSN->m_arrSyncArea.SetFileAndSize(config.GetDSN()->sRedoDir,config.GetDSN()->iRedoFileSize,SA_REDO); 
         m_pTMdbDSN->m_arrSyncArea.SetFileAndSize(config.GetDSN()->sCaptureDir,config.GetDSN()->iCaptureFileSize,SA_CAPTURE);
-        //MDB文件存储位置
+		m_pTMdbDSN->m_arrShardBakBufArea.m_iShmSize = config.GetDSN()->iRepBuffSize;
+		//MDB文件存储位置
         SAFESTRCPY(m_pTMdbDSN->sStorageDir,sizeof(m_pTMdbDSN->sStorageDir),config.GetDSN()->sStorageDir);
         
         SAFESTRCPY(m_pTMdbDSN->sDataStore,sizeof(m_pTMdbDSN->sDataStore),config.GetDSN()->sDataStore);
@@ -896,6 +933,9 @@
         m_pTMdbDSN->m_iOraRepCounts = config.GetDSN()->iOraRepCounts;
         m_pTMdbDSN->m_bIsOraRep = config.GetDSN()->bIsOraRep;
         m_pTMdbDSN->m_bIsRep = config.GetDSN()->bIsRep;
+        m_pTMdbDSN->m_bIsShardBackup = config.GetDSN()->m_bIsShardBackup;
+        m_pTMdbDSN->m_bIsMemLoad = config.GetDSN()->bIsMemLoad;
+        m_pTMdbDSN->m_bIsOnlineRep = config.GetDSN()->bIsOnlineRep;
         m_pTMdbDSN->m_bIsCaptureRouter = config.GetDSN()->bIsCaptureRouter;
         m_pTMdbDSN->m_bIsDiskStorage = config.GetDSN()->m_bIsDiskStorage;
         //当前机器时差
@@ -925,6 +965,7 @@
         }
         return m_arrSyncAreaShm;
     }
+
 
 
     /******************************************************************************
@@ -1441,7 +1482,7 @@
             }
         }
         if(false == config.GetDSN()->bIsOraRep){m_pTMdbDSN->iRepAttr &=(0^(DSN_Ora_Rep));}
-        if(false == config.GetDSN()->bIsRep){m_pTMdbDSN->iRepAttr &=(0^(DSN_Rep));}
+        if(false == config.GetDSN()->m_bIsShardBackup){m_pTMdbDSN->iRepAttr &=(0^(DSN_Rep));}
         return 0;
     }
     /******************************************************************************
@@ -1527,6 +1568,7 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
 
     int TMdbShmDSN::CreateMhashMgrShm()
     {
@@ -1733,6 +1775,118 @@
         
         return iRet;
     }
+
+
+	/******************************************************************************
+	* 函数名称	:  GetShardBakBufAreaShm
+	* 函数描述	:  获取同步区共享内存
+	* 输入		:  
+	* 输入		:  
+	* 输出		:  
+	* 返回值	:  NULL - 失败 !NULL -成功
+	* 作者		:  jin.shaohua
+	*******************************************************************************/
+	char * TMdbShmDSN::GetShardBakBufAreaShm(int iHostID)
+	{
+		TMdbShardBakBufArea& tSBBA = m_pTMdbDSN->m_arrShardBakBufArea;
+		if(NULL == m_arrShardBakBufAreaShm[iHostID] && tSBBA.m_iShmID[iHostID] >0)
+		{
+			if(TMdbShm::AttachByID(tSBBA.m_iShmID[iHostID], m_arrShardBakBufAreaShm[iHostID]) != 0)
+			{
+				  TADD_ERROR(ERR_OS_ATTACH_SHM,"Can't attach [%s]ShmID=%d(0x%x).",tSBBA.m_sName,tSBBA.m_iShmID[iHostID],tSBBA.m_iShmID[iHostID]);
+				  return NULL;
+			}
+		}
+		return m_arrShardBakBufAreaShm[iHostID];
+	}
+		
+	/******************************************************************************
+	* 函数名称	: CreateShardBakBufAreaShm 
+	* 函数描述	:  创建同步区
+	* 输入		:  
+	* 输入		:  
+	* 输出		:  
+	* 返回值	:  0 - 成功!0 -失败
+	* 作者		:  jiang.xiaolong
+	*******************************************************************************/
+	int TMdbShmDSN::CreateShardBakBufAreaShm(const char * pszDSN)
+	{
+	   TADD_FUNC("Start.");
+		int iRet = 0;
+		TMdbShardBakBufArea & tSBBA = m_pTMdbDSN->m_arrShardBakBufArea;
+		
+		TMdbShmRepMgr *pShmMgr = new (std::nothrow)TMdbShmRepMgr(pszDSN);
+	    CHECK_OBJ(pShmMgr);
+		CHECK_RET(pShmMgr->Attach(), "MdbShmRepMgr Attach Failed.");
+		
+		const TMdbShmRep * pShmRep = pShmMgr->GetRoutingRep();
+		for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+		{
+			int iHostID = pShmRep->m_arHosts[i].m_iHostID;
+			if(iHostID != MDB_REP_EMPTY_HOST_ID)
+			{
+				//主备同步区已经存在，不需要重新创建
+				if(TMdbShm::IsShmExist(tSBBA.m_iShmKey[iHostID],tSBBA.m_iShmSize,tSBBA.m_iShmID[iHostID]))
+				{//共享内存已存在
+					TADD_DETAIL("Shared memory is exist,[%s]ShmID =[%d]",tSBBA.m_sName,tSBBA.m_iShmID[iHostID]);
+					continue;
+				}
+				CHECK_RET(TMdbShm::Create(tSBBA.m_iShmKey[iHostID],tSBBA.m_iShmSize*1024*1024,tSBBA.m_iShmID[iHostID]),
+						  "Can't create the  area shared memory, errno=%d[%s].",errno, strerror(errno));
+				//链接到共享内存上面
+				TMdbOnlineRepMemQueue* pQueue = (TMdbOnlineRepMemQueue*)GetShardBakBufAreaShm(iHostID);
+				CHECK_OBJ(pQueue);
+				SAFESTRCPY(pQueue->sFlag,sizeof(pQueue->sFlag),"###@@@");
+				pQueue->tPushMutex.Create();
+				pQueue->tPopMutex.Create();
+				pQueue->iPushPos = 1024;
+				pQueue->iPopPos  = 1024;
+				pQueue->iCleanPos = 1024;
+				pQueue->iStartPos = 1024;
+				pQueue->iEndPos   = tSBBA.m_iShmSize * 1024 * 1024;
+				pQueue->iTailPos  = tSBBA.m_iShmSize * 1024 * 1024;
+				TADD_DETAIL("CreateShardBakBufShm[%d]: iPushPos=%d, iPopPos=%d, iCleanPos = %d, iStartPos=%d, iEndPos=%d.",
+							iHostID, pQueue->iPushPos, pQueue->iPopPos, pQueue->iCleanPos, pQueue->iStartPos, pQueue->iEndPos);
+				TADD_NORMAL("Create [%s] Shm ,size=[%dMB], host id = [%d].",tSBBA.m_sName,tSBBA.m_iShmSize, iHostID);
+			}
+			else
+			{
+				TADD_ERROR(ERR_APP_INVALID_PARAM, "pShmRep->m_arHosts[%d] is empty.", i);
+			}
+		}
+		SAFE_DELETE(pShmMgr);
+		TADD_FUNC("Finish.");
+		return iRet;
+	}
+
+	
+    int TMdbShmDSN::DetachShardBakBufArea(int iIndex)
+	{
+		TADD_FUNC("Start.");
+        int iRet = 0;
+        TMdbShardBakBufArea & tSBBA = m_pTMdbDSN->m_arrShardBakBufArea;
+        if(tSBBA.m_iShmID[iIndex] > 0)
+        {
+            CHECK_RET(TMdbShm::Detach(m_arrShardBakBufAreaShm[iIndex])," Can't detach RepShm=%d(0x%0x).",tSBBA.m_iShmID[iIndex],tSBBA.m_iShmID[iIndex]);
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+	}
+	
+    int TMdbShmDSN::DestroyShardBakBufArea(int iIndex)
+	{
+		TADD_FUNC("Start.");
+        int iRet = 0;
+        TMdbShardBakBufArea & tSBBA = m_pTMdbDSN->m_arrShardBakBufArea;
+        if(tSBBA.m_iShmID[iIndex] > 0)
+        {
+            CHECK_RET(TMdbShm::Destroy(tSBBA.m_iShmID[iIndex])," Can't Destroy RepShm=%d(0x%0x).",tSBBA.m_iShmID[iIndex] ,tSBBA.m_iShmID[iIndex] );
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+	}
+
+
 
     /******************************************************************************
     * 函数名称	: AddNewTableSpace

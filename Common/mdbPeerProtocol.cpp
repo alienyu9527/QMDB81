@@ -125,7 +125,7 @@ int TMdbSundaySearch::Search(const char* pszSrc, int iLength /* = -1 */, bool bC
     return -1;
 }
 
-MDB_ZF_IMPLEMENT_OBJECT(TMdbProtocol, /*QuickMDB::*/TMdbNtcBaseObject);
+MDB_ZF_IMPLEMENT_OBJECT(TMdbProtocol, TMdbNtcBaseObject);
 bool TMdbProtocol::PreTranslateMessage(TMdbPeerInfo* pPeerInfo, TMdbMsgInfo*& pMsgInfo)
 {
     return false;

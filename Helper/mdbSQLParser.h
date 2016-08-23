@@ -171,7 +171,7 @@ protected:
 	//int CalcSequenceValue(ST_EXPR * & pstExpr,int iSeqType);
 	
 	int FillHintInfo();
-	int CheckLPM(ST_EXPR * pstExpr);
+	int CheckLPM(ST_EXPR * pstExpr,std::vector< ST_INDEX_VALUE > & vIndexValue);
 	
 public:
 	ST_MEM_VALUE_LIST m_listInputVariable;   //获取绑定变量值

@@ -483,7 +483,7 @@ const char*  inet_ntop(int af, const void *src, char *dst, size_t size)
         bool TMdbNtcClientSocket::Connect(QuickMDB_SOCKET& fd, const char* pszRemote, int iPort, int iMilliSeconds /* = -1 */)
         {
             const char* pszIP = pszRemote;            
-            /*QuickMDB::*/TMdbNtcStringBuffer sIP;
+            TMdbNtcStringBuffer sIP;
             if(pszRemote && *pszRemote && !TMdbNtcStrFunc::IsIPAddress(pszRemote))
             {
                 struct hostent *host_entry = gethostbyname(pszRemote);
@@ -619,7 +619,7 @@ const char*  inet_ntop(int af, const void *src, char *dst, size_t size)
         {
             int iRet = -1;
             const char* pszIP = pszAddress;            
-            /*QuickMDB::*/TMdbNtcStringBuffer sIP;
+            TMdbNtcStringBuffer sIP;
             if(pszAddress && *pszAddress && !TMdbNtcStrFunc::IsIPAddress(pszAddress))
             {
                 struct hostent *host_entry = gethostbyname(pszAddress);

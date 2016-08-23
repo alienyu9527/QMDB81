@@ -57,6 +57,11 @@
         TADD_FUNC("Start.");
         int iRet = 0;
         TMdbShmRepMgr *pRepShm = new(std::nothrow) TMdbShmRepMgr(m_pMdbCfg->GetDSN()->sName);
+		if(pRepShm ==  NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new pRepShm");
+			return ERR_OS_NO_MEMROY;
+		}
         CHECK_RET(pRepShm->Attach(), "Attach TMdbShmRep failed.");
 
         //拼接routing_list串
@@ -207,6 +212,49 @@
         return iRet;
     }
 
+	   int TMdbRepLoadDataCtrl::LoadDataForReLoadTool(char* sTblName)
+		 {
+			 TADD_FUNC("Start.");
+			 int iRet = 0;
+			
+			 //(1)向配置服务注册和上报状态 create
+			// int iHostID = 0;
+			 //int iHeartbeat = 0;
+	   
+			// CHECK_RET(m_pMonitorClient->Register(m_pRepConfig->m_sLocalIP.c_str(), m_pRepConfig->m_iLocalPort, iHostID,iHeartbeat), "Register Failed.");
+			// TADD_NORMAL("Local_IP = %s, Local_Port = %d,Host_ID = %d", m_pRepConfig->m_sLocalIP.c_str(), m_pRepConfig->m_iLocalPort ,iHostID);
+			// m_pShmMgr->SetHostID(iHostID);
+			// m_pShmMgr->SetHeartbeat(iHeartbeat);
+			// m_pShmMgr->SetMdbState(E_MDB_STATE_CREATING);
+			// TADD_NORMAL("Report state [%d]", E_MDB_STATE_CREATING);
+			 //CHECK_RET(m_pMonitorClient->ReportState(iHostID, E_MDB_STATE_CREATING), "ReportState failed.");	  
+	   
+			 //(2)向配置服务请求路由信息，写入共享内存
+			// CHECK_RET(m_pMonitorClient->RoutingRequest(iHostID, m_pShmMgr), "RoutingRequest failed.");
+	   
+			 //(3)创建与所有备机(包括容灾机）连接
+			 CHECK_RET(ConnectRepHosts(), "CreateLoadThreads failed.")
+	   
+			
+	   
+			 //(5)从所有备机（或容灾机）加载数据，加载失败的从容灾机加载
+			 CHECK_RET(LoadDataFromRep(true,sTblName), "LoadDataFromRep failed.");
+	   
+			 //(6) 上报状态，加载成功
+			 //m_pShmMgr->SetMdbState(E_MDB_STATE_CREATED);
+			 //TADD_NORMAL("Report state [%d]", E_MDB_STATE_CREATED);
+			 //CHECK_RET(m_pMonitorClient->ReportState(iHostID, E_MDB_STATE_CREATED), "ReportState failed.");	 
+			 ///*QuickMDB::*/TMdbNtcDateTime::Sleep(100);//如果不sleep， 对方可能收不到数据
+	   
+			 //(7)断开与备机的连接
+			 CHECK_RET(DisConnectRepHosts(), "DisConnectRepHosts failed.")
+	   
+			
+			 TADD_FUNC("Finish.");
+			 return iRet;
+		 }
+	   
+
 
        /******************************************************************************
         * 函数名称	:  LoadData
@@ -216,17 +264,19 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
+
+	   
     int TMdbRepLoadDataCtrl::LoadData()
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        if(!m_bSvrConnFlag)
+        /*if(!m_bSvrConnFlag)
         {
             TADD_NORMAL("config server not connected .load routing data based by config");
             return LoadDataNoSvr();
-        }
+        }*/
            
-        //(1)向配置服务注册和上报状态 create
+        /*//(1)向配置服务注册和上报状态 create
         int iHostID = 0;
         int iHeartbeat = 0;
  
@@ -239,10 +289,10 @@
         CHECK_RET(m_pMonitorClient->ReportState(iHostID, E_MDB_STATE_CREATING), "ReportState failed.");      
 
         //(2)向配置服务请求路由信息，写入共享内存
-        CHECK_RET(m_pMonitorClient->RoutingRequest(iHostID, m_pShmMgr), "RoutingRequest failed.");
+        CHECK_RET(m_pMonitorClient->RoutingRequest(iHostID, m_pShmMgr), "RoutingRequest failed.");*/
 
         //(3)创建与所有备机(包括容灾机）连接
-        CHECK_RET(ConnectRepHosts(), "CreateLoadThreads failed.")
+        CHECK_RET(ConnectRepHosts(), "CreateLoadThreads failed.");
 
         //(4)处理遗留数据
         CHECK_RET(DealLeftFile(), "DealLeftFile failed.");
@@ -254,30 +304,33 @@
         //m_pShmMgr->SetMdbState(E_MDB_STATE_CREATED);
         //TADD_NORMAL("Report state [%d]", E_MDB_STATE_CREATED);
         //CHECK_RET(m_pMonitorClient->ReportState(iHostID, E_MDB_STATE_CREATED), "ReportState failed.");    
-        ///*QuickMDB::*/TMdbNtcDateTime::Sleep(100);//如果不sleep， 对方可能收不到数据
+        //TMdbNtcDateTime::Sleep(100);//如果不sleep， 对方可能收不到数据
 
         //(7)断开与备机的连接
         CHECK_RET(DisConnectRepHosts(), "DisConnectRepHosts failed.")
 
         //(8) 同步分片备份配置到本地配置文件
-        CHECK_RET(SyncLocalConfig(), "Save config info to local config file failed.");     
+        //CHECK_RET(SyncLocalConfig(), "Save config info to local config file failed.");     
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+
+	   
     int TMdbRepLoadDataCtrl::LoadDataNoSvr()
     {
         TADD_FUNC("Start.");
         int iRet = 0;
 
-        //(1) 从本地配置文件获取路由信息，保存到共享内存
+        /*//(1) 从本地配置文件获取路由信息，保存到共享内存
         CHECK_RET(WriteLocalRoutingInfo(), "WriteLocalRoutingInfo failed.");
 
         //(2)保存当前状态
         TADD_NORMAL("Local_IP = %s, Local_Port = %d,Host_ID=%d", m_pRepConfig->m_sLocalIP.c_str(), m_pRepConfig->m_iLocalPort, m_iHostID);
-        m_pShmMgr->SetMdbState(E_MDB_STATE_CREATING);
+        m_pShmMgr->SetMdbState(E_MDB_STATE_CREATING);*/
 
          //(3)创建与所有备机(包括容灾机）连接
-        CHECK_RET(ConnectRepHosts(), "CreateLoadThreads failed.")
+        CHECK_RET(ConnectRepHosts(), "CreateLoadThreads failed.");
 
         //(4)处理遗留数据
         CHECK_RET(DealLeftFile(), "DealLeftFile failed.");
@@ -305,7 +358,11 @@
         int iRet = 0;
         const TMdbShmRepHost *pRepHost = NULL;
         m_arpLoadClient = new (std::nothrow) TMdbRepDataClient* [m_pShmRep->m_iRepHostCount];
-
+		if(m_arpLoadClient == NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_arpLoadClient");
+			return ERR_OS_NO_MEMROY;
+		}
         TMdbRepDataClient *pClient = NULL;
 
         //连接所有备机
@@ -359,17 +416,17 @@
         TADD_FUNC("Start.");
         int iRet = 0;
 
-        if(!/*QuickMDB::*/TMdbNtcDirOper::IsExist(m_pRepConfig->m_sRepPath.c_str()))
+        if(!TMdbNtcDirOper::IsExist(m_pRepConfig->m_sRepPath.c_str()))
         {
             TADD_NORMAL("Path[%s] not exist,create it!",m_pRepConfig->m_sRepPath.c_str());
-            if(!/*QuickMDB::*/TMdbNtcDirOper::MakeDir(m_pRepConfig->m_sRepPath.c_str()))
+            if(!TMdbNtcDirOper::MakeDir(m_pRepConfig->m_sRepPath.c_str()))
             {
                 CHECK_RET(ERR_OS_CREATE_DIR,"create path[%s] failed.", m_pRepConfig->m_sRepPath.c_str());
             }
         }
         
         //遍历目录下的文件
-        /*QuickMDB::*/TMdbNtcFileScanner tFileScanner;
+        TMdbNtcFileScanner tFileScanner;
         tFileScanner.AddFilter(MDB_REP_FILE_PATTEN);
         if (!tFileScanner.ScanFile(m_pRepConfig->m_sRepPath.c_str()))
         {
@@ -379,7 +436,7 @@
         TMdbNtcSplit tSplit;
         int iHostID;//主机ID
         TMdbRepDataClient *pClient;
-       // /*QuickMDB::*/TMdbNtcString sFileFullName;
+       // TMdbNtcString sFileFullName;
         
         while((pFileName=tFileScanner.GetNext())!=NULL)
         {
@@ -395,7 +452,7 @@
                 }
                 sFileFullName.Append(pFileName);*/
 
-                /*QuickMDB::*/TMdbNtcFileOper::Remove(pFileName);
+                TMdbNtcFileOper::Remove(pFileName);
             }
             else//文件未过期，发送至对应备机（或者容灾机）
             {
@@ -424,13 +481,13 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-    int TMdbRepLoadDataCtrl::LoadDataFromRep()
+    int TMdbRepLoadDataCtrl::LoadDataFromRep(bool bTool,char * sTblName)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
         
         //（1）为每个路由创建或者分配加载的线程
-        CHECK_RET(CreateLoadThreads(), "CreateLoadThreads failed.");
+        CHECK_RET(CreateLoadThreads(bTool,sTblName), "CreateLoadThreads failed.");
 
         //（2）启动加载线程
         TMdbRepLoadThread *pThread = NULL;
@@ -456,7 +513,7 @@
                     break;
                 }
             }
-            /*QuickMDB::*/TMdbNtcDateTime::Sleep(100);
+            TMdbNtcDateTime::Sleep(100);
         }
 
         TADD_FUNC("Finish.");
@@ -471,7 +528,7 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-    int TMdbRepLoadDataCtrl::CreateLoadThreads()
+    int TMdbRepLoadDataCtrl::CreateLoadThreads(bool bTool,char* sTblName)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -514,6 +571,19 @@
                 m_pShmMgr->AddFailedRoutingID(iRoutingID);
                 continue;
             }
+
+			//设置同步的表名
+			if(bTool && sTblName != NULL)
+			{
+				SAFESTRCPY(pClient->sTblName,sizeof(pClient->sTblName), sTblName);
+				pClient->bTool = true;
+             }
+			else
+			{
+				pClient->sTblName[0] = 0;
+				pClient->bTool = false;
+			}
+					
 
             pThread = GetThread(iHostID);//获取主机ID对应的线程，如果主机ID为MDB_REP_EMPTY_HOST_ID,则对应的线程从存储加载
             if (pThread != NULL)//线程已经存在
@@ -577,7 +647,7 @@
         *******************************************************************************/
     bool TMdbRepLoadDataCtrl::IsFileOutOfDate(time_t tTime)
     {
-        return /*QuickMDB::*/TMdbNtcDateTime::GetDiffSeconds(tTime, /*QuickMDB::*/TMdbNtcDateTime::GetCurTime())>m_pRepConfig->m_iFileInvalidTime;
+        return TMdbNtcDateTime::GetDiffSeconds(tTime, TMdbNtcDateTime::GetCurTime())>m_pRepConfig->m_iFileInvalidTime;
     }
 
     int TMdbRepLoadDataCtrl::WriteLocalRoutingInfo()

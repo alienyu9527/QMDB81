@@ -120,7 +120,7 @@ protected:
     MDB_UINT32  m_uiMaxRecvRate;      ///< 最大的接收速率，单位为bytes/s，=0表示不设置
     MDB_UINT32  m_uiMaxSendRate;      ///< 最大的发送速率，单位为bytes/s，=0表示不设置
     MDB_UINT32  m_uiMaxFlowRate;      ///< 最大的流量速率，包括接收和发送，单位为bytes/s，=0表示不设置
-    static  /*QuickMDB::*/TMdbNtcQueue g_oSuspendMonitorPeerQueue;
+    static  TMdbNtcQueue g_oSuspendMonitorPeerQueue;
 };
 
 /**
@@ -444,7 +444,7 @@ protected:
  * @brief 数据包类，单次收发数据得到的数据包，不一定是完整的一个消息包
  * 
  */
-class TMdbPacketInfo:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbPacketInfo:public TMdbNtcBaseObject
 {
     MDB_ZF_DECLARE_OBJECT(TMdbPacketInfo);
 protected:
@@ -501,12 +501,12 @@ protected:
         return m_pcData;
     }
     char* m_pcData;///< 数据包信息和buffer, buffer实际长度比iLength多一字节存储'\0'
-    static /*QuickMDB::*/TMdbNtcThreadLock ms_oSpinLock;///< 自旋锁用于对引用计数的互斥
+    static TMdbNtcThreadLock ms_oSpinLock;///< 自旋锁用于对引用计数的互斥
 };
 
 struct TMdbSpecTermMatchInfo
 {
-    /*QuickMDB::*/TMdbNtcBaseList::iterator itLastMatchPacket;//针对指定结束符的上一次匹配的包位置
+    TMdbNtcBaseList::iterator itLastMatchPacket;//针对指定结束符的上一次匹配的包位置
     MDB_UINT32  uiLastMatchCount;///< 表示匹配的终止符个数
     MDB_UINT32  uiLastMatchMsgLength;///< 上一次匹配完的数据包长度
     TMdbPacketInfo oSpecTermPacket;///< 缓存的从开始到终止符的数据包，用于校验（特别是消息头结束符的协议）
@@ -529,7 +529,7 @@ struct TMdbSpecTermMatchInfo
  * @brief 消息类，一个完整的消息包
  * 
  */
-class TMdbMsgInfo:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbMsgInfo:public TMdbNtcBaseObject
 {    
 public:
     MDB_ZF_DECLARE_OBJECT(TMdbMsgInfo);
@@ -617,7 +617,7 @@ protected:
  * @brief 已接收的数据包
  * 
  */
-class TMdbRecvPackets:protected /*QuickMDB::*/TMdbNtcBaseList
+class TMdbRecvPackets:protected TMdbNtcBaseList
 {
 public:
     TMdbRecvPackets();
@@ -661,7 +661,7 @@ public:
  * @brief 带发送的数据包
  * 
  */
-class TMdbSendPackets:public /*QuickMDB::*/TMdbNtcQueue
+class TMdbSendPackets:public TMdbNtcQueue
 {
 public:
     int iSendBytes;///< 已发送字节数
@@ -685,7 +685,7 @@ class TMdbPeerProactor;
  * @brief 服务端信息
  * 
  */
-class TMdbServerInfo: public /*QuickMDB::*/TMdbNtcServerSocket
+class TMdbServerInfo: public TMdbNtcServerSocket
 {
     MDB_ZF_DECLARE_OBJECT(TMdbServerInfo);
 public:
@@ -693,7 +693,7 @@ public:
     const TMdbRuntimeObject* pPeerRuntimeObject;///< 连接的运行时期类，用于创建新的连接对象
     TMdbPeerProactor*          pPeerProactor;///< 监听套接字所使用的前摄器
     TMdbProactorInfo*          pProactorInfo;///< listen socket所使用的前摄器相关信息
-    TMdbServerInfo(const char* pszServerHost = NULL, int iServerPort = 0, TMdbProtocol* pProtocol = NULL, const /*QuickMDB::*/TMdbRuntimeObject* pPeerRuntimeObject = NULL);
+    TMdbServerInfo(const char* pszServerHost = NULL, int iServerPort = 0, TMdbProtocol* pProtocol = NULL, const TMdbRuntimeObject* pPeerRuntimeObject = NULL);
     virtual ~TMdbServerInfo();
     /**
      * @brief 添加需要监听的事件
@@ -717,10 +717,10 @@ public:
  * @brief 比较函数，需要自定义比较时可用,重载Compare即可
  * 
  */
-class TMdbServerInfoCompare:public /*QuickMDB::*/TMdbNtcObjCompare
+class TMdbServerInfoCompare:public TMdbNtcObjCompare
 {
 public:
-    virtual MDB_INT64 Compare(const /*QuickMDB::*/TMdbNtcBaseObject* pObject1, const /*QuickMDB::*/TMdbNtcBaseObject* pObject2) const
+    virtual MDB_INT64 Compare(const TMdbNtcBaseObject* pObject1, const TMdbNtcBaseObject* pObject2) const
     {
         return static_cast<const TMdbServerInfo*>(pObject1)->GetServerHost() == static_cast<const TMdbServerInfo*>(pObject2)->GetServerHost()
             && static_cast<const TMdbServerInfo*>(pObject1)->GetServerPort() == static_cast<const TMdbServerInfo*>(pObject2)->GetServerPort();
@@ -778,7 +778,7 @@ class TMdbEventPump;
  * @brief peer连接信息
  * 
  */
-class TMdbPeerInfo:public /*QuickMDB::*/TMdbNtcSocket
+class TMdbPeerInfo:public TMdbNtcSocket
 {
     MDB_ZF_DECLARE_DYNCREATE_OBJECT(TMdbPeerInfo);
 public:
@@ -1184,7 +1184,7 @@ public:
     {
         return pServerInfo && pServerInfo->GetSocketID() == MDB_NTC_INVALID_SOCKET;
     }
-    virtual MDB_INT64 Compare(const /*QuickMDB::*/TMdbNtcBaseObject *pObject) const
+    virtual MDB_INT64 Compare(const TMdbNtcBaseObject *pObject) const
     {
         return pno-static_cast<const TMdbPeerInfo*>(pObject)->pno;
     }

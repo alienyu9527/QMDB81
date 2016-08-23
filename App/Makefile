@@ -7,6 +7,9 @@ ALL_OBJS= mdbCtrl.o mdbMonitor.o QuickMDB.o
 
 ALL_EXES= QuickMDB.exe mdbAgent.exe mdbJob.exe mdbFlushSequence.exe mdbCheckPoint.exe
 
+mdbAgent.exe:	mdbAgent.o
+	$(CCC)  $(LLDFLAGS) -o $* $< $(LOCALLIB) $(REDIS_LIB)
+
 all:	$(ALL_OBJS) 
 	$(AR) libmdbApp.$(TRUESUFFIX)  $(ALL_OBJS) 
 		

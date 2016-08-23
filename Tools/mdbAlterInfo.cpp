@@ -97,7 +97,7 @@
         else
         {
             TADD_NORMAL("In-Memory Table = [%s].",m_pMdbTable->sTableName);
-            SetTableValue(pszProperty,pszValue);
+            CHECK_RET(SetTableValue(pszProperty,pszValue),"SetTableValue failed");
         }
         
         /*修改配置文件，使用脚本化的接口来实现*/
@@ -166,7 +166,7 @@
             return -1;
         }
 
-        SetSysValue(pszProperty,pszValue);
+        CHECK_RET(SetSysValue(pszProperty,pszValue),"Set system value failed");
 
         /*修改配置文件，使用脚本化的接口来实现*/
         Token tDsn;//dsn
@@ -204,13 +204,13 @@
     	* 返回值    :  无 
     	* 作者      :  zhang.lin
     	*******************************************************************************/
-    void TMdbAlterInfo::SetTableValue(char* pszProperty,char* pszValue)
+	int TMdbAlterInfo::SetTableValue(char* pszProperty,char* pszValue)
     {   
         TADD_FUNC("TMdbAlterInfo::SetTableValue() : Start.");
         if(NULL == m_pMdbTable)
         {
             TADD_ERROR(-1,"m_pMdbTable is NULL.");
-            return;
+            return -1;
         }   
         if(TMdbNtcStrFunc::StrNoCaseCmp(pszProperty, "bReadLock") == 0)
         {
@@ -259,8 +259,10 @@
         else
         {
             TADD_ERROR(-1,"Invalid table property[%s].",pszProperty);
+			return -1;
         }
-        TADD_FUNC("TMdbAlterInfo::SetTableValue() : End.");    
+        TADD_FUNC("TMdbAlterInfo::SetTableValue() : End.");
+		return 0;
     }
 
     /******************************************************************************
@@ -271,7 +273,7 @@
     * 返回值    :  无 
     * 作者      :  zhang.lin
     *******************************************************************************/
-    void TMdbAlterInfo::SetSysValue(char* pszProperty,char* pszValue)
+    int TMdbAlterInfo::SetSysValue(char* pszProperty,char* pszValue)
     {   
         TADD_FUNC("TMdbAlterInfo::SetSysValue() : Start.");
         if(TMdbNtcStrFunc::StrNoCaseCmp(pszProperty, "iLogLevel") == 0)
@@ -290,9 +292,10 @@
         else
         {
             TADD_ERROR(-1,"Invalid sys property[%s].",pszProperty);
+			return -1;
         }
         TADD_FUNC("TMdbAlterInfo::SetSysValue() : End.");
-        
+        return 0;
         
     }
 

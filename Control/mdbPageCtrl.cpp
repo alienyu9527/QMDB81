@@ -95,18 +95,18 @@
     * 函数名称	:  InsertData()
     * 函数描述	:  向页中插入一个数据    
     * 输入		:  pData, 数据的首地址  
-    * 输入		:  iSize, 数据的大小 
+    * 输入		:  iLen, 数据的大小 
     * 输出		:  rowID, 返回的ROWID,   pMemData - 内存地址
     * 返回值	:  成功返回0，如果没有空间则返回-1
     * 作者		:  li.shugang
     *******************************************************************************/
-    int TMdbPageCtrl::InsertData(unsigned char* pData, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
+    int TMdbPageCtrl::InsertData(unsigned char* pData, int iLen, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
     {
         TADD_FUNC("Start.");
         //检测参数是否合法
-        if(pData==NULL || iSize<0 ||iSize>1024*1024*10)
+        if(pData==NULL || iLen<0 ||iLen>1024*1024*10)
         {
-            TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iSize);
+            TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iLen);
             return ERR_APP_INVALID_PARAM;    
         }
         if(WLock() < 0)//加锁
@@ -115,7 +115,7 @@
         do
         {   //申请一块新空间
             int iDataOffset = 0;
-            iRet = m_pPage->GetFreeRecord(iDataOffset,iSize);
+            iRet = m_pPage->GetFreeRecord(iDataOffset,iLen);
             if(iRet == ERR_PAGE_NO_MEMORY)
             {//page没有空间了，无需报错
                 break;
@@ -123,14 +123,14 @@
             else if(0 != iRet)
             {//其他错误
                 CHECK_RET_BREAK(iRet,"GetFreeRecord failed,RowId[%d|%d],size=[%d],page=[%s]",
-                        rowID.GetPageID(),rowID.GetDataOffset(),iSize,m_pPage->ToString().c_str());
+                        rowID.GetPageID(),rowID.GetDataOffset(),iLen,m_pPage->ToString().c_str());
             }
             rowID.SetDataOffset(m_pPage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
             rowID.SetPageID(m_pPage->m_iPageID);
             //rowID.iPageID = m_pPage->m_iPageID;
             //pMemData = m_pAddr + rowID.iDataOffset;
             pMemData = m_pAddr + iDataOffset;
-            memcpy(pMemData, pData, iSize);
+            memcpy(pMemData, pData, iLen);
             //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
             SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);
             ++(m_pPage->m_iRecordCounts); 
@@ -143,13 +143,107 @@
         return iRet;
     }
 
-    int TMdbPageCtrl::InsertData_NoMutex(unsigned char* pData, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
+	/******************************************************************************
+	* 函数名称	:  InsertData()
+	* 函数描述	:  向页中插入一个数据	 
+	* 输入		:  pData, 数据的首地址	
+	* 输入		:  iLen, 待插入数据的大小 
+	* 输入		:  iSize, 页记录的大小 
+	* 输出		:  rowID, 返回的ROWID,	 pMemData - 内存地址
+	* 返回值	:  成功返回0，如果没有空间则返回-1
+	* 作者		:  li.shugang
+	*******************************************************************************/
+	int TMdbPageCtrl::InsertData(unsigned char* pData,int iLen, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
+	{
+		TADD_FUNC("Start.");
+		//检测参数是否合法
+		if(pData==NULL || iSize<0 ||iSize>1024*1024*10)
+		{
+			TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iSize);
+			return ERR_APP_INVALID_PARAM;	 
+		}
+		if(WLock() < 0)//加锁
+			return ERR_SQL_EXECUTE_TIMEOUT;
+		int iRet = 0;
+		do
+		{	//申请一块新空间
+			int iDataOffset = 0;
+			iRet = m_pPage->GetFreeRecord(iDataOffset,iSize);
+			if(iRet == ERR_PAGE_NO_MEMORY)
+			{//page没有空间了，无需报错
+				break;
+			}
+			else if(0 != iRet)
+			{//其他错误
+				CHECK_RET_BREAK(iRet,"GetFreeRecord failed,RowId[%d|%d],size=[%d],page=[%s]",
+						rowID.GetPageID(),rowID.GetDataOffset(),iSize,m_pPage->ToString().c_str());
+			}
+			rowID.SetDataOffset(m_pPage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
+			rowID.SetPageID(m_pPage->m_iPageID);
+			//rowID.iPageID = m_pPage->m_iPageID;
+			//pMemData = m_pAddr + rowID.iDataOffset;
+			pMemData = m_pAddr + iDataOffset;
+			memcpy(pMemData, pData, iLen);
+			//修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
+			SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);
+			++(m_pPage->m_iRecordCounts); 
+			if(UpdateLsn){UpdatePageLSN();}
+			TADD_DETAIL("page_id=[%d],offsetPos=[%d],rowid=[%d].",m_pPage->m_iPageID,iDataOffset,rowID.m_iRowID);
+			
+		}while(0);
+		UnWLock();//解锁
+		TADD_FUNC("Finish.");
+		return iRet;
+	}
+
+
+    int TMdbPageCtrl::InsertData_NoMutex(unsigned char* pData, int iLen, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
     {
         TADD_FUNC("Start.");
         //检测参数是否合法
-        if(pData==NULL || iSize<0 ||iSize>1024*1024*10)
+        if(pData==NULL || iLen<0 ||iLen>1024*1024*10)
         {
-            TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iSize);
+            TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iLen);
+            return ERR_APP_INVALID_PARAM;    
+        }
+        int iRet = 0;
+        do
+        {   //申请一块新空间
+            int iDataOffset = 0;
+            iRet = m_pPage->GetFreeRecord(iDataOffset,iLen);
+            if(iRet == ERR_PAGE_NO_MEMORY)
+            {//page没有空间了，无需报错
+                break;
+            }
+            else if(0 != iRet)
+            {//其他错误
+                CHECK_RET_BREAK(iRet,"GetFreeRecord failed,RowId[%d|%d],size=[%d],page=[%s]",
+                        rowID.GetPageID(),rowID.GetDataOffset(),iLen,m_pPage->ToString().c_str());
+            }
+            rowID.SetDataOffset(m_pPage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
+            rowID.SetPageID(m_pPage->m_iPageID);
+            //rowID.iPageID = m_pPage->m_iPageID;
+            //pMemData = m_pAddr + rowID.iDataOffset;
+            pMemData = m_pAddr + iDataOffset;
+            memcpy(pMemData, pData, iLen);
+            //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
+            SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);
+            ++(m_pPage->m_iRecordCounts); 
+            if(UpdateLsn){UpdatePageLSN();}
+            TADD_DETAIL("page_id=[%d],offsetPos=[%d],rowid=[%d].",m_pPage->m_iPageID,iDataOffset,rowID.m_iRowID);
+            
+        }while(0);
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	int TMdbPageCtrl::InsertData_NoMutex(unsigned char* pData, int iLen, int iSize, TMdbRowID& rowID,char * & pMemData,bool UpdateLsn)
+    {
+        TADD_FUNC("Start.");
+        //检测参数是否合法
+        if(pData==NULL || iLen<0 ||iLen>1024*1024*10)
+        {
+            TADD_ERROR(ERR_APP_INVALID_PARAM,"Paramter invalid. pData=%p, iSize=%d.",pData, iLen);
             return ERR_APP_INVALID_PARAM;    
         }
         int iRet = 0;
@@ -164,12 +258,11 @@
             else if(0 != iRet)
             {//其他错误
                 CHECK_RET_BREAK(iRet,"GetFreeRecord failed,RowId[%d|%d],size=[%d],page=[%s]",
-                        rowID.GetPageID(),rowID.GetDataOffset(),iSize,m_pPage->ToString().c_str());
+                        rowID.GetPageID(),rowID.GetDataOffset(),iLen,m_pPage->ToString().c_str());
             }
             rowID.SetDataOffset(m_pPage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
             rowID.SetPageID(m_pPage->m_iPageID);
             pMemData = m_pAddr + iDataOffset;
-			TMdbPageNode * pPageNode = (TMdbPageNode *)pMemData -1;
             memcpy(pMemData, pData, iSize);
             //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
             SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);
@@ -181,6 +274,7 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+	
     /******************************************************************************
     * 函数名称	:  DeleteData()
     * 函数描述	:  删除页中一个数据    

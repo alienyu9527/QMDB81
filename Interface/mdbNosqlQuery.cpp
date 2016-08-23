@@ -88,7 +88,7 @@ TMdbNosqlQuery::TMdbNosqlQuery(TMdbDatabase *pTMdbDatabase,int iSQLFlag)
 
     m_pShmDsn = m_pMdb->GetShmDsn();
 
-    m_pNosqlInfo = new TMdbNosqlInfo();
+    m_pNosqlInfo = new(std::nothrow) TMdbNosqlInfo();
     if(NULL == m_pNosqlInfo)
     {
         NOSQL_THROW(ERR_OS_NO_MEMROY,"", "new TMdbNosqlInfo object failed.");
@@ -150,7 +150,7 @@ void TMdbNosqlQuery::SetKey(const char* psKeyName, const char* psValue) throw (T
         NOSQL_THROW(ERR_TAB_NO_COLUMN,"",  "key column [%s] not exist.", psKeyName);
     }
 
-    TMdbKeyValue* pKey = new TMdbKeyValue();
+    TMdbKeyValue* pKey = new(std::nothrow) TMdbKeyValue();
     if(NULL == pKey)
     {
         NOSQL_THROW(ERR_OS_NO_MEMROY,"",  "new TMdbKeyValue object failed.");
@@ -159,7 +159,7 @@ void TMdbNosqlQuery::SetKey(const char* psKeyName, const char* psValue) throw (T
 
     pKey->iSize = strlen(psValue);
     pKey->pColumn = pColumn;
-    pKey->sValue =  new char[pKey->iSize+1];
+    pKey->sValue =  new(std::nothrow) char[pKey->iSize+1];
     if(NULL == pKey->sValue)
     {
         NOSQL_THROW(ERR_OS_NO_MEMROY,"",  "new char[] object failed.", psKeyName);
@@ -190,7 +190,7 @@ void TMdbNosqlQuery::SetKey(const char* psKeyName, int iKeyValue) throw (TMdbExc
         NOSQL_THROW(ERR_TAB_NO_COLUMN,"",  "key column [%s] not exist.", psKeyName);
     }
 
-    TMdbKeyValue* pKey = new TMdbKeyValue();
+    TMdbKeyValue* pKey = new(std::nothrow) TMdbKeyValue();
     if(NULL == pKey)
     {
         NOSQL_THROW(ERR_OS_NO_MEMROY,"",  "new TMdbKeyValue object failed.");
@@ -222,7 +222,7 @@ void TMdbNosqlQuery::SetKeyNULL(const char* psKeyName) throw (TMdbException)
         NOSQL_THROW(ERR_TAB_NO_COLUMN,"",  "key column [%s] not exist.", psKeyName);
     }
 
-    TMdbKeyValue* pKey = new TMdbKeyValue();
+    TMdbKeyValue* pKey = new(std::nothrow) TMdbKeyValue();
     if(NULL == pKey)
     {
         NOSQL_THROW(ERR_OS_NO_MEMROY,"",  "new TMdbKeyValue object failed.");

@@ -39,7 +39,7 @@
         void SaveRecord();
        
     private:
-        /*QuickMDB::*/TMdbNtcString m_strIP;//备机IP
+        TMdbNtcString m_strIP;//备机IP
         int m_iPort;//备机端口号
         char m_sCurTime[MAX_TIME_LEN]; // 当前时间
         char m_sLinkTime[MAX_TIME_LEN]; //  建链时间
@@ -67,15 +67,51 @@
         ~TRepServerDataSend();
     public:
         int Init(const char* sDsn);
-        int SendData(int iHostID, const char* sRoutinglist, TMdbPeerInfo* pPeerInfo);//发送数据至备机
-        int SendData(const char* sTableName, const char* sRoutinglist, TMdbPeerInfo* pPeerInfo);//发送数据至备机
+        int SendData(int iHostID, const char* sRoutinglist, TMdbPeerInfo* pPeerInfo, bool bIsMemLoad, const char * sRemoteTableInfo);//发送数据至备机
+        int SendData(const char* sTableName, const char* sRoutinglist, TMdbPeerInfo* pPeerInfo, bool bIsMemLoad, const char * sRemoteTableInfo);//发送数据至备机
         int CleanRepFile(int iHostID=MDB_REP_EMPTY_HOST_ID);//删除对应主机的同步文件
     private:
         int DealOneTable(const char* sTableName, const char* sRoutinglist);
+		int GetChainSnapshot(TMdbTable * pTable, int * &iPageIDList, int & iPageCounts);
+		int ParseRoutingList(const char * sRoutinglist);
+		int CheckRemoteTableInfo(TMdbTable * pTable, const char * sRemoteTableInfo);
+		int SendMemData(TMdbTable * pTable,  int * iPageIDList, int iPageCount);
+        int DealOneTableMem(const char* sTableName, const char* sRoutinglist, const char * sRemoteTableInfo);
         int SendBufData(const char* sBuf, int iLength);//发送缓冲区中的数据
+        bool CheckRecordRoutingId(TMdbTable * pTable, const char * pDataAddr);
+		int CalcNullSize(int iColCounts);
+		int AdjustNullArea(char * sRecord,int & iLen,TMdbTable * pTable);
+		int AdjustMemRecord(char * sRecord, int & iLen, TMdbTable * pTable);
         void GetOneRecord();//处理一条记录
+        int GetOneRecordFromMem(TMdbTable * pTable);
         
     private:
+		TMdbDSN * m_tDsn;
+		
+		TMdbTableSpaceCtrl m_tTSCtrl;
+		TMdbPageCtrl m_tPageCtrl;
+		TMdbVarCharCtrl m_tVarcharCtrl;
+		TMdbRowCtrl m_tRowCtrl;
+		
+		int m_iVarColPos[MAX_COLUMN_COUNTS];
+		int m_iVarColCount;
+		
+		TMdbPage * m_pCurPage;
+		char * m_pCurDataAddr;	
+		char* m_pNextDataAddr;
+		int m_iDataOffset;
+		
+		int m_iWhichPos;
+		unsigned int m_iRowId;
+		char m_sVarcharBuf[MAX_BLOB_LEN];
+		int m_iValueSize;
+
+		int m_iRouteList[MAX_ROUTER_LIST_LEN];
+		int m_iRouteCount;
+
+		TMdbTableChangeOper m_tTableChangeOper[MAX_LOAD_TABLE_COLUMN_DIFF_COUNT];
+		int m_iChangeCount;
+		TMdbLoadTableRemoteStruct m_tRemoteStruct;
         TMdbDatabase *m_pDataBase;
         TMdbQuery *m_pCurQuery;//当前操作表指针
         TMdbConfig* m_pConfig;
@@ -87,6 +123,12 @@
        TMdbPeerInfo* m_pPeerInfo;
        char m_sSendBuf[MAX_REP_SEND_BUF_LEN];//发送缓冲区
        char m_sOneRecord[MAX_VALUE_LEN];//一条记录
+       int m_iSendBufLen;
+	   int m_iOneRecordLen;
+	   char m_sNullFlag[(MAX_COLUMN_COUNTS+MDB_CHAR_SIZE-1)/MDB_CHAR_SIZE];
+	   bool m_bColMissAdd;
+	   bool m_bNullSizeChange;
+	   int m_iNullSizeAdd;
     };
 
     /**

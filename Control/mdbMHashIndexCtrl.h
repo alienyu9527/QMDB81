@@ -202,7 +202,7 @@
             iTotalNodes = 0;
             iHeadBlockId = -1;
         }
-        size_t GetTotalCount(){return iTotalNodes;}//总个数
+        size_t GetTotalCount(){return static_cast<size_t>(iTotalNodes);}//总个数
         char cState;                //索引状态：’0’-未创建;’1’-在使用中;’2’-正在创建;’3’正在销毁
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iFreeHeadPos;         //空闲头结点位置
@@ -248,7 +248,7 @@
             iHeadBlockId = -1;
             iLayerLimit = 1;
         }
-        size_t GetTotalCount(){return iTotalNodes;}//总个数
+        size_t GetTotalCount(){return static_cast<size_t>(iTotalNodes);}//总个数
         char cState;                //索引状态：’0’-未创建;’1’-在使用中;’2’-正在创建;’3’正在销毁
         char sCreateTime[MAX_TIME_LEN]; //索引创建时间
         int  iFreeHeadPos;         //空闲头结点位置
@@ -295,8 +295,6 @@
             pMutex = NULL;
             pMutexNode = NULL;
         }
-
-
         
         TMdbMHashBaseIndexMgrInfo     * pBIndexMgr;    //基础索引管理区
         TMdbMHashMutexMgrInfo* pMutexMgr;
@@ -310,7 +308,7 @@
         TMdbMHashBaseMutex* pMutex;
         
         TMdbMHashBaseIndexNode            * pBaseIndexNode;//基础索引链
-        TMutex* pMutexNode;
+        TMiniMutex* pMutexNode;
     };
 
    
@@ -330,6 +328,7 @@
         
         // add & delete index
         int AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize);
+		int RenameTableIndex(TMdbShmDSN * pMdbShmDsn, TMdbTable* pTable, const char *sNewTableName, int& iFindIndexs);
 
         // index node operation (insert & delete & update)
         int InsertIndexNode(long long iHashValue,ST_MHASH_INDEX_INFO& tMHashIndex, TMdbRowID& rowID);//插入索引节点
@@ -360,7 +359,7 @@
         // init index node
         int InitBaseIndexNode(TMdbMHashBaseIndexNode* pNode,MDB_INT64 iSize,bool bList);
         int InitLayerIndexNode(TMdbMhashLayerIndexNode* pNode,MDB_INT64 iSize,bool bList); 
-        int InitMutexNode(TMutex* pNode,MDB_INT64 iSize);
+        int InitMutexNode(TMiniMutex* pNode,MDB_INT64 iSize);
         
         int GetMHashFreeBIndexShm(MDB_INT64 iBaseIndexSize,size_t iDataSize,ST_MHASH_INDEX_INFO & stTableIndexInfo);
         int GetMHashFreeMutexShm(MDB_INT64 iMutexSize,size_t iDataSize,ST_MHASH_INDEX_INFO & stTableIndexInfo);        

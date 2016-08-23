@@ -31,7 +31,7 @@
     TRoutingRepLog::TRoutingRepLog():m_pRepConfig(NULL)
         , m_pShmMgr(NULL)
         ,m_pShmRep(NULL)
-        ,m_pQueueCtrl(NULL)
+        ,m_pOnlineRepQueueCtrl(NULL)
         ,m_pShmDSN(NULL)
         ,m_pDsn(NULL)
         ,m_pRecdParser(NULL)
@@ -51,7 +51,6 @@
         SAFE_DELETE(m_pRepConfig);
         m_pShmRep = NULL;
         SAFE_DELETE(m_pRecdParser);
-        ClearFileMap();
     }
     /******************************************************************************
     * 函数名称	:  Init
@@ -61,7 +60,7 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jiang.lili
     *******************************************************************************/
-    int TRoutingRepLog::Init(const char* sDsn, TMdbQueue & mdbQueueCtrl)
+    int TRoutingRepLog::Init(const char* sDsn, TMdbOnlineRepQueue & mdbOnlineRepQueueCtrl, int iHostID)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -92,13 +91,31 @@
         }
         TADD_NORMAL("m_sLogPath=[%s]",m_sLogPath);
         
-        m_pRecdParser = new TMdbRepRecdDecode();
+        m_pRecdParser = new(std::nothrow) TMdbRepRecdDecode();
         CHECK_OBJ(m_pRecdParser);
         m_tProcCtrl.Init(sDsn);
-        ClearFileMap();
+		
+		m_iHostID = iHostID;
+        m_pOnlineRepQueueCtrl = &mdbOnlineRepQueueCtrl;
+		m_pRoutingRepFile = new(std::nothrow) TRoutingRepFile();
+		CHECK_OBJ(m_pRoutingRepFile);
+		char sFileName[MAX_NAME_LEN] = {0};
+        snprintf(sFileName, MAX_NAME_LEN, "%sRep.%d",m_sLogPath, m_iHostID);
+        FILE *fp = fopen(sFileName, "wb");
+        if (fp == NULL)
+        {
+            CHECK_RET(ERR_OS_OPEN_FILE, "Open file [%s] failed. errno = [%d], errmsg = [%s]", sFileName, errno, strerror(errno));
+        }
 
-        m_pQueueCtrl = &mdbQueueCtrl;
+        TADD_DETAIL("sFileName=%s",sFileName);
 
+        m_pRoutingRepFile->m_iHostID = m_iHostID;
+        m_pRoutingRepFile->m_fp = fp;
+        m_pRoutingRepFile->m_strFileName = sFileName;
+        m_pRoutingRepFile->m_tCreateTime = TMdbNtcDateTime::GetCurTime();
+        m_pRoutingRepFile->m_iFilePos = 0;
+        setbuf(m_pRoutingRepFile->m_fp,NULL);
+		
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -126,12 +143,12 @@
             return iRet;
         }
 
-        m_spzRecord = m_pQueueCtrl->GetData();//读取已经pop出来的数据
+        m_spzRecord = m_pOnlineRepQueueCtrl->GetData();//读取已经pop出来的数据
         if(m_spzRecord[0] == 0)//没有数据
         { 
             return iRet;
         }
-        m_iLen = m_pQueueCtrl->GetRecordLen();
+        m_iLen = m_pOnlineRepQueueCtrl->GetRecordLen();
         //iRoutID = m_pRecdParser->GetRoutingID(m_spzRecord);
         m_iRoutID = m_tParser.GetRoutingID(m_spzRecord);
         TADD_NORMAL("Routid=[%d],Recd=[%s]", m_iRoutID, m_spzRecord);
@@ -183,24 +200,21 @@
 #endif
             return 0;
         }
-        TRoutingRepFile* pRepFile=NULL;
         for (int i = 0; i<MAX_REP_HOST_COUNT; i++)
         {
             if (pRepHost->m_aiHostID[i] != MDB_REP_EMPTY_HOST_ID)
             {
                 TADD_DETAIL("write to rep host.");
-                pRepFile = GetRepFile(pRepHost->m_aiHostID[i]);
-                CHECK_OBJ(pRepFile);
-                CHECK_RET(CheckWriteToFile(pRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
+                CHECK_OBJ(m_pRoutingRepFile);
+                CHECK_RET(CheckWriteToFile(m_pRoutingRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
             }
         }
         // 写容灾
         if (pRepHost->m_iRecoveryHostID != MDB_REP_EMPTY_HOST_ID)
         {
             TADD_DETAIL("write to recovery host.");
-            pRepFile = GetRepFile(pRepHost->m_iRecoveryHostID);
-            CHECK_OBJ(pRepFile);
-            CHECK_RET(CheckWriteToFile(pRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
+            CHECK_OBJ(m_pRoutingRepFile);
+            CHECK_RET(CheckWriteToFile(m_pRoutingRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
         }
 
         TADD_FUNC("Finish.");
@@ -218,26 +232,13 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        TRoutingRepFile *pRepFile = NULL;
-        std::map<int, TRoutingRepFile*>::iterator itor = m_tMapFile.begin();
-
-        for (; itor!=m_tMapFile.end(); ++itor)
-        {    
-            pRepFile = itor->second;
-            WriteToFile(pRepFile);
-
-            if (pRepFile->m_iFilePos <=0)
-            {
-                continue;
-            }
-           
-            if (pRepFile->m_iFilePos > m_pRepConfig->m_iMaxFileSize 
-                || /*QuickMDB::*/TMdbNtcDateTime::GetDiffSeconds(/*QuickMDB::*/TMdbNtcDateTime::GetCurTime(), pRepFile->m_tCreateTime)>= m_pRepConfig->m_iBackupInterval)
-            {
-                CHECK_RET(Backup(pRepFile), "Backup file failed.");
-            }
+		CHECK_OBJ(m_pRoutingRepFile);
+        WriteToFile(m_pRoutingRepFile);
+        if (m_pRoutingRepFile->m_iFilePos > 0 && (m_pRoutingRepFile->m_iFilePos > m_pRepConfig->m_iMaxFileSize 
+            || TMdbNtcDateTime::GetDiffSeconds(TMdbNtcDateTime::GetCurTime(), m_pRoutingRepFile->m_tCreateTime)>= m_pRepConfig->m_iBackupInterval))
+        {
+            CHECK_RET(Backup(m_pRoutingRepFile), "Backup file failed.");
         }
-
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -283,7 +284,7 @@
         ptRepFile->m_iHostID = iHostID;
         ptRepFile->m_fp = fp;
         ptRepFile->m_strFileName = sFileName;
-        ptRepFile->m_tCreateTime = /*QuickMDB::*/TMdbNtcDateTime::GetCurTime();
+        ptRepFile->m_tCreateTime = TMdbNtcDateTime::GetCurTime();
         ptRepFile->m_iFilePos = 0;
         setbuf(ptRepFile->m_fp,NULL);
  
@@ -341,8 +342,8 @@
 
         
         char sBakName[MAX_PATH_NAME_LEN] = {0};
-        snprintf(sBakName, MAX_PATH_NAME_LEN, "%s.%lld.OK", pRepFile->m_strFileName.c_str(), (long long)/*QuickMDB::*/TMdbNtcDateTime::GetCurTime());
-        /*QuickMDB::*/TMdbNtcFileOper::Rename(pRepFile->m_strFileName.c_str(), sBakName);
+        snprintf(sBakName, MAX_PATH_NAME_LEN, "%s.%lld.OK", pRepFile->m_strFileName.c_str(), (long long)TMdbNtcDateTime::GetCurTime());
+        TMdbNtcFileOper::Rename(pRepFile->m_strFileName.c_str(), sBakName);
         TADD_DETAIL("sBakName=%s",sBakName);
 
         SAFE_CLOSE(pRepFile->m_fp);
@@ -356,50 +357,121 @@
         setbuf(pRepFile->m_fp ,NULL);
         pRepFile->m_iFilePos = 0;
         //pRepFile->m_iBufLen= 0;
-        pRepFile->m_tCreateTime = /*QuickMDB::*/TMdbNtcDateTime::GetCurTime();
+        pRepFile->m_tCreateTime = TMdbNtcDateTime::GetCurTime();
 
         TADD_FUNC("Finish.");
         return iRet;
     }
+    
+    TRoutingRepLogDispatcher::TRoutingRepLogDispatcher():m_pRepConfig(NULL)
+        , m_pShmMgr(NULL)
+        ,m_pShmRep(NULL)
+        ,m_pQueueCtrl(NULL)
+        ,m_pShmDSN(NULL)
+        ,m_pDsn(NULL)
+    {
+        m_iRecord = 0;
+        m_iLen = 0;
+        m_spzRecord = NULL;
+        m_iRoutID = 0;
+
+    }
+
+    TRoutingRepLogDispatcher::~TRoutingRepLogDispatcher()
+    {
+        SAFE_DELETE(m_pShmMgr);
+        SAFE_DELETE(m_pRepConfig);
+        m_pShmRep = NULL;
+    }
     /******************************************************************************
-    * 函数名称	:  GetRepFile
-    * 函数描述	: 根据HostID，找到对应的文件信息类，没有则创建
+    * 函数名称	:  Init
+    * 函数描述	: 初始化，连接共享内存，读取配置文件
     * 输入		:  
     * 输出		:  
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jiang.lili
     *******************************************************************************/
-    TRoutingRepFile* TRoutingRepLog::GetRepFile(int iHostID)
+    int TRoutingRepLogDispatcher::Init(const char* sDsn, TMdbQueue & mdbQueueCtrl, TMdbOnlineRepQueue * mdbOnlineRepQueueCtrl)
     {
-        
-        TADD_DETAIL("iHostID=%d",iHostID);
-        TRoutingRepFile *pRepFile = NULL;
-        std::map<int, TRoutingRepFile*>::iterator itor = m_tMapFile.find(iHostID);
-        if (itor == m_tMapFile.end())
+        TADD_FUNC("Start.");
+        int iRet = 0;
+        m_pShmMgr = new(std::nothrow) TMdbShmRepMgr(sDsn);
+        CHECK_OBJ(m_pShmMgr);
+        CHECK_RET(m_pShmMgr->Attach(),"Attach to shared memory failed.");
+        m_pShmRep = m_pShmMgr->GetRoutingRep();
+
+        m_pRepConfig = new(std::nothrow) TMdbRepConfig();
+        CHECK_OBJ(m_pRepConfig);
+        CHECK_RET(m_pRepConfig->Init(sDsn), "TMdbRepConfig failed.");
+        m_pShmDSN = TMdbShmMgr::GetShmDSN(sDsn);
+        if(m_pShmDSN == NULL)
         {
-            pRepFile = new(std::nothrow) TRoutingRepFile();
-            if (pRepFile !=NULL && CreateRepFile(pRepFile, iHostID) == 0)
-            {
-                TADD_DETAIL("map add iHostID=%d",iHostID);
-                m_tMapFile.insert(std::pair<int, TRoutingRepFile*>(iHostID, pRepFile));
-            }
-            else
-            {
-                SAFE_DELETE(pRepFile);
-            }
+            CHECK_RET(ERR_APP_INVALID_PARAM,"Init(%s) : GetShmDSN(%s) failed.", sDsn, sDsn);
         }
-        else
+
+        m_pDsn = m_pShmDSN->GetInfo();
+
+        m_pQueueCtrl = &mdbQueueCtrl;
+		for(int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
+		{
+			m_pOnlineRepQueueCtrl[i] = &mdbOnlineRepQueueCtrl[i];
+		}
+
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+        /******************************************************************************
+        * 函数名称	:  Log
+        * 函数描述	: 负责缓冲区分片备份数据落地
+        * 输入		:  bEmpty 缓冲区是否有分片备份数据
+        * 输出		:  
+        * 返回值	:  0 - 成功!0 -失败
+        * 作者		:  jiang.lili
+        *******************************************************************************/
+    int TRoutingRepLogDispatcher::Dispatch(bool bEmpty /* = false */)
+    {
+        int iRet = 0;
+        TADD_FUNC("TMdbRepLog::Log() : Start.");
+		
+		if (bEmpty)//缓冲区没有数据
+		{
+			return iRet;
+		}
+
+		m_spzRecord = m_pQueueCtrl->GetData();//读取已经pop出来的数据
+        if(m_spzRecord[0] == 0)//没有数据
+        { 
+            return iRet;
+        }
+        m_iLen = m_pQueueCtrl->GetRecordLen();
+        m_iRoutID = m_tParser.GetRoutingID(m_spzRecord);
+        TADD_DETAIL("Routid=[%d],Recd=[%s]", m_iRoutID, m_spzRecord);
+        if(m_pShmRep->m_bNoRtMode == true)
         {
-            pRepFile = itor->second;
+            TADD_DETAIL("TEST:no-routing-id-rep mode! set send routing-id = %d",DEFALUT_ROUT_ID);
+            m_iRoutID = DEFALUT_ROUT_ID;
         }
-        return pRepFile;
+		
+		TMdbShmRepRouting* pRepHost = m_pShmMgr->GetRepHosts(m_iRoutID);
+		if (NULL == pRepHost)//获取不到备机，可能是该路由不分布在本主机上，或者该路由无须备份
+		{
+			return 0;
+		}
+		for (int i = 0; i<MAX_REP_HOST_COUNT; i++)
+		{
+			if (pRepHost->m_aiHostID[i] != MDB_REP_EMPTY_HOST_ID)
+			{
+				m_pOnlineRepQueueCtrl[pRepHost->m_aiHostID[i]]->Push(m_spzRecord,m_iLen);
+			}
+		}
+        ++m_iRecord;
+        if(m_iRecord == 10000 )
+        {
+            TADD_DETAIL("TMdbRepLog::Log() : Deal-Records=%ld.", m_iRecord);
+            m_iRecord = 0;
+        }
+        TADD_FUNC("TMdbRepLog::Log() : Finish.");
+        return iRet;
     }
 
-    void TRoutingRepLog::ClearFileMap()
-    {
-        for (unsigned int i = 0; i<m_tMapFile.size(); i++)
-        {
-            SAFE_DELETE(m_tMapFile[i]);
-        }
-    }
 //}

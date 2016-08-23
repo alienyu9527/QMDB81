@@ -18,7 +18,7 @@ public:
     
     static int CalcLayerPos(long long iHashValue)
     {
-        return ((iHashValue*3)%MAX_BODY_NODE_NUM);
+        return static_cast<int>(((iHashValue*3)%MAX_BODY_NODE_NUM));
     }
 };
 

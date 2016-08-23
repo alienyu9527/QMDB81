@@ -18,10 +18,12 @@
 		<dir name="${base.dir}/Helper/string_ex.cpp"/>
 		<dir name="${base.dir}/Interface/mdbNosqlQuery.cpp"/>
 		<dir name="${base.dir}/Helper/Lemon.c"/>
+		<dir name="${base.dir}/Redis"/>
 	</exclude>
 	<throw_allow>
 		<path name="${base.dir}/Helper"/>
 		<path name="${base.dir}/Interface"/>
+		<path name="${base.dir}/Redis"/>
 	</throw_allow>
 </project>
 

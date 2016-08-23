@@ -202,10 +202,6 @@ int TMdbJobThread::svc()
         TADD_NORMAL("Start Do Job [%s]",m_pJob->m_sSQL);
         m_pJob->StateToRunning();//ÇÐ»»×´Ì¬µ½Ö´ÐÐÌ¬
         CHECK_RET_BREAK(DoJob(m_pJob),"Do Job Faild[%s]",m_pJob->m_sSQL);
-		if(m_pJob->GetStat() == JOB_STATE_PAUSE)
-		{
-			TADD_NORMAL("Job %s Get Pause Signal.",m_pJob->m_sName);
-		}
         m_pJob->StateToWait();//ÇÐ»»×´Ì¬µ½µÈ´ýÌ¬
         TADD_NORMAL("Finish Do Job [%s]",m_pJob->m_sSQL);
     }while(0);
@@ -514,9 +510,28 @@ int TMdbJobThread::DoJob(TMdbJob * pJob)
 				else
 				{
 					itorMem->SetStopFlag(1);
-					itorMem->SetStat(JOB_STATE_PAUSE);					
+					itorMem->SetStat(JOB_STATE_PAUSE);	
+					TADD_NORMAL("Set job [%s] to pause.", pJobName);
 					return 0;
 				}
+			}
+        }
+
+		printf("Cannot find Job %s\n",pJobName);
+		return -1;
+
+	}
+
+	int TMdbJobCtrl::Resume(const char* pJobName)
+    {
+		TShmList<TMdbJob>::iterator itorMem = m_pShmDsn->m_JobList.begin();
+        for(;itorMem != m_pShmDsn->m_JobList.end();++itorMem)
+        {
+            if(TMdbNtcStrFunc::StrNoCaseCmp(pJobName,itorMem->m_sName) == 0)
+            {
+            	itorMem->StateToWait();
+				TADD_NORMAL("Set job [%s] to wait.", pJobName);
+				return 0;
 			}
         }
 
@@ -539,7 +554,12 @@ int TMdbJobThread::DoJob(TMdbJob * pJob)
 	        }
 	        else
 	        {
-	            m_pJobThreadPool[i] = new TMdbJobThread();
+	            m_pJobThreadPool[i] = new(std::nothrow) TMdbJobThread();
+				if(m_pJobThreadPool[i] ==  NULL)
+				{
+					TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pJobThreadPool[i]");
+					return NULL;
+				}
 	            return m_pJobThreadPool[i];
 	        }
 	    }

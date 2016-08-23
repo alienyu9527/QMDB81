@@ -50,7 +50,10 @@ void Help()
                 "      -c data source.\n"
                 "      -t tablename in qmdb.\n"
                 "      -p file path.\n"
-                "      -s SQL file used to export data from oracle.\n"
+                "      -s SQL file used to export data from qmdb or oracle.\n"
+                "      -e filed fileter  default ','\n"
+                "      -F  datetime format YYYYMMDDHHMMSS or YYYY-MM-DD HH:MM:SS\n"
+                "      -q  string quote \' ,or \" ,( \'abc\'  \"abc\" )\n"
                 "      -H|-h Print Help.\n"
                 
         		"-------\n");
@@ -79,7 +82,11 @@ int main(int argc, char* argv[])
 	clp.set_check_condition("-p", 1);
 	clp.set_check_condition("-s", 1);
 	clp.set_check_condition("-t", 0 ,1);
-
+	//mjx sql tool add start
+	clp.set_check_condition("-F", 1);
+	clp.set_check_condition("-e", 1);
+	clp.set_check_condition("-q", 1);
+	//mjx sql tool add end
     if(clp.check() == false)
 	{
     	Help();
@@ -90,6 +97,9 @@ int main(int argc, char* argv[])
 	char sFileName[MAX_PATH_NAME_LEN]   ={0};
 	char sSQLFileName[MAX_PATH_NAME_LEN]={0};
 	char sConn[MAX_NAME_LEN]            ={0};
+	char sTsFormat[MAX_NAME_LEN]        ={0};
+	char sFilterToken[2]                ={0};
+	char sStrQuote[2]                   ={0};
 	bool bImport        = false;
 	bool bExportFromMdb = false;
 	bool bExportFromOra = false;
@@ -102,6 +112,9 @@ int main(int argc, char* argv[])
 		
 		if(opt == "-t")
 		{
+			//mjx sql tool add start
+			//支持全表
+			//mjx sql tool add end
             SAFESTRCPY(sTableName,sizeof(sTableName),args[0].c_str());
 			sTableName[strlen(sTableName)]='\0';
 			continue;
@@ -150,8 +163,46 @@ int main(int argc, char* argv[])
 			return iRet;
 			#endif
         }
-        
-        
+
+		if(opt == "-F")
+		{
+			
+			SAFESTRCPY(sTsFormat,sizeof(sTsFormat),args[0].c_str());
+			sTsFormat[strlen(sTsFormat)]='\0';
+            continue;
+
+		}
+		
+        if(opt == "-e")
+        {
+
+			if(strlen(args[0].c_str())  == 1)
+			{
+				SAFESTRCPY(sFilterToken,sizeof(sFilterToken),args[0].c_str());
+				sFilterToken[strlen(sFilterToken)]='\0';
+			}
+			else
+			{
+				TADD_ERROR(ERR_APP_INVALID_PARAM,"the filter token ");
+				return -1;
+			}
+        }
+
+		if(opt == "-q")
+        {
+
+			if(strlen(args[0].c_str())  == 1 )
+			{
+				SAFESTRCPY(sStrQuote,sizeof(sStrQuote),args[0].c_str());
+				sStrQuote[strlen(sStrQuote)]='\0';
+			}
+			else
+			{
+				TADD_ERROR(ERR_APP_INVALID_PARAM,"the filter token ");
+				return -1;
+			}
+        }
+		
     }
     
     //char sDsn[MAX_NAME_LEN] ={0};
@@ -166,16 +217,16 @@ int main(int argc, char* argv[])
         CHECK_RET(tBulkCtrl.Init(sConn),"Failed to initialize.");
         if(bExportFromMdb)
         {
-            CHECK_RET(tBulkCtrl.ExportData(sFileName,sTableName),"Failed to export data.");
+            CHECK_RET(tBulkCtrl.ExportData(0,sFileName,sTableName,sSQLFileName,sTsFormat,sFilterToken,sStrQuote),"Failed to export data.");
         }
         else if(bExportFromOra)
         {
-            CHECK_RET(tBulkCtrl.ExportData(sFileName,sTableName,sSQLFileName),"Failed to export data.");
+            CHECK_RET(tBulkCtrl.ExportData(1,sFileName,sTableName,sSQLFileName,sTsFormat,sFilterToken,sStrQuote),"Failed to export data.");
         }
         
         else if(bImport)
         {
-            CHECK_RET(tBulkCtrl.ImportData(sFileName,sTableName),"Failed to import data.");
+            CHECK_RET(tBulkCtrl.ImportData(sFileName,sTableName,sTsFormat,sFilterToken,sStrQuote),"Failed to import data.");
         }
         else
         {

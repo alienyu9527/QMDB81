@@ -63,6 +63,7 @@ int main(int argc, char* argv[])
 	clp.set_check_condition("-h", 0);
 	clp.set_check_condition(argv[1], 0);
 	clp.set_check_condition("-k", 1);
+	clp.set_check_condition("-r", 1);
 
     if(clp.check() == false)
 	{
@@ -90,7 +91,7 @@ int main(int argc, char* argv[])
     		if (fork() > 0) exit(0); /* run in backgroud */
             char sName[64];
 		    memset(sName, 0, sizeof(sName));
-		    sprintf(sName, "%s %s", argv[0], argv[1]);
+		    snprintf(sName, sizeof(sName),"%s %s", argv[0], argv[1]);
 		    TADD_START(argv[1],sName, 0,false ,true);
 		    int iRet = 0;
 		    TMdbJobCtrl tJobCtrl;
@@ -100,12 +101,26 @@ int main(int argc, char* argv[])
 		}
 
 		//中断执行中的job
-		if(opt == "-k" && argc == 4)
+		else if(opt == "-k" && argc == 4)
 		{
-			printf("kill Job : dsn[%s] JobName[%s].\n",argv[1],args[0].c_str());
+		    char sName[64];
+			memset(sName, 0, sizeof(sName));
+		    snprintf(sName, sizeof(sName), "%s %s %s %s", argv[0], argv[1], argv[2], argv[3]);
+		    TADD_START(argv[1],sName, 0,false ,false);
 			TMdbJobCtrl tJobCtrl;
 		    CHECK_RET(tJobCtrl.Init(argv[1]),"tJobCtrl init failed.");
-			CHECK_RET(tJobCtrl.SetCancel(args[0].c_str()),"SetCancel faild.");
+			CHECK_RET(tJobCtrl.SetCancel(args[0].c_str()),"SetCancel job faild.");			
+			
+		}
+		else if(opt == "-r" && argc == 4)
+		{
+			char sName[64];
+			memset(sName, 0, sizeof(sName));
+		    snprintf(sName, sizeof(sName),"%s %s %s %s", argv[0], argv[1], argv[2], argv[3]);
+		    TADD_START(argv[1],sName, 0,false ,false);
+			TMdbJobCtrl tJobCtrl;
+		    CHECK_RET(tJobCtrl.Init(argv[1]),"tJobCtrl init failed.");
+			CHECK_RET(tJobCtrl.Resume(args[0].c_str()),"Resume job faild.");
 			
 		}
 	}

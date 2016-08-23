@@ -186,7 +186,7 @@
         int iRet = 0;
         CHECK_OBJ(psDsnName);
 
-        m_pDBLink = new TMdbDatabase();
+        m_pDBLink = new(std::nothrow) TMdbDatabase();
         CHECK_OBJ(m_pDBLink);
 
         m_sDsn = psDsnName;
@@ -593,7 +593,7 @@
 
         TADD_NORMAL("Bak File Path:[%s]", m_sBakPath.c_str());
 
-        m_pConfigOper = new TCleanFileParser();
+        m_pConfigOper = new(std::nothrow) TCleanFileParser();
         CHECK_OBJ(m_pConfigOper);
 
         if(m_pConfigOper->Parse(sFileName)<0)
@@ -897,7 +897,7 @@
             }
         }
 
-        TMdbConnSet* pMdbConn = new TMdbConnSet();
+        TMdbConnSet* pMdbConn = new(std::nothrow) TMdbConnSet();
         if(NULL == pMdbConn)
         {
             TADD_ERROR(-1,"new TMdbConnSet failed.");
@@ -1032,7 +1032,7 @@
     {
         if(NULL == m_pCurTabWriter)
         {
-            m_pCurTabWriter = new TRecordWriter();
+            m_pCurTabWriter = new(std::nothrow) TRecordWriter();
             if(NULL == m_pCurTabWriter)
             {
                 TADD_ERROR(-1,"new TRecordWriter failed.");
@@ -1152,7 +1152,7 @@
 
         if(NULL == m_pFilePrc)
         {
-            m_pFilePrc = new TFileProcesser();
+            m_pFilePrc = new(std::nothrow) TFileProcesser();
             CHECK_OBJ(m_pFilePrc);
         }
 
@@ -1173,7 +1173,7 @@
 
         if(NULL == m_pFilePrc)
         {
-            m_pFilePrc = new TFileProcesser();
+            m_pFilePrc = new(std::nothrow) TFileProcesser();
             CHECK_OBJ(m_pFilePrc);
         }
 
@@ -1235,7 +1235,7 @@
         if(NULL == m_psFileBuff)
         {
             m_iBuffLen = 32*1024*1024;
-            m_psFileBuff = new char[m_iBuffLen];
+            m_psFileBuff = new(std::nothrow) char[m_iBuffLen];
             TADD_FLOW("new buff size=[%lld]M", m_iBuffLen/1024/1024);
             if(NULL == m_psFileBuff)
             {
@@ -1504,7 +1504,7 @@
 
         m_iStatCnt = 0;
 
-        m_pRecParser = new TRecordParser();
+        m_pRecParser = new(std::nothrow) TRecordParser();
         CHECK_OBJ(m_pRecParser);
 
         

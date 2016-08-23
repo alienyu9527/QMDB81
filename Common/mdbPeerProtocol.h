@@ -42,12 +42,12 @@ public:
      * @retval -1表示没找到
      */
     int Search(const char* pszSrc, int iLength = -1, bool bComparePartly = false) const;
-    inline const /*QuickMDB::*/TMdbNtcStringBuffer& GetPattern() const
+    inline const TMdbNtcStringBuffer& GetPattern() const
     {
         return m_sPattern;
     }
 protected:
-    /*QuickMDB::*/TMdbNtcStringBuffer m_sPattern;
+    TMdbNtcStringBuffer m_sPattern;
     int m_iShiftTable[256];///< 每个字符的偏移值
 };
 
@@ -64,7 +64,7 @@ protected:
  * @brief 协议基类
  * 根据协议判断一个消息包是否有效完整
  */
-class TMdbProtocol:public /*QuickMDB::*/TMdbNtcBaseObject
+class TMdbProtocol:public TMdbNtcBaseObject
 {
 public:
     MDB_ZF_DECLARE_OBJECT(TMdbProtocol);
@@ -237,7 +237,7 @@ protected:
      */
     virtual bool GenerateMsgInfo(TMdbPeerInfo* pPeerInfo, const char* pcHeadBuffer, MDB_UINT32 uiHeadLength, TMdbMsgInfo*& pMsgInfo) = 0;
 protected:    
-    /*QuickMDB::*/TMdbNtcString m_sHeadSpecTerm;///< 消息包结束符
+    TMdbNtcString m_sHeadSpecTerm;///< 消息包结束符
 };
 //}
 #endif

@@ -2,7 +2,6 @@
 #define _MDB_INDEX_CTRL_H_
 #include <vector>
 #include "Helper/mdbStruct.h"
-#include "Control/mdbMgrShm.h"
 #include <map>
 #include "Helper/mdbDictionary.h"
 #include "Helper/SqlParserStruct.h"
@@ -11,9 +10,7 @@
 #include "Control/mdbTrieIndexCtrl.h"
 
 
-class TMdbLocalLink;
-
-    //index分配方案
+	class TMdbShmDSN;class TMdbLocalLink;    //index分配方案
     struct ST_SHM_ASSIGN_CELL
     {
         int iTable;//表pos

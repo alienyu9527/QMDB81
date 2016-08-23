@@ -29,11 +29,11 @@ int main(int argc, char* argv[])
     try
     {
         TMdbServerCenter tServer;
-        if (2 == argc && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(argv[1], "stop") == 0)
+        if (2 == argc && TMdbNtcStrFunc::StrNoCaseCmp(argv[1], "stop") == 0)
         {
             CHECK_RET(tServer.Stop(), "mdbServer stop failed.");
         }
-        else if (1 == argc || (2 == argc && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(argv[1], "start") == 0))
+        else if (1 == argc || (2 == argc && TMdbNtcStrFunc::StrNoCaseCmp(argv[1], "start") == 0))
         {
             CHECK_RET(tServer.Init(), "mdbServer init failed.");
             CHECK_RET(tServer.Start(), "mdbServer start failed.");

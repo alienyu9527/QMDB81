@@ -1,7 +1,7 @@
 #include "Common/mdbNTC.h"
 //namespace QuickMDB
 //{
-mdb_ntc_thread_local(/*QuickMDB::*/TMdbNtcStringBuffer*, ntc_errstr_t);
+mdb_ntc_thread_local(TMdbNtcStringBuffer*, ntc_errstr_t);
 //using namespace QuickMDB;
 TMdbNtcThreadLock g_oMdbNtcSharedPtrSpinLock;///< ÓÃ×÷shared_ptrµÄ»¥³â
 TMdbNtcStringBuffer MdbNtcFormatHexString(const void* pcBuffer, unsigned int uiLength)

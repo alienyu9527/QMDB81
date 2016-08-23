@@ -591,7 +591,7 @@ int   main(int   argc,   char*   argv[])
     //构造配置对象
     if(gConfig == NULL)
     {
-        gConfig = new TMdbConfig();
+        gConfig = new(std::nothrow) TMdbConfig();
         if(gConfig == NULL)
         {
             TADD_ERROR(ERR_OS_NO_MEMROY,"Mem Not Enough");

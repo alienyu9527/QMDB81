@@ -60,11 +60,11 @@
 	private:
 		TMdbCacheRow * GetRowByGroupValue(std::vector<ST_MEM_VALUE * > & vGroupBy);//根据Group by 获取列值
 		int CopyMemValueList(std::vector<ST_MEM_VALUE * > & vDest,std::vector<ST_MEM_VALUE * > & vSource,bool bClearValue);//拷贝memlist;
-		int QuickSort(int iLeft,int iRight);//快速排序
+		int QuickSort(long unsigned int iLeft,long unsigned int iRight);//快速排序
 		int CompareOrderby(TMdbCacheRow * pLeft,TMdbCacheRow * pRight);//orderby 比较
-		int MinHeap(int iParent, int iLen);//堆排序时调整堆成最小堆
-		int BuildHeap(int iLen);//堆排序时建堆
-		int HeapSortForKNum(int iTotalNum, int iKNum);//order by和limit结合使用时,通过堆排序计算order by前K个记录
+		int MinHeap(long unsigned int iParent, long unsigned int iLen);//堆排序时调整堆成最小堆
+		int BuildHeap(long unsigned int iLen);//堆排序时建堆
+		int HeapSortForKNum(long unsigned int iTotalNum, long unsigned int iKNum);//order by和limit结合使用时,通过堆排序计算order by前K个记录
 		int CompareOrderbyForGroupBy(TMdbCacheRow * pLeft,TMdbCacheRow * pRight);//group by比较
 
 		int GetRowByHashTable(TMdbCacheRow * &pRetRow);//通过hash表获取group by字段相同的记录
@@ -73,9 +73,9 @@
 	private:
 		TMdbCacheRow * m_pCacheRowDef;//缓存行定义
 		std::vector<TMdbCacheRow * > m_vData;//数据
-		long long m_llNextPos;//next的位置
+		long unsigned int  m_llNextPos;//next的位置
 		std::vector<ST_EXPR *> * m_pvAggExpr;//聚合表达式地址
-		unsigned int m_iRowCached;//已缓存的记录数
+		long unsigned int m_iRowCached;//已缓存的记录数
 		bool m_bSingleAgg;//只有一条聚合，优化处理
 		ST_ORDERBY_INFO m_stOrderbyInfo;//排序信息
 		HTAB* m_hashTable;//用来执行group by的hash table

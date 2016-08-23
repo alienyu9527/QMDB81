@@ -23,7 +23,7 @@
             return hval;
         }
 
-        bool TMdbRuntimeObject::IsDerivedFrom(const /*QuickMDB::*/TMdbRuntimeObject* pRuntimeObject) const
+        bool TMdbRuntimeObject::IsDerivedFrom(const TMdbRuntimeObject* pRuntimeObject) const
         {
             if(this == NULL) return false;
             const TMdbRuntimeObject* pBaseRuntimeObject = this;
@@ -52,7 +52,7 @@
                 return "";
             }
         }
-        const /*QuickMDB::*/TMdbRuntimeObject TMdbNtcBaseObject::oRuntimeObject("TMdbNtcBaseObject",sizeof(TMdbNtcBaseObject));
+        const TMdbRuntimeObject TMdbNtcBaseObject::oRuntimeObject("TMdbNtcBaseObject",sizeof(TMdbNtcBaseObject));
         //MDB_ZF_IMPLEMENT_OBJECT(TMdbNtcBaseObject);
         TMdbNtcBaseObject::TMdbNtcBaseObject()
         {

@@ -152,10 +152,20 @@
 	        //pQuery->SetSQL(m_sSQL,QUERY_NO_ROLLBACK,0); //拆分为2个方法?
 	        if(m_ptRBUnit[iPos]->sSQL == NULL)
 	    	{
-				m_ptRBUnit[iPos]->sSQL = new char[MAX_SQL_LEN];
+				m_ptRBUnit[iPos]->sSQL = new(std::nothrow) char[MAX_SQL_LEN];
+				if(m_ptRBUnit[iPos]->sSQL == NULL)
+				{
+					
+					TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_ptRBUnit[iPos]->sSQL");
+					return ERR_OS_NO_MEMROY;
+				}
 	    	}
+			
 			memset(m_ptRBUnit[iPos]->sSQL, 0, MAX_SQL_LEN);
 			SAFESTRCPY(m_ptRBUnit[iPos]->sSQL,MAX_SQL_LEN,m_sSQL);
+			
+			CHECK_RET(pQuery->ParseSQLForRollback(m_ptRBUnit[iPos]->sSQL),"ParseSQLForRollback failed");
+			
 			m_ptRBUnit[iPos]->pQuery = pQuery;
 		}
 		TADD_FUNC("Finish(iPos=%d).", iPos);
@@ -225,26 +235,10 @@
 		}
 		m_pBuffer[1] = '\0';
 		sprintf(m_pBuffer, "%s^^%d", m_pBuffer, iPos);
-	    TMdbSqlParser * pMdbSqlParser = NULL;
-	    pMdbSqlParser = new(std::nothrow) TMdbSqlParser();
-	    if(NULL == pMdbSqlParser)
-	    {
-	        CHECK_RET(ERR_OS_NO_MEMROY,"m_pMdbSqlParser is NULL");
-	    }
-		CHECK_RET(pMdbSqlParser->SetDB(m_pDB->GetShmDsn(),TMdbConfigMgr::GetMdbConfig(m_pDB->GetDSN())),"ERROR_DB_NOT_CONNECT [%s].",pMdbSqlParser->m_tError.GetErrMsg());
-	    if(0 == m_ptRBUnit[iPos]->sSQL[0])
-	    {
-	        TADD_ERROR(ERR_SQL_INVALID,"sSQL is NULL.");
-	    }
-	    //结尾添加';' 不然解析失败
-	    TMdbNtcStrFunc::Trim(m_ptRBUnit[iPos]->sSQL,' ');
-	    int iLen = strlen(m_ptRBUnit[iPos]->sSQL);
-	    if(';' != m_ptRBUnit[iPos]->sSQL[iLen-1])
-	    {
-	        m_ptRBUnit[iPos]->sSQL[iLen] = ';';
-	        m_ptRBUnit[iPos]->sSQL[iLen + 1] = '\0';
-	    }
-		CHECK_RET(pMdbSqlParser->ParseSQL(m_ptRBUnit[iPos]->sSQL),"ERROR_SQL_INVALID [%s].",pMdbSqlParser->m_tError.GetErrMsg());
+		
+	    TMdbSqlParser * pMdbSqlParser = m_ptRBUnit[iPos]->pQuery->m_pMdbSqlParser;
+		CHECK_OBJ(pMdbSqlParser);
+
     	ST_MEM_VALUE_LIST * pMemValueList = &(pMdbSqlParser->m_listInputVariable);
 		int i = 0;
 		for(i = 0; i<pMemValueList->iItemNum; i++)
@@ -261,7 +255,7 @@
 		}
 		TADD_DETAIL("m_pBuffer=[%s].",m_pBuffer);
 		CHECK_RET(PushDataIntoRB(),"PushDataIntoRB failed.");//把buffer数据写入回滚段中
-    	SAFE_DELETE(pMdbSqlParser);
+    	
 		return iRet;
 	}
 
@@ -679,7 +673,7 @@
 		}
 		if(NULL == m_pRBValueSplit)
 		{
-			m_pRBValueSplit = new TMdbNtcSplit();
+			m_pRBValueSplit = new(std::nothrow) TMdbNtcSplit();
 		}
 		CHECK_OBJ(m_pRBValueSplit);
 		TADD_DETAIL("m_iOffSet=%d", m_iOffSet);

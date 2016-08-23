@@ -29,7 +29,9 @@ int main(int argc, char* argv[])
     }
     printf("\n************* QuickMDB State Check ************\n");
     printf("[1] Check All Process State:\n");
-    printf("[2] Check Oracle Rep State:\n");
+	//mjx sql tool modify start
+    printf("[2] Check DB(oracle or mysql) Rep State:\n");
+	//mjx sql tool modify end
     printf("[3] Check Peer Rep State:\n");
     printf("[4] Check Error Information in QuickMDB Log:\n");
     printf("[5] Check Index State:\n");

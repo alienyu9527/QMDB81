@@ -72,7 +72,7 @@
         int iRet = 0;
         if(NULL == m_pTempMem)
         {
-            m_pTempMem = new char[40960];
+            m_pTempMem = new(std::nothrow) char[40960];
         }
         CHECK_OBJ(m_pTempMem);
         char sCurDate[30] = {0};

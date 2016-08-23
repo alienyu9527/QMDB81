@@ -90,11 +90,16 @@
         }
         //TADD_NORMAL("Oracle-Log-Dir      = [%s].", m_sLogPath);
         //找到管理区地址,连接上共享内存
-        m_pShmDSN = new TMdbShmDSN();
+        m_pShmDSN = new(std::nothrow) TMdbShmDSN();
+		if(m_pShmDSN ==  NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pShmDSN");
+			return ERR_OS_NO_MEMROY;
+		}
         m_pShmDSN->TryAttach();
         iRet = m_pShmDSN->Attach(pszDSN, *m_pConfig);
         if(iRet < 0)
-        {
+       {
             TADD_NORMAL("This Process Begin Start Type With Not Attach.");
             m_bIsAttach = false;
             CHECK_RET(m_mdbDao.Init(m_pConfig, NULL),"Parameter Error, Init Dao Failed.");
@@ -348,7 +353,12 @@
        
        
         //找到管理区地址,连接上共享内存
-        m_pShmDSN = new TMdbShmDSN();
+        m_pShmDSN = new(std::nothrow) TMdbShmDSN();
+		if(m_pShmDSN ==  NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY, "can't create new m_pShmDSN");
+			return ERR_OS_NO_MEMROY;
+		}
         m_pShmDSN->TryAttach();
         iRet = m_pShmDSN->Attach(pszDSN, *m_pConfig);
         if(iRet < 0)

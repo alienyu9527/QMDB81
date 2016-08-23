@@ -38,7 +38,7 @@
         m_sDsn = psDsnName;
         if(NULL == m_pDBLink)
         {
-            m_pDBLink = new TMdbDatabase();
+            m_pDBLink = new(std::nothrow) TMdbDatabase();
             CHECK_OBJ(m_pDBLink);
         }
         try
@@ -827,7 +827,7 @@
     *******************************************************************************/
     void TMdbImportData::PrintDumpFileInfo()
     {
-        TMdbConnCtrl* pConnCtrl = NULL;
+        /*TMdbConnCtrl* pConnCtrl = NULL;
         if(m_iFileFormat == FORMAT_SQL)
         {
             TADD_NORMAL_TO_CLI(FMT_CLI_OK,"Total number of imported records = [%d]",m_iTotalRecord);
@@ -844,7 +844,13 @@
             printf("Table-Name = [%s]  Import records = [%d].\n",
                 pConnCtrl->m_pQuery->m_pMdbSqlParser->m_stSqlStruct.pMdbTable->sTableName,
                 pConnCtrl->m_pQuery->RowsAffected());
-        }
+        }*/
+
+		
+		TADD_NORMAL_TO_CLI(FMT_CLI_OK,"Total number of imported records = [%d]",m_iTotalRecord);
+		printf("Total number of imported records = [%d].\n",m_iTotalRecord);
+		return;
+		
     }
 
     /******************************************************************************
@@ -900,6 +906,7 @@
         TADD_FUNC("Start.");
         int iRet = 0;
         char sBufMsg[MAX_VALUE_LEN] = {0};
+		m_iTotalRecord = 0;
         while(fgets(sBufMsg, sizeof(sBufMsg), m_pFile) != NULL)
         {
             int iSqlSeq = -1;
@@ -971,12 +978,14 @@
         TMdbNtcSplit mdbSplit;
         TMdbNtcStrFunc::TrimRight(pData,';');
         int iEqual = TMdbNtcStrFunc::FindString(pData,"=");
-        int iSplitCount = mdbSplit.SplitString(pData, ",@");
+
+		mdbSplit.SplitString(pData, ",@");
+		int iSplitCount =  mdbSplit.GetFieldCount();
         // 包含 = ，并且不包含 ",@" 代表是执行sql行
         if(iEqual > 0 && iSplitCount < 2)
         {
             ST_SQL_INFO stSQL;
-            TMdbConnCtrl *pConnCtrl = new TMdbConnCtrl();
+            TMdbConnCtrl *pConnCtrl = new(std::nothrow) TMdbConnCtrl();
             CHECK_OBJ(pConnCtrl);
             char sSqlSeq[32] = {0};
             strncpy(sSqlSeq,pData,iEqual);
@@ -1085,6 +1094,7 @@
             vParam.clear();
             pConnCtrl->m_pQuery->Execute();
             stSQL.iParamLineCounts ++;
+			m_iTotalRecord ++;
             if(stSQL.iParamLineCounts %1000 == 0)
             {
                 pConnCtrl->m_pQuery->Commit();

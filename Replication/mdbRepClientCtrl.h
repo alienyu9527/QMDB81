@@ -13,6 +13,9 @@
 #include "Control/mdbRepCommon.h"
 #include "Replication/mdbRepNTC.h"
 #include "Control/mdbProcCtrl.h"
+#include "Helper/mdbQueue.h"
+#include "Replication/mdbRepLog.h"
+#include "Control/mdbStorageEngine.h"
 
 //namespace QuickMDB
 //{
@@ -61,15 +64,35 @@
         *******************************************************************************/
         virtual int  Execute();//线程的执行函数
     private:
+		int UpdateRepMode(bool bRollback = false);//更新当前同步模式
+		int UpdateOnlineRepMode(bool bRollback = false);
         /******************************************************************************
         * 函数名称	:  CheckRepFile
-        * 函数描述	:  检查同步文件是否过期，删除过期同步文件
+        * 函数描述	:  检查同步文件是否存在
         * 输入		:  
         * 输出		:  
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
         int CheckRepFile();
+		/******************************************************************************
+		* 函数名称	:  CheckShardBakBuf
+		* 函数描述	:  检查链路缓存使用情况
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功!0 -失败
+		* 作者		:  jiang.lili
+		*******************************************************************************/
+		int CheckShardBakBuf();
+		/******************************************************************************
+		* 函数名称	:  CheckOverdueRepFile
+		* 函数描述	:  检查同步文件是否过期，删除过期同步文件
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功!0 -失败
+		* 作者		:  jiang.lili
+		*******************************************************************************/
+		int CheckOverdueRepFile();
 
         /******************************************************************************
         * 函数名称	:  SendRepFile
@@ -81,6 +104,15 @@
         *******************************************************************************/
         int SendRepFile();
 
+		/******************************************************************************
+		* 函数名称	:  SendRepData
+		* 函数描述	:  发送同步记录，无同步文件，则sleep 10ms
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功!0 -失败
+		* 作者		:  jiang.xiaolong
+		*******************************************************************************/
+		int SendRepData();
         /******************************************************************************
         * 函数名称	:  DoServerCmd
         * 函数描述	:  响应server端命令，目前仅响应心跳检查包
@@ -89,20 +121,71 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-        int DoServerCmd(/*QuickMDB::*/TMdbMsgInfo* pMsg);
+        int DoServerCmd(TMdbMsgInfo* pMsg);
     private:
         int m_iHostID;//主机标识
-        /*QuickMDB::*/TMdbNtcString m_strIP;//IP
+        TMdbNtcString m_strIP;//IP
         int m_iPort;//Port
-
-        /*QuickMDB::*/TMdbNtcFileScanner m_tFileScanner;
+		bool m_bSameEndian;//字节序是否一致
+        TMdbNtcFileScanner m_tFileScanner;
+		TMdbShmDSN * m_pShmDSN;
   
-        /*QuickMDB::*/TMdbNtcString m_strPath;//同步文件的目录
+        TMdbNtcString m_strPath;//同步文件的目录
         time_t m_iFileInvalidTime;//同步文件的过期时间
         TMdbRepDataClient *m_pClient;//发送客户端     
         TMdbShmRepMgr* m_pShmMgr;
         TMdbShmRep* m_pShmRep;//共享内存指针
+        bool m_bRepFileExist;//是否有对应的同步文件存在
+        bool m_bShardBakBufFree;//链路缓存有足够空闲
+        TMdbDSN * m_pMdbDSN;//是否启用飞行模式同步
+        TMdbOnlineRepQueue m_pOnlineRepQueueCtrl;
     };
+
+
+	class TMdbWriteRepLog:public TMdbNtcThread
+	{
+	public:
+		TMdbWriteRepLog();
+		~TMdbWriteRepLog();
+		int Init(int iHostID, const char* sDsn, const char* sFilePath);
+		int UpdateRepMode(bool bRollback = false);//更新当前同步模式
+		int UpdateOnlineRepMode(bool bRollback = false);
+        /******************************************************************************
+        * 函数名称	:  CheckRepFile
+        * 函数描述	:  检查同步文件是否存在
+        * 输入		:  
+        * 输出		:  
+        * 返回值	:  0 - 成功!0 -失败
+        * 作者		:  jiang.lili
+        *******************************************************************************/
+        int CheckRepFile();
+		/******************************************************************************
+		* 函数名称	:  CheckShardBakBuf
+		* 函数描述	:  检查链路缓存使用情况
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功!0 -失败
+		* 作者		:  jiang.lili
+		*******************************************************************************/
+		int CheckShardBakBuf();
+        int  Execute();
+        void Cleanup();
+	private:
+		int m_iHostID;
+		TMdbOnlineRepQueue m_tOnlineRepQueueCtrl;//内存缓冲管理器   
+        TMdbShmRepMgr* m_pShmMgr;
+        TMdbShmRep* m_pShmRep;//共享内存指针
+        TMdbShmDSN * m_pShmDsn;
+        TMdbDSN * m_pDsn;
+        TRoutingRepLog m_mdbReplog;
+        TMdbRedoLogParser m_LogParser;
+        TMdbConfig  *m_pConfig;
+        bool m_bRepFileExist;//是否有对应的同步文件存在
+        bool m_bShardBakBufFree;//链路缓存有足够空闲
+        TMdbNtcFileScanner m_tFileScanner;
+		TMdbNtcString m_strPath;//同步文件的目录
+	};
+
 
     /**
     * @brief 分片备份同步客户端
@@ -121,7 +204,7 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-        int Init(const char *sDsn);
+        int Init(const char *sDsn, int iHostID);
        /******************************************************************************
         * 函数名称	:  Start
         * 函数描述	:  初始化
@@ -165,6 +248,9 @@
         TMdbRepConfig *m_pRepConfig;//分片备份配置文件
         TMdbNtcAutoArray m_arThreads;//所有发送同步数据的子线程
         char m_sDsn[MAX_NAME_LEN];
+		int m_iHostID;
+		TRepClientEngine * m_pClientEngine;
+		TMdbWriteRepLog * m_pWriteRepLog;
 
         TMdbProcCtrl m_tProcCtrl;
     };

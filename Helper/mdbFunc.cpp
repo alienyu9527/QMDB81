@@ -632,7 +632,7 @@ int TMdbToDateFunc::ExecuteFunc()
        m_stFuncContext.ReturnValue->ClearValue();
 	char * sSrcDate = m_vArgv[0]->sValue;//原始字符串
 	char * sDesDate = m_stFuncContext.ReturnValue->sValue;
-	int iSrcDateLen = strlen(sSrcDate);
+	size_t iSrcDateLen = strlen(sSrcDate);
 	switch(m_iDateType)
 	{
 		case E_LONG_YEAR://YYYY-MM-DD
@@ -817,7 +817,7 @@ int TMdbToCharFunc::ExecuteInToChar()
 {
     int iRet = 0;
 
-    snprintf(m_stFuncContext.ReturnValue->sValue, m_stFuncContext.ReturnValue->iSize, "%lld", m_vArgv[0]->lValue);
+    snprintf(m_stFuncContext.ReturnValue->sValue, static_cast<size_t>(m_stFuncContext.ReturnValue->iSize), "%lld", m_vArgv[0]->lValue);
     return iRet;
 }
 
@@ -1019,7 +1019,7 @@ int TMdbNVLFunc::CheckArgv()
     CHECK_RET(m_tTypeCheck.AdaptAllExprType(pExpr_2,
                             MEM_Int|MEM_Str|MEM_Date|MEM_Blob,MAX_BLOB_LEN),"AdaptAllExprType[1] failed.");
     SET_MEM_TYPE_SIZE(m_pstExpr->pExprValue,pExpr_1->pExprValue->iFlags|pExpr_2->pExprValue->iFlags,
-            MAX_VALUE(pExpr_1->pExprValue->iSize,pExpr_2->pExprValue->iSize));//设定结果取值
+            MAX_VALUE(static_cast<size_t>(pExpr_1->pExprValue->iSize),static_cast<size_t>(pExpr_2->pExprValue->iSize)));//设定结果取值
 
     m_vArgv.push_back(pExpr_1->pExprValue);
     m_vArgv.push_back(pExpr_2->pExprValue);
@@ -1067,7 +1067,7 @@ int TMdbBlobToCharFunc::CheckArgv()
     ST_EXPR * pExpr_1 = pExprList->pExprItems[0].pExpr;
     CHECK_RET(m_tTypeCheck.AdaptAllExprType(pExpr_1,
                     MEM_Str|MEM_Date|MEM_Blob,MAX_BLOB_LEN),"AdaptAllExprType[0] failed.");
-    SET_MEM_TYPE_SIZE(m_pstExpr->pExprValue,pExpr_1->pExprValue->iFlags,pExpr_1->pExprValue->iSize);//设定结果取值
+    SET_MEM_TYPE_SIZE(m_pstExpr->pExprValue,pExpr_1->pExprValue->iFlags,static_cast<size_t>(pExpr_1->pExprValue->iSize));//设定结果取值
     m_vArgv.push_back(pExpr_1->pExprValue);
     return iRet;
 }
@@ -1115,7 +1115,7 @@ int TMdbAddSecondsFunc::ExecuteFunc()
     {
         CHECK_RET(ERR_APP_DATE_VALUE_INVALID,"[%s] is not a date.",m_stFuncContext.ReturnValue->sValue);
     }
-    TMdbDateTime::AddSeconds(m_stFuncContext.ReturnValue->sValue,pRightValue->lValue);
+    TMdbDateTime::AddSeconds(m_stFuncContext.ReturnValue->sValue,static_cast<int>(pRightValue->lValue));
     return iRet;
 }
 

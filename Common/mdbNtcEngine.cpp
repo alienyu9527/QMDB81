@@ -7,10 +7,10 @@
 #ifndef OS_WINDOWS
 #include <netdb.h>
 #endif
-//namespace /*QuickMDB::*/
+//namespace 
 //{
-//using namespace /*QuickMDB::*/;
-mdb_ntc_thread_local(/*QuickMDB::*/::TMdbNtcThreadEvent*, g_pSendThreadEvent);///< send message阻塞的线程事件
+//using namespace ;
+mdb_ntc_thread_local(::TMdbNtcThreadEvent*, g_pSendThreadEvent);///< send message阻塞的线程事件
 const TMdbNtcNonProxy g_oMdbNtcNonProxy;
 MDB_ZF_IMPLEMENT_OBJECT(TMdbNtcBaseProxy, TMdbNtcBaseObject);
 MDB_ZF_IMPLEMENT_OBJECT(TMdbNtcNonProxy, TMdbNtcBaseProxy);
@@ -526,7 +526,7 @@ bool TMdbNtcEngine::Kill()
 
 
 TMdbSharedPtr<TMdbPeerInfo> TMdbNtcEngine::Connect(const char* pszRemote, int iPort, TMdbProtocol* pProtocol /* = NULL */, int iMilliSeconds /* = -1 */,
-                                          MDB_UINT16 uiPeerFlag /* = 0 */, const /*QuickMDB::*/::TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */, const TMdbNtcBaseProxy& oProxy /* = g_oMdbNtcNonProxy */)
+                                          MDB_UINT16 uiPeerFlag /* = 0 */, const ::TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */, const TMdbNtcBaseProxy& oProxy /* = g_oMdbNtcNonProxy */)
 {
     if(GetMaxPeerNo() == GetPeerCount())
     {
@@ -539,7 +539,7 @@ TMdbSharedPtr<TMdbPeerInfo> TMdbNtcEngine::Connect(const char* pszRemote, int iP
     return AddPeerInfo(fd, new TMdbServerInfo(pszRemote, iPort, pProtocol, pPeerRuntimeObject), uiPeerFlag);
 }
 
-bool TMdbNtcEngine::AddListen(const char* pszAddress, int iPort, TMdbProtocol* pProtocol, const /*QuickMDB::*/::TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */)
+bool TMdbNtcEngine::AddListen(const char* pszAddress, int iPort, TMdbProtocol* pProtocol, const ::TMdbRuntimeObject* pPeerRuntimeObject /* = NULL */)
 {
     bool bRet = true;
     TMdbServerInfo* pServerInfo = new TMdbServerInfo(pszAddress, iPort, pProtocol, pPeerRuntimeObject);

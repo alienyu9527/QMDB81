@@ -172,7 +172,7 @@ int GetToken(const unsigned char *z, int *tokenType){
         return 1;
       }
       /* IMP: R-50417-27976 -- syntax diagram for comments */
-      for(i=3, c=z[2]; (c!='*' || z[i]!='/') && (c=z[i])!=0; i++)
+      for(i=2, c=z[2]; (c!='*' || z[i]!='/') && (c=z[i])!=0; i++)
 	  { 
 	  	if(z[i]=='+' ) 
 		{

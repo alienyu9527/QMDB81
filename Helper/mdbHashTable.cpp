@@ -12,7 +12,7 @@ int HTAB::hash_search_with_hash_value(uint32  hashvalue,
 {
 	//HASHHDR    *hctl = hashp->hctl;
 	//Size		keysize;
-	uint32 bucket;
+	long        bucket;
 	long		segment_num;
 	long		segment_ndx;
 	HASHSEGMENT segp = NULL;
@@ -190,16 +190,16 @@ bool HTAB::dir_realloc()
 {
 	HASHSEGMENT *p = NULL;
 	HASHSEGMENT *old_p = NULL;
-	long		new_dsize;
-	long		old_dirsize;
-	long		new_dirsize;
+	size_t		new_dsize;
+	size_t		old_dirsize;
+	size_t		new_dirsize;
 
 	if (hctl->max_dsize != -1)
 		return false;
 
 	/* Reallocate directory */
-	new_dsize = hctl->dsize << 1;
-	old_dirsize = hctl->dsize * sizeof(HASHSEGMENT);
+	new_dsize = static_cast<size_t>(hctl->dsize << 1);
+	old_dirsize = static_cast<size_t>(static_cast<size_t>(hctl->dsize) * sizeof(HASHSEGMENT));
 	new_dirsize = new_dsize * sizeof(HASHSEGMENT);
 
 	old_p = dir;
@@ -211,7 +211,7 @@ bool HTAB::dir_realloc()
 		memcpy(p, old_p, old_dirsize);
 		memset(((char *) p) + old_dirsize, 0, new_dirsize - old_dirsize);
 		dir = p;
-		hctl->dsize = new_dsize;
+		hctl->dsize = static_cast<int>(new_dsize);
 		free(old_p);
 
 		return true;
@@ -225,12 +225,12 @@ bool HTAB::dir_realloc()
 HASHSEGMENT HTAB::seg_alloc()
 {
 	HASHSEGMENT segp = NULL;
-	segp = (HASHSEGMENT) malloc(sizeof(HASHBUCKET) * ssize);
+	segp = (HASHSEGMENT) malloc( sizeof(HASHBUCKET) * static_cast<long unsigned int>(ssize) );
 
 	if (!segp)
 		return NULL;
 
-	memset(segp, 0, sizeof(HASHBUCKET) * ssize);
+	memset(segp, 0,sizeof(HASHBUCKET) * static_cast<long unsigned int>(ssize));
 
 	return segp;
 }
@@ -244,7 +244,7 @@ bool HTAB::element_alloc(int nelem)
 {
 	
 	HASHHDR *hctlv = hctl;
-	int		elementSize;
+	size_t		elementSize;
 	HASHELEMENT *firstElement = NULL;
 	HASHELEMENT *tmpElement = NULL;
 	HASHELEMENT *prevElement = NULL;
@@ -254,7 +254,7 @@ bool HTAB::element_alloc(int nelem)
 	/* Each element has a HASHELEMENT header plus user data. */
 	elementSize = sizeof(HASHELEMENT);
 	
-	firstElement = (HASHELEMENT *) malloc(nelem * elementSize);
+	firstElement = (HASHELEMENT *) malloc(static_cast<size_t>(static_cast<size_t>(nelem) * elementSize));
 
 	if (!firstElement)
 		return false;
@@ -280,7 +280,7 @@ bool HTAB::element_alloc(int nelem)
 
 int HTAB::string_compare(const char *key1, const char *key2, int  keysize)
 {
-	return strncmp(key1, key2, keysize - 1);
+	return strncmp(key1, key2, static_cast<size_t>(keysize - 1));
 }
 
 
@@ -330,7 +330,7 @@ void HTAB::hdefault()
 bool HTAB::init_htab()
 {
 	HASHSEGMENT *segp = NULL;
-	int			nbuckets;
+	int      	nbuckets;
 	int			nsegs;
 	int 		nelem =  65536;
 	
@@ -343,8 +343,8 @@ bool HTAB::init_htab()
 
 	
 
-	hctl->max_bucket = hctl->low_mask = nbuckets - 1;
-	hctl->high_mask = (nbuckets << 1) - 1;
+	hctl->max_bucket = hctl->low_mask = static_cast<uint32>(nbuckets - 1);
+	hctl->high_mask = static_cast<uint32>((nbuckets << 1) - 1);
 
 	/*
 	 * Figure number of directory segments needed, round up to a power of 2
@@ -367,7 +367,7 @@ bool HTAB::init_htab()
 	/* Allocate a directory */
 	if (!(dir))
 	{
-		dir = (HASHSEGMENT *)malloc(hctl->dsize * sizeof(HASHSEGMENT));
+		dir = (HASHSEGMENT *)malloc(static_cast<size_t>(hctl->dsize) * sizeof(HASHSEGMENT));
 		if (!dir)
 		{
 			TADD_ERROR(ERR_OS_NO_MEMROY," Mem Not Enough,init_htab:dir malloc failed");
@@ -396,9 +396,9 @@ bool HTAB::init_htab()
 
 void HTAB::hash_destroy()
 {
-	int i;
+	size_t i;
 	//hash table destroy
-	for(i=0; i<hctl->nsegs; i++)
+	for(i=0; i<static_cast<size_t>(hctl->nsegs); i++)
 	{
 		free(dir[i]);
 		

@@ -400,7 +400,7 @@
         {
             if(itLastFound.ppObject == NULL) itLastFound = IterBegin();
             else ++itLastFound;
-            return /*QuickMDB::*/::IterFind(itLastFound, IterEnd(), oData, oCompare);
+            return ::IterFind(itLastFound, IterEnd(), oData, oCompare);
         }
         
         //从开始迭代器查找到结束迭代器，查找匹配的元数据

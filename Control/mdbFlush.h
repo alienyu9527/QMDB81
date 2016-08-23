@@ -56,7 +56,7 @@
         TCOLUMN_POS * m_pColmunPos[100];
     };
 
-    inline int PosToStr(int iPos,char * sPos)
+    /*inline int PosToStr(int iPos,char * sPos)
     {
         int iRet = 0;
         if(iPos<0 || iPos > 99){CHECK_RET(ERR_APP_INVALID_PARAM,"iPos must in [0,99].");}
@@ -131,7 +131,7 @@
             break;
         }
         return iRet;
-    }
+    }*/
 
     //mdbÊä³öÊý¾Ý
     class TMdbFlush

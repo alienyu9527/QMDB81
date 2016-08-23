@@ -33,7 +33,7 @@ V1.2.14：是指内核版本号，这个只有在内核发生重大变更的时候才会修改。（需要重建qmd
 QMDB只维护主版本，只有当出现紧急bug，才会在现场分支版本上修改。这时候，现场分支的代码版本里就会多一个“path”(和主版本区分出来),相应的日期版本也会修改。
 QuickMDB V1.2.14.20131226.patch
 */
-#define MDB_VERSION  "QuickMDB V1.4.1.20160714"
+#define MDB_VERSION  "QuickMDB V1.4.1.20160822"
 
 
 /**
@@ -170,6 +170,7 @@ typedef key_t		SMKey;
 #define MDB_CS_USE_BIN (0x80)
 #define MDB_CS_BIG_ED  (0x84)//大小头
 #define MDB_CS_LIT_ED  (0x85)//大小头
+#define IS_OCP(c) (MDB_CS_USE_OCP == c->m_tTMdbCSLink.m_iUseOcp)
 //最大job个数
 #define MAX_JOB_COUNT 100
 
@@ -231,7 +232,7 @@ inline void SAFESTRCPY_IN(char* dst, int diz, const char* src,const char * sFile
     if((int)(strlen(src)+1) > (diz))
     {
         TADD_ERROR(ERR_APP_STRING_OUT_BOUND,"String Out of Bounds src=[%s] > diz=[%d],error postion:file=[%s],line=[%d].", src, (diz),sFile,iLine);
-        strncpy(dst, src, (diz));
+        strncpy(dst, src, static_cast<size_t>(diz));
         (dst)[diz-1] = '\0';
     }
     else

@@ -289,7 +289,7 @@
         //virtual bool OnTimeOut(TMdbTimeoutEvent* pEventInfo, TMdbEventPump* pEventPump);
 
     protected:
-        int SendPacket(/*QuickMDB::*/TMdbPeerInfo* pPeerInfo, const char* pcBodyBuffer);
+        int SendPacket(TMdbPeerInfo* pPeerInfo, const char* pcBodyBuffer);
     private:
         int DealEvent(TMdbWinntTcpHelper* pWinntcpHelper, TMdbWinntTcpMsg* pWinntTcpMsg);
 

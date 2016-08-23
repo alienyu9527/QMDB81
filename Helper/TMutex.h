@@ -104,53 +104,45 @@ public:
 	* 作者		:  li.shugang
 	*******************************************************************************/
     int TryLock();
-    /******************************************************************************
-	* 函数名称	:  GetErrMsg()
-	* 函数描述	:  获取错误信息   
-	* 输入		:  无
-	* 输出		:  无
-	* 返回值	:  错误信息
-	* 作者		:  li.shugang
-	*******************************************************************************/
-    const char* GetErrMsg(int iErrno);
-    /******************************************************************************
-	* 函数名称	:  GetErrorCode()
-	* 函数描述	:  获取错误码，仅限win32系统使用
-	* 输入		:  无
-	* 输出		:  无
-	* 返回值	:  错误码
-	* 作者		:  li.shugang
-	*******************************************************************************/
-	static int GetErrorCode();
-	/******************************************************************************
-	* 函数名称	:  GetErrMsgByCode()
-	* 函数描述	:  通过错误码获取错误信息   
-	* 输入		:  iErrCode 错误码
-	* 输出		:  无
-	* 返回值	:  错误信息
-	* 作者		:  li.shugang
-	*******************************************************************************/
-    static const char* GetErrMsgByCode(int iErrCode,int iDetailCode=0);
+    
     int GetLockPID(){return m_iLockPID;}
 	bool IsLock(){return bIsLock;}
 	bool IsCreate(){return bIsCreate;}
-#ifdef WIN32
-	static int iErrCode;                                //系统错误编码
-#endif
-    //char m_sTime[15];   	
+	
     struct timeval m_tCurTime;
+	
 private:
-#ifdef WIN32
-	HANDLE mutex;
-#else
 	pthread_mutex_t     mutex;
 	pthread_mutexattr_t mattr;
-	pthread_cond_t	    cond;    
-#endif
 	bool bIsCreate;
 	bool bIsLock;
-       int    m_iLockPID;//锁住的进程ID
+    int    m_iLockPID;//锁住的进程ID
 };
+
+
+//不需要做超时检测的锁，尽量减少空间消耗
+class TMiniMutex
+{
+public:
+	TMiniMutex(bool bFlag = false);  //如果在构造的时候就初始化bFlag=true
+	~TMiniMutex();	
+
+public:
+    int Create();
+    int Destroy();
+    int Lock(bool bFlag);
+    int UnLock(bool bFlag);
+    int TryLock();
+	bool IsLock(){return bIsLock;}
+	bool IsCreate(){return bIsCreate;}
+
+private:
+	pthread_mutex_t     mutex;
+	pthread_mutexattr_t mattr;   
+	bool bIsCreate;
+	bool bIsLock;
+};
+
 
 
 //互斥锁是阻塞的，考虑到计费业务的特点，暂不设置其它类型的锁
@@ -245,3 +237,4 @@ private:
 //}
 
 #endif //__MEMORY_DATABASE_MUTEX_H_
+

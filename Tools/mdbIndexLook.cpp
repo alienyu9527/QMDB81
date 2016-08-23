@@ -9,6 +9,7 @@
 ******************************************************************************************/
 #include "Helper/TThreadLog.h"
 #include "Control/mdbIndexCtrl.h"
+#include "Control/mdbMgrShm.h"
 
 
 #ifdef WIN32
@@ -52,7 +53,10 @@ int main(int argc, char* argv[])
     TMdbIndexCtrl indexCtrl;
     CHECK_RET(indexCtrl.AttachTable(pShmDsn,pTable),"indexCtrl.AttachTable failed");
     printf("please wait.....\n");
-	  
+	//mjx sql tool add start
+	for(int i=0; i<pTable->iIndexCounts; i++)
+		pTable->tIndex[i].Print(pTable);
+	//mjx sql tool add end
     indexCtrl.PrintIndexInfo(atoi(argv[3]),true);
     printf("finish.....\n");
     //TADD_END();

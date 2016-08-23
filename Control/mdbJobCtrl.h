@@ -50,6 +50,7 @@ int AddOneTimeInterval(TMdbJob * pJob);
         int AddNewJob(TMdbJob * pNewJob);//添加新job
         int DeleteJobByName(const char * sJobName);//根据job name 删除job
 		int SetCancel(const char* pJobName);
+		int Resume(const char* pJobName);
     private:
         int ConnectMDB(const char * sDsn);//链接数据库
 		TMdbJobThread* GetJobThread();

@@ -34,9 +34,9 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        /*QuickMDB::*/TMdbNtcStrFunc tStrFun;
-        /*QuickMDB::*/TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
-        if( !/*QuickMDB::*/TMdbNtcDirOper::IsFileExist(sConfigFile.c_str()) ) 
+        TMdbNtcStrFunc tStrFun;
+        TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
+        if( !TMdbNtcDirOper::IsFileExist(sConfigFile.c_str()) ) 
         {
             CHECK_RET(ERR_OS_NO_FILE,"Configuration file[%s] not exist.",sConfigFile.c_str());
         }
@@ -104,25 +104,25 @@
         TADD_FUNC("Start.");
         int iRet = 0;
         //本地同步文件是否存在，如果存在，则先删除
-        /*QuickMDB::*/TMdbNtcStrFunc tStrFun;
-        /*QuickMDB::*/TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
-        if(/*QuickMDB::*/TMdbNtcDirOper::IsFileExist(sConfigFile.c_str())) 
+        TMdbNtcStrFunc tStrFun;
+        TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
+        if(TMdbNtcDirOper::IsFileExist(sConfigFile.c_str())) 
         {
-            /*QuickMDB::*/TMdbNtcString sBakFile(MAX_PATH_NAME_LEN, "%s%s", sConfigFile.c_str(), "_bak");
-            /*QuickMDB::*/TMdbNtcFileOper::Remove(sBakFile.c_str());
-            /*QuickMDB::*/TMdbNtcFileOper::Rename(sConfigFile.c_str(), sBakFile.c_str());
+            TMdbNtcString sBakFile(MAX_PATH_NAME_LEN, "%s%s", sConfigFile.c_str(), "_bak");
+            TMdbNtcFileOper::Remove(sBakFile.c_str());
+            TMdbNtcFileOper::Rename(sConfigFile.c_str(), sBakFile.c_str());
             
             TADD_NORMAL("Rename the old file [%s] to [%s]", sConfigFile.c_str(), sBakFile.c_str());
         }
 
         //创建新的配置文件
-        if (!/*QuickMDB::*/TMdbNtcFileOper::MakeFile(sConfigFile.c_str()))
+        if (!TMdbNtcFileOper::MakeFile(sConfigFile.c_str()))
         {
             CHECK_RET(ERR_OS_CREATE_FILE, "Create new configuration file[%s] failed.", sConfigFile.c_str());
         }
         TADD_NORMAL("Create new [%s]", sConfigFile.c_str());
         //将备机配置文件内容复制到新文件中
-        if (!/*QuickMDB::*/TMdbNtcFileOper::WriteContent(sConfigFile.c_str(), pData))
+        if (!TMdbNtcFileOper::WriteContent(sConfigFile.c_str(), pData))
         {
             CHECK_RET(ERR_OS_WRITE_FILE,"Write to configuration file[%s] failed.", sConfigFile.c_str());
         }
@@ -144,14 +144,14 @@
             pAttrValue = pAttr->Next();
             if(pAttrValue != NULL)
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "name") == 0 
-                    &&/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Name(), "host_ID") ==0 )
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "name") == 0 
+                    &&TMdbNtcStrFunc::StrNoCaseCmp(pAttrValue->Name(), "host_ID") ==0 )
                 {
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"rep_server")==0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"rep_server")==0)
                     {
                         pRepID = pAttrValue;
                     }
-                    else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"Local_server")==0)
+                    else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"Local_server")==0)
                     {
                         pLocalID = pAttrValue;
                     }
@@ -183,9 +183,9 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        /*QuickMDB::*/TMdbNtcStrFunc tStrFun;
-        /*QuickMDB::*/TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
-        if( !/*QuickMDB::*/TMdbNtcDirOper::IsFileExist(sConfigFile.c_str())) 
+        TMdbNtcStrFunc tStrFun;
+        TMdbNtcString sConfigFile(MAX_PATH_NAME_LEN,"%s/%s", tStrFun.ReplaceEnv(MDB_SERVER_CONFIG_DIR), MDB_SERVER_CONFIG_NAME);//系统配置文件
+        if( !TMdbNtcDirOper::IsFileExist(sConfigFile.c_str())) 
         {
             CHECK_RET(ERR_OS_NO_FILE,"Configuration file[%s] not exist.",sConfigFile.c_str());
         }
@@ -393,7 +393,7 @@
         for (; itor!=m_AllHosts.end(); ++itor)//遍历查找
         {
             pRepHost = &itor->second;
-            if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pszIP, pRepHost->m_strIP.c_str()) == 0 && iPort == pRepHost->m_iPort)//比较IP和端口号
+            if (TMdbNtcStrFunc::StrNoCaseCmp(pszIP, pRepHost->m_strIP.c_str()) == 0 && iPort == pRepHost->m_iPort)//比较IP和端口号
             {
                 iHostID = pRepHost->m_iHostID;
                 break;
@@ -475,15 +475,15 @@
             TMdbRepHost tHost;
             for(pAttr=pESec->FirstAttribute(); pAttr; pAttr=pAttr->Next())
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
                 {
                     tHost.m_iHostID = atoi(pAttr->Value());
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ip") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ip") == 0)
                 {
                     tHost.m_strIP = pAttr->Value();
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "port") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "port") == 0)
                 {
                     tHost.m_iPort = atoi(pAttr->Value());
                 }
@@ -530,11 +530,11 @@
             TMdbRepRules tRule;
             for(pAttr=pESec->FirstAttribute(); pAttr!=NULL; pAttr=pAttr->Next())
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
                 {
                     tRule.m_iRuleID = atoi(pAttr->Value());
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value") == 0)
                 {
                     tRule.m_strRule = pAttr->Value();
                 }
@@ -577,7 +577,7 @@
             pESec = pEGroup->FirstChildElement("rule_ID");
             CHECK_OBJ(pESec);
             pAttr = pESec->FirstAttribute();
-            if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "list") == 0)
+            if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "list") == 0)
             {
                 TMdbRoutingTools::GetIntArrayFromStrList(pAttr->Value(), tGroup.m_arRuleIDList);
             }
@@ -590,7 +590,7 @@
             pESec = pEGroup->FirstChildElement("host_ID");
             CHECK_OBJ(pESec);
             pAttr = pESec->FirstAttribute();
-            if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "list") == 0)
+            if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "list") == 0)
             {
                 TMdbRoutingTools::GetIntArrayFromStrList(pAttr->Value(), tGroup.m_arHostIDList);
             }
@@ -611,11 +611,11 @@
                 std::vector<int> tHostIDArray;
                 for(pAttr=pRouting->FirstAttribute(); pAttr; pAttr=pAttr->Next())
                 {
-                    if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID") == 0)
+                    if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID") == 0)
                     {
                         iRuleID = atoi(pAttr->Value());
                     }
-                    else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID_list") == 0)
+                    else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID_list") == 0)
                     {
                         TMdbRoutingTools::GetIntArrayFromStrList(pAttr->Value(), tHostIDArray);
                     }
@@ -736,34 +736,34 @@
         while(pESec!=NULL)
         {
                 pAttr = pESec->FirstAttribute();
-                if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"rep_server") == 0 )
+                if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"rep_server") == 0 )
                 {
                     pAttr = pAttr->Next();
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID")==0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID")==0)
                     {
                         m_iRepHostID = atoi(pAttr->Value());
                     }
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"Local_server") == 0 )
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"Local_server") == 0 )
                 {
                     pAttr = pAttr->Next();
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID")==0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID")==0)
                     {
                         m_iLoaclHostID = atoi(pAttr->Value());
                     }
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"HeartBeatWarning") == 0 )
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"HeartBeatWarning") == 0 )
                 {
                     pAttr = pAttr->Next();
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value")==0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value")==0)
                     {
                         m_iHeartBeatWarning = atoi(pAttr->Value());
                     }
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && /*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"HeartBeatFatal") == 0 )
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(),"name")==0 && TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(),"HeartBeatFatal") == 0 )
                 {
                     pAttr = pAttr->Next();
-                    if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value")==0)
+                    if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value")==0)
                     {
                         m_iHeartBeatFatal = atoi(pAttr->Value());
                     }
@@ -1000,7 +1000,7 @@
         std::map<int, TMdbRepHost>::iterator itorpHost = m_AllHosts.begin();
         for (; itorpHost != m_AllHosts.end(); ++itorpHost)
         {
-            if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(sIP, itorpHost->second.m_strIP.c_str()) == 0 && iPort == itorpHost->second.m_iPort)
+            if (TMdbNtcStrFunc::StrNoCaseCmp(sIP, itorpHost->second.m_strIP.c_str()) == 0 && iPort == itorpHost->second.m_iPort)
             {
                 return false;
             }
@@ -1066,7 +1066,7 @@
         SAFESTRCPY(sDsn, sizeof(sDsn), psDsn);
         TMdbNtcStrFunc::ToUpper(sDsn);
 
-        /*QuickMDB::*/TMdbNtcStrFunc tStrFun;
+        TMdbNtcStrFunc tStrFun;
         char sConfigFile[MAX_FILE_NAME] = {0};
         snprintf(sConfigFile, sizeof(sConfigFile), "%s/.%s/.%s", tStrFun.ReplaceEnv(MDB_LOCAL_CONFIG_DIR), sDsn, MDB_LOCAL_CONFIG_FILE);
 
@@ -1231,7 +1231,7 @@
         pESec = pESys->FirstChildElement("Host");
         CHECK_OBJ(pESec);
         pAttr = pESec->FirstAttribute();
-        if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+        if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
         {
             m_iHostID = atoi(pAttr->Value());
         }
@@ -1239,7 +1239,7 @@
         pESec = pESys->FirstChildElement("Heartbeat");
         CHECK_OBJ(pESec);
         pAttr = pESec->FirstAttribute();
-        if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "Warning") == 0)
+        if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "Warning") == 0)
         {
             m_iHeartbeat = atoi(pAttr->Value());
         }
@@ -1261,17 +1261,18 @@
         for (pESec = pEHosts->FirstChildElement("host"); pESec!=NULL; pESec = pESec->NextSiblingElement("host"))
         {
             TMdbRepHost *ptHost = new(std::nothrow) TMdbRepHost();
+			CHECK_OBJ(ptHost);
             for(pAttr=pESec->FirstAttribute(); pAttr; pAttr=pAttr->Next())
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
                 {
                     ptHost->m_iHostID = atoi(pAttr->Value());
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ip") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ip") == 0)
                 {
                     ptHost->m_strIP = pAttr->Value();
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "port") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "port") == 0)
                 {
                     ptHost->m_iPort = atoi(pAttr->Value());
                 }
@@ -1297,13 +1298,14 @@
         for (pESec = pERule->FirstChildElement("rule"); pESec!=NULL; pESec = pESec->NextSiblingElement("rule"))
         {
             TMdbRepRules* ptRule = new(std::nothrow) TMdbRepRules();
+			CHECK_OBJ(ptRule);
             for(pAttr=pESec->FirstAttribute(); pAttr!=NULL; pAttr=pAttr->Next())
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
                 {
                     ptRule->m_iRuleID = atoi(pAttr->Value());
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "value") == 0)
                 {
                     ptRule->m_strRule = pAttr->Value();
                 }
@@ -1326,16 +1328,17 @@
         for (tinyxml2::XMLElement* pERule=pRoot->FirstChildElement("disaster_recovery"); pERule; pERule=pERule->NextSiblingElement("disaster_recovery"))
         {
             TMdbDisasterHost *ptHost = new(std::nothrow) TMdbDisasterHost();
+			CHECK_OBJ(ptHost);
             pESec = pERule->FirstChildElement("host");
             if(pESec == NULL) break; // 容灾机可能没有
 
             for(pAttr=pESec->FirstAttribute(); pAttr; pAttr=pAttr->Next())
             {
-                if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
                 {
                     ptHost->m_iHostID= atoi(pAttr->Value());
                 }
-                else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID_list") == 0)
+                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID_list") == 0)
                 {
                     ptHost->m_strRulelist= pAttr->Value();
                 }
@@ -1368,11 +1371,11 @@
                 std::vector<int> tHostIDArray;
                 for(pAttr=pRouting->FirstAttribute(); pAttr; pAttr=pAttr->Next())
                 {
-                    if(/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID") == 0)
+                    if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID") == 0)
                     {
                         iRuleID = atoi(pAttr->Value());
                     }
-                    else if (/*QuickMDB::*/TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID_list") == 0)
+                    else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "host_ID_list") == 0)
                     {
                         TMdbRoutingTools::GetIntArrayFromStrList(pAttr->Value(), tHostIDArray);
                     }
@@ -1497,7 +1500,7 @@
         SAFESTRCPY(sDsn, sizeof(sDsn), psDsn);
         TMdbNtcStrFunc::ToUpper(sDsn);
 
-        /*QuickMDB::*/TMdbNtcStrFunc tStrFun;
+        TMdbNtcStrFunc tStrFun;
         char sConfigFile[MAX_FILE_NAME] = {0};
         snprintf(sConfigFile, sizeof(sConfigFile), "%s/.%s/.%s", tStrFun.ReplaceEnv(MDB_LOCAL_CONFIG_DIR), sDsn, MDB_LOCAL_CONFIG_FILE);
 
@@ -1531,17 +1534,17 @@
         CHECK_OBJ(pCfgDoc); 
         pCfgDoc->Clear();
 
-        MDBXMLElement* pConfigRoot = new MDBXMLElement("MDBConfig");
+        MDBXMLElement* pConfigRoot = new(std::nothrow) MDBXMLElement("MDBConfig");
         CHECK_OBJ(pConfigRoot); 
         pCfgDoc->LinkEndChild(pConfigRoot);
 
-        MDBXMLElement* pSys = new MDBXMLElement("Sys");
+        MDBXMLElement* pSys = new(std::nothrow) MDBXMLElement("Sys");
         CHECK_OBJ(pSys);
         pConfigRoot->LinkEndChild(pSys);
         AddSys(pSys, m_iHostID, m_iHeartbeat);
 
         // 添加hosts
-        MDBXMLElement* pHost = new MDBXMLElement("hosts");
+        MDBXMLElement* pHost = new(std::nothrow) MDBXMLElement("hosts");
         CHECK_OBJ(pHost);
         pConfigRoot->LinkEndChild(pHost);
         std::map<int ,TMdbRepHost*>::iterator itorHostMap = m_mHostMap.begin();
@@ -1551,7 +1554,7 @@
         }
 
         // 添加rules
-        MDBXMLElement* pRule = new MDBXMLElement("rules");
+        MDBXMLElement* pRule = new(std::nothrow) MDBXMLElement("rules");
         CHECK_OBJ(pRule);
         pConfigRoot->LinkEndChild(pRule);
         std::map<int ,TMdbRepRules*>::iterator itorRuleMap = m_mRuleMap.begin();
@@ -1561,7 +1564,7 @@
         }
 
         // 添加rule与主机映射关系
-        MDBXMLElement* pRoutingRep = new MDBXMLElement("routing_rep");
+        MDBXMLElement* pRoutingRep = new(std::nothrow) MDBXMLElement("routing_rep");
         CHECK_OBJ(pRoutingRep);
         pConfigRoot->LinkEndChild(pRoutingRep);
         std::map<int, std::vector<int> >::iterator itorRoutingRepMap = m_mRoutingMap.begin();
@@ -1571,7 +1574,7 @@
         }
 
         // 添加容灾机
-        MDBXMLElement* pDisaster = new MDBXMLElement("disaster_recovery");
+        MDBXMLElement* pDisaster = new(std::nothrow) MDBXMLElement("disaster_recovery");
         CHECK_OBJ(pDisaster);
         pConfigRoot->LinkEndChild(pDisaster);
         std::vector<TMdbDisasterHost*>::iterator  itorDisaster = m_vRecoveryHost.begin();
@@ -1606,7 +1609,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        MDBXMLElement *pHostElement = new MDBXMLElement("host");
+        MDBXMLElement *pHostElement = new(std::nothrow) MDBXMLElement("host");
         CHECK_OBJ(pHostElement);
         pEle->LinkEndChild(pHostElement);
         pHostElement->SetAttribute("ID",pHostInfo->m_iHostID);
@@ -1619,7 +1622,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        MDBXMLElement *pRuleElement = new MDBXMLElement("rule");
+        MDBXMLElement *pRuleElement = new(std::nothrow) MDBXMLElement("rule");
         CHECK_OBJ(pRuleElement);
         pEle->LinkEndChild(pRuleElement);
         pRuleElement->SetAttribute("ID",pRuleInfo->m_iRuleID);
@@ -1631,7 +1634,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        MDBXMLElement *pRuleElement = new MDBXMLElement("routing");
+        MDBXMLElement *pRuleElement = new(std::nothrow) MDBXMLElement("routing");
         CHECK_OBJ(pRuleElement);
         pEle->LinkEndChild(pRuleElement);
         pRuleElement->SetAttribute("rule_ID",iRuleID);
@@ -1658,7 +1661,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        MDBXMLElement *pRuleElement = new MDBXMLElement("host");
+        MDBXMLElement *pRuleElement = new(std::nothrow) MDBXMLElement("host");
         CHECK_OBJ(pRuleElement);
         pEle->LinkEndChild(pRuleElement);
         pRuleElement->SetAttribute("ID",pHostinfo->m_iHostID);

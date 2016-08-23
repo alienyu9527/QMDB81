@@ -71,7 +71,7 @@
         int ChangeInsertIndex( char* pAddr, TMdbRowID& rowID);
         int ChangeUpdateIndex(std::vector<ST_INDEX_VALUE > & vUpdateIndex);//对update 操作所造成的索引变更
         int GetNextIndex(ST_TABLE_INDEX_INFO * & pTableIndex,long long & llValue);//获取下一个索引
-		int SetTrieWord();
+		int SetTrieWord(ST_INDEX_VALUE&  stIndexValue);
 		//int GetNextIndex(ST_TABLE_INDEX_INFO * & pTableIndex);//获取下一个索引
         //long long CalcMPIndexValue( char* pAddr, int iIndexPos, int& iError);
         //long long CalcOneIndexValue( char* pAddr, int iIndexPos, int& iError);

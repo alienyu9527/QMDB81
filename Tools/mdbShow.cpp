@@ -137,7 +137,7 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
     clp.set_check_condition("-k", 0);//显示锁信息
     clp.set_check_condition("-f", 0);//显示路由备份信息
     clp.set_check_condition("-o", 0);//表不从数据库加载的附加配置信息
-    clp.set_check_condition("-P", 0, 1);//表不从数据库加载的附加配置信息
+    clp.set_check_condition("-P", 0, 1);//指定链接的pid
     
     if(!clp.check())
     {

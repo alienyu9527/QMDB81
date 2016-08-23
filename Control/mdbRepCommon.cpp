@@ -92,7 +92,7 @@
             CHECK_RET(-1, "ShareMem[%s] does not exist",m_strName.c_str());
         }
 
-        m_pShm = new TMdbNtcShareMem(m_strName.c_str(), 0, ENV_QMDB_HOME_NAME);
+        m_pShm = new(std::nothrow) TMdbNtcShareMem(m_strName.c_str(), 0, ENV_QMDB_HOME_NAME);
         CHECK_OBJ(m_pShm);
         if (m_pShm->IsOK())
         {
@@ -503,4 +503,53 @@
         
         return iRet;
     }
+
+
+	TMdbTableChangeOper::TMdbTableChangeOper()
+	{
+		m_iColPos = -1;
+		m_iColType = -1;
+		m_iColLen = -1;
+		m_iChangeType = 0;
+		m_iValue = 0;
+		m_llValue = 0;
+		memset(m_sValue, 0, sizeof(m_sValue));
+	}
+	
+	TMdbTableChangeOper::~TMdbTableChangeOper()
+	{
+		
+	}
+	
+	void TMdbTableChangeOper::Clear()
+	{
+		m_iColPos = -1;
+		m_iColType = -1;
+		m_iColLen = -1;
+		m_iChangeType = 0;
+		m_iValue = 0;
+		m_llValue = 0;
+		memset(m_sValue, 0, sizeof(m_sValue));
+	}
+
+	TMdbLoadTableRemoteStruct::TMdbLoadTableRemoteStruct()
+	{
+		Clear();
+	}
+
+	TMdbLoadTableRemoteStruct::~TMdbLoadTableRemoteStruct()
+	{
+		
+	}
+
+	void TMdbLoadTableRemoteStruct::Clear()
+	{
+		for(int i = 0; i < MAX_COLUMN_COUNTS; i++)
+		{
+			m_iIsLocalCol[i] = -1;
+			m_iColPos[i] = -1;
+		}
+		m_iColCount = 0;
+	}
+//}
 //}

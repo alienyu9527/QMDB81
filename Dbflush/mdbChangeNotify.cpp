@@ -1722,7 +1722,7 @@
         else if(m_lFlushCnt >= MAX_FLUSH_ARRAY_CNT)
         {
             SAFE_DELETE_ARRAY(m_pFlushList);
-            m_pFlushList = new char[m_lFlushCnt];
+            m_pFlushList = new(std::nothrow) char[m_lFlushCnt];
             CHECK_OBJ(m_pFlushList);
             memset(m_pFlushList, 0, m_lFlushCnt);
             m_bAlloc = true;

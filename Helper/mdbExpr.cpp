@@ -72,7 +72,7 @@ ST_EXPR * TMdbExpr::ExprAlloc(int op,				/* Expression opcode */
 		else if(op == TK_STRING)
 		{//字符串常量
 			pNew->pExprValue->sValue = QMDB_MALLOC->NameFromToken(pToken);
-			pNew->pExprValue->iSize  = strlen(pNew->pExprValue->sValue) +1;
+			pNew->pExprValue->iSize  = static_cast<int>(strlen(pNew->pExprValue->sValue)) +1;
 			MemValueSetProperty(pNew->pExprValue,MEM_Str|MEM_Dyn);
 			/*
 			if(TMdbStrFunc::IsNumStr(pNew->pExprValue->sValue ))
@@ -113,7 +113,7 @@ ST_EXPR_LIST * TMdbExpr::ExprListAppend(
 	{
 		ST_EXPR_ITEM * pHeadItem;
 		int iNewNum = pList->iAllocNum*2 + 4;
-		pHeadItem = (ST_EXPR_ITEM *)QMDB_MALLOC->ReAlloc(pList->pExprItems,pList->iAllocNum*sizeof(ST_EXPR_ITEM),iNewNum*sizeof(ST_EXPR_ITEM));
+		pHeadItem = (ST_EXPR_ITEM *)QMDB_MALLOC->ReAlloc(pList->pExprItems,pList->iAllocNum*static_cast<int>(sizeof(ST_EXPR_ITEM)),iNewNum*static_cast<int>(sizeof(ST_EXPR_ITEM)));
 		pList->pExprItems = pHeadItem;
 		pList->iAllocNum = iNewNum;
 	}
@@ -199,7 +199,7 @@ void  TMdbExpr::ExprListSetSpan(ST_EXPR_LIST *pList,        /* List to which to 
         {
             Token token;
             token.z = (char*)pSpan->zStart;
-            token.n =	(int)(pSpan->zEnd - pSpan->zStart);
+            token.n =	(unsigned int)(pSpan->zEnd - pSpan->zStart);
             pItem->sSpan = QMDB_MALLOC->NameFromToken(&token);
         }
         /*
@@ -553,7 +553,7 @@ int TMdbExpr::CalcBinaryExprNull(ST_EXPR * & pstExpr,int iSubValueType)
 				}
 				break;
 			case TK_CONCAT:// || 字符串连接
-				memset(pResultValue->sValue,0x00,pResultValue->iSize);
+				memset(pResultValue->sValue,0x00,static_cast<size_t>(pResultValue->iSize));
 				if((int)strlen(pLeftValue->sValue) + (int)strlen(pRightValue->sValue) >= pResultValue->iSize)
 				{
 					CHECK_RET(ERR_SQL_CALCULATE_EXP_ERROR,"left[%s]+right[%s]>size[%d].",
@@ -718,7 +718,7 @@ int TMdbExpr::CalcBinaryExpr(ST_EXPR * & pstExpr,int iSubValueType)
 				}
 				break;
 			case TK_CONCAT:// || 字符串连接
-				memset(pResultValue->sValue,0x00,pResultValue->iSize);
+				memset(pResultValue->sValue,0x00,static_cast<size_t>(pResultValue->iSize));
 				if((int)strlen(pLeftValue->sValue) + (int)strlen(pRightValue->sValue) >= pResultValue->iSize)
 				{
 					CHECK_RET(ERR_SQL_CALCULATE_EXP_ERROR,"left[%s]+right[%s]>size[%d].",
@@ -761,7 +761,7 @@ ST_EXPR_LIST * TMdbExpr::DeleteExpr(ST_EXPR_LIST * pstExprList,ST_EXPR * pstExpr
 			if(i != pstExprList->iItemNum - 1)
 			{//不是最后一个需要将后面的移到前面去
 			    memmove(pstExprList->pExprItems + i,pstExprList->pExprItems + i + 1,
-					(pstExprList->iItemNum-i-1)*sizeof(ST_EXPR_ITEM));
+					static_cast<size_t>(pstExprList->iItemNum-i-1)*sizeof(ST_EXPR_ITEM));
 			}
 			//清空最后一个元素
 			memset(pstExprList->pExprItems+pstExprList->iItemNum - 1,0x00,sizeof(ST_EXPR_ITEM));

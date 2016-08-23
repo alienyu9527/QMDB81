@@ -55,7 +55,7 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-        int Init(const char* sDsn, TMdbQueue & mdbQueueCtrl);
+        int Init(const char* sDsn, TMdbOnlineRepQueue & mdbOnlineRepQueueCtrl, int iHostID);
 
         int Log(bool bEmpty = false);	
 
@@ -81,6 +81,16 @@
 
         void WriteToFile(TRoutingRepFile* pRepFile);
 
+		/******************************************************************************
+		* 函数名称	:  CreateRepFile
+		* 函数描述	: 创建同步文件
+		* 输入		:  
+		* 输出		:  
+		* 返回值	:  0 - 成功!0 -失败
+		* 作者		:  jiang.lili
+		*******************************************************************************/
+		int CreateRepFile(TRoutingRepFile *ptRepFile, int iHostID);
+
         /******************************************************************************
         * 函数名称	:  Backup
         * 函数描述	: 备份同步文件
@@ -90,24 +100,7 @@
         * 作者		:  jiang.lili
         *******************************************************************************/
         int Backup(TRoutingRepFile *pRepFile);
-        /******************************************************************************
-        * 函数名称	:  CreateRepFile
-        * 函数描述	: 创建同步文件
-        * 输入		:  
-        * 输出		:  
-        * 返回值	:  0 - 成功!0 -失败
-        * 作者		:  jiang.lili
-        *******************************************************************************/
-        int CreateRepFile(TRoutingRepFile *ptRepFile, int iHostID);
-        /******************************************************************************
-        * 函数名称	:  GetRepFile
-        * 函数描述	: 根据HostID，找到对应的文件信息类，没有则创建
-        * 输入		:  
-        * 输出		:  
-        * 返回值	:  0 - 成功!0 -失败
-        * 作者		:  jiang.lili
-        *******************************************************************************/
-        TRoutingRepFile* GetRepFile(int iHostID);//获取路由对应的文件
+                
         /******************************************************************************
         * 函数名称	:  CheckWriteToFile
         * 函数描述	:  数据缓冲写文件
@@ -118,15 +111,13 @@
         *******************************************************************************/
         int CheckWriteToFile(TRoutingRepFile*ptRepFile, const char* sDataBuf, int iBufLen);//缓冲写文件
 
-        void ClearFileMap();
     private:
         TMdbRepConfig *m_pRepConfig;//配置文件
         TMdbShmRepMgr *m_pShmMgr;//共享内存管理类
         const TMdbShmRep *m_pShmRep;//共享内存
-        std::map<int, TRoutingRepFile*> m_tMapFile;//文件创建时间
 
         TMdbProcCtrl m_tProcCtrl;
-        TMdbQueue *m_pQueueCtrl;//内存缓冲管理器
+        TMdbOnlineRepQueue *m_pOnlineRepQueueCtrl;//内存缓冲管理器
         TMdbShmDSN *m_pShmDSN;
         TMdbDSN    *m_pDsn; 
         TMdbRepRecdDecode* m_pRecdParser;
@@ -138,6 +129,42 @@
         int m_iLen;//存储一条记录长度
         char* m_spzRecord;//存储一条记录
         int m_iRoutID;//记录对应的路由ID
+        int m_iHostID;
+		TRoutingRepFile* m_pRoutingRepFile;
+    };
+
+	class TRoutingRepLogDispatcher
+    {
+    public:
+        TRoutingRepLogDispatcher();
+        ~TRoutingRepLogDispatcher();
+    public:
+        /******************************************************************************
+        * 函数名称	:  Init
+        * 函数描述	: 初始化，连接共享内存，读取配置文件
+        * 输入		:  
+        * 输出		:  
+        * 返回值	:  0 - 成功!0 -失败
+        * 作者		:  jiang.lili
+        *******************************************************************************/
+		int Init(const char* sDsn, TMdbQueue & mdbQueueCtrl, TMdbOnlineRepQueue * mdbOnlineRepQueueCtrl);
+        int Dispatch(bool bEmpty = false);	
+
+    private:
+        TMdbRepConfig *m_pRepConfig;//配置文件
+        TMdbShmRepMgr *m_pShmMgr;//共享内存管理类
+        const TMdbShmRep *m_pShmRep;//共享内存
+        TMdbQueue *m_pQueueCtrl;//内存缓冲管理器
+        TMdbShmDSN *m_pShmDSN;
+        TMdbDSN    *m_pDsn; 
+        TMdbRepRecdDecode* m_pRecdParser;
+        TMdbRedoLogParser m_tParser;
+        long m_iRecord;//已处理的记录条数计数，超过10000条以后，从零开始重新计数
+        int m_iLen;//存储一条记录长度
+        char* m_spzRecord;//存储一条记录
+        int m_iRoutID;//记录对应的路由ID
+
+		TMdbOnlineRepQueue * m_pOnlineRepQueueCtrl[MAX_ALL_REP_HOST_COUNT];
     };
 
 //}

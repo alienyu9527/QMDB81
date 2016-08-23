@@ -1,8 +1,8 @@
 #include "Helper/mdbDateTime.h"
 #include "Control/mdbHashIndexCtrl.h" 
 #include "Control/mdbRowCtrl.h"
+#include "Control/mdbMgrShm.h"
 #include "Control/mdbLinkCtrl.h" 
-
 
 //namespace QuickMDB{
 
@@ -18,13 +18,9 @@
     TMdbHashIndexCtrl::TMdbHashIndexCtrl():
         m_pAttachTable(NULL),
         m_pMdbShmDsn(NULL),
-        m_pMdbDsn(NULL)
+        m_pMdbDsn(NULL),
+        m_pRowCtrl(NULL)
     {
-        /*int i = 0;
-        for(i = 0; i<MAX_INDEX_COUNTS; i++)
-        {
-            m_arrTableIndex[i].Clear();//清理
-        }*/
         m_lSelectIndexValue = -1;
     }
 
@@ -39,22 +35,9 @@
     *******************************************************************************/
     TMdbHashIndexCtrl::~TMdbHashIndexCtrl()
     {
+		SAFE_DELETE(m_pRowCtrl);
+    }
 
-    }
-    /******************************************************************************
-    * 函数名称	:  SelectIndexNode
-    * 函数描述	:  记录正在查询的索引节点
-    * 输入		:  iIndexValue - 正在查询的索引节点值
-    * 输入		:
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    int TMdbHashIndexCtrl::SelectIndexNode(MDB_INT64 iIndexValue)
-    {
-        m_lSelectIndexValue = iIndexValue;
-        return 0;
-    }
 
     /******************************************************************************
     * 函数名称	:  DeleteIndexNode
@@ -128,6 +111,93 @@
         return iRet;
     }
 
+	int TMdbHashIndexCtrl::DeleteRedirectIndexNode(int iIndexPos,char* pAddr,TMdbRowIndex & tRowIndex,ST_HASH_INDEX_INFO & tHashIndex,TMdbRowID& rowID)
+	{
+	    TADD_FUNC("IndexPos[%d],tRowIndex[%d|%d],rowID[%d|%d]",iIndexPos,tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,
+	                                                                    rowID.GetPageID(),rowID.GetDataOffset());
+		int iRet = 0;
+
+		bool bBase = false;
+        long long iIndexNodePos = 0;
+        CHECK_RET(m_pRowCtrl->GetIndexPos(pAddr,m_pAttachTable->tIndex[iIndexPos].iRIdxOffset,iIndexPos,bBase,iIndexNodePos),
+            "Get index node pos from data failed.index=[%s]", m_pAttachTable->tIndex[iIndexPos].sName);
+        if(!bBase)
+        {
+            tRowIndex.iConflictIndexPos = iIndexNodePos;
+        }
+        else
+        {
+            tRowIndex.iConflictIndexPos = -1;
+        }
+
+	    
+	    if(false == tRowIndex.IsCurNodeInConflict())
+	    {//基础链上
+	        TMdbIndexNode * pBaseNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
+
+	        if(pBaseNode->tData == rowID)
+	        {
+	            TADD_DETAIL("Row in BaseIndex.");
+	            pBaseNode->tData.Clear();//只做下清理就可以了
+	            TADD_DETAIL("delete on base[%d]",tRowIndex.iBaseIndexPos);
+	        }
+	        else
+	        {//error
+	            TADD_WARNING("not find indexnode to delete....pos[%d],index[%d|%d],rowid[%d|%d]",
+	                         iIndexPos,tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
+	            PrintIndexInfo(tHashIndex,1,false);
+	        }
+	    }
+	    else
+	    {//冲突链上
+	        TMdbReIndexNode* pDataNode = &(tHashIndex.pReConfNode[tRowIndex.iConflictIndexPos]);
+	        TADD_DETAIL("to delete on conflict[%d], pre[%s][%d],next[%d]",tRowIndex.iConflictIndexPos, 
+	            pDataNode->bPreBase?"BASE":"CONF", pDataNode->iPrePos, pDataNode->iNextPos);
+	        if(pDataNode->tData == rowID)
+	        {            
+	            if(pDataNode->bPreBase) // 前一个节点在基础链上
+	            {
+	                TMdbIndexNode * pPreNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
+	                pPreNode->iNextPos = pDataNode->iNextPos;
+
+	                if(pDataNode->iNextPos >= 0)
+	                {
+	                    TMdbReIndexNode* pNextNode = &(tHashIndex.pReConfNode[pDataNode->iNextPos]);
+	                    pNextNode->SetPreNode(tRowIndex.iBaseIndexPos,true);
+	                }
+	            }
+	            else
+	            {
+	                TMdbReIndexNode* pPreNode = &(tHashIndex.pReConfNode[pDataNode->iPrePos]);
+	                pPreNode->iNextPos = pDataNode->iNextPos;
+	                if(pDataNode->iNextPos >= 0)
+	                {
+	                    TMdbReIndexNode* pNextNode = &(tHashIndex.pReConfNode[pDataNode->iNextPos]);
+	                    pNextNode->SetPreNode(pDataNode->iPrePos,false);
+	                }
+	            }
+
+	            pDataNode->iNextPos = tHashIndex.pConflictIndex->iFreeHeadPos;
+	            pDataNode->SetPreNode(-1,false);
+	            tHashIndex.pConflictIndex->iFreeHeadPos = tRowIndex.iConflictIndexPos;
+	            tHashIndex.pConflictIndex->iFreeNodeCounts ++;
+
+	            pDataNode->tData.Clear();
+
+	        }
+	        else
+	        {//error
+	            TADD_WARNING("not find indexnode to delete....pos[%d],index[%d|%d],rowid[%d|%d]",
+	                         iIndexPos,tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
+	            PrintIndexInfo(tHashIndex,1,false);
+	        }
+	    }
+
+	    
+	    TADD_FUNC("Finish.");
+	    return iRet;
+	}
+
     /******************************************************************************
     * 函数名称	:  UpdateIndexNode
     * 函数描述	:  更新索引节点
@@ -150,8 +220,22 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+	
+    int TMdbHashIndexCtrl::UpdateRedirectIndexNode(int iIndexPos,char* pAddr,TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashIndex,TMdbRowID& rowID)
+    {
+		int iRet = 0;
+
+        CHECK_RET(DeleteRedirectIndexNode(iIndexPos,pAddr, tOldRowIndex,tHashIndex,rowID),"DeleteIndexNode failed ,tOldRowIndex[%d|%d],row[%d|%d]",
+                  tOldRowIndex.iBaseIndexPos,tOldRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());//先删除
+        CHECK_RET(InsertRedirectIndexNode(iIndexPos,pAddr, tNewRowIndex,tHashIndex,rowID),"InsertRedirectIndexNode failed ,tNewRowIndex[%d|%d],row[%d|%d]",
+                  tNewRowIndex.iBaseIndexPos,tNewRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());//再增加
+		return iRet;
+	}
+	
+	
     /******************************************************************************
-    * 函数名称	:  UpdateIndexNode
+    * 函数名称	:  InsertIndexNode
     * 函数描述	:  插入索引节点
     * 输入		:  iIndexPos - 表上的第几条索引
     * 输入		:  iIndexValue -索引值
@@ -230,46 +314,110 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+int TMdbHashIndexCtrl::InsertRedirectIndexNode(int iIndexPos,char* pAddr,TMdbRowIndex &tRowIndex, ST_HASH_INDEX_INFO & tHashIndex, TMdbRowID& rowID)
+	{
+	    int iRet = 0;
+	    TADD_FUNC("tRowIndex[%d|%d],rowID[%d|%d]",tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
+	    
+	    TMdbIndexNode * pBaseNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
+	    tRowIndex.iPreIndexPos       = -1;
+	    if(pBaseNode->tData.IsEmpty())
+	    {
+	        //基础索引链上没有值
+	        TADD_DETAIL("Row can insert BaseIndex.");
+	        pBaseNode->tData = rowID;
+	        tRowIndex.iConflictIndexPos = -1;//直接放在基础链上
+	        TADD_DETAIL("insert on base[%d]",tRowIndex.iBaseIndexPos);
+	    }
+	    else
+	    {
+	        TADD_DETAIL("Row can insert ConflictIndex.");
+	        if(tHashIndex.pConflictIndex->iFreeHeadPos >= 0)
+	        {
+	            //还有空闲冲突节点, 对冲突链进行头插
+	            int iFreePos = tHashIndex.pConflictIndex->iFreeHeadPos;
+	            TMdbReIndexNode * pFreeNode = &(tHashIndex.pReConfNode[iFreePos]);//空闲冲突节点
+	            pFreeNode->tData = rowID;//放入数据
+	            tHashIndex.pConflictIndex->iFreeHeadPos = pFreeNode->iNextPos;
+	            if(pBaseNode->iNextPos >= 0)
+	            {//有链
+	                TMdbReIndexNode * pNextNode = &(tHashIndex.pReConfNode[pBaseNode->iNextPos]);
+	                pNextNode->SetPreNode(iFreePos,false);
+	            }
+	            pFreeNode->iNextPos  = pBaseNode->iNextPos;
+	            pFreeNode->SetPreNode(tRowIndex.iBaseIndexPos,true);
+	            pBaseNode->iNextPos  = iFreePos;
+	            tHashIndex.pConflictIndex->iFreeNodeCounts --;//剩余节点数-1
+	            tRowIndex.iConflictIndexPos = iFreePos;//在冲突链上某位置
+	            TADD_DETAIL("insert on conflict[%d], pre:[%s][%d], next[%d]"
+	                ,iFreePos, pFreeNode->bPreBase?"BASE":"CONF",pFreeNode->iPrePos,pFreeNode->iNextPos);
+	            
+	        }
+	        else
+	        {
+	            //没有空闲冲突节点了。
+	            TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
+	                       tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
+                PrintIndexInfo(tHashIndex,0,false);
+	            iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
+	        }
+	    }
 
-    int TMdbHashIndexCtrl::ApplyConflictNodeFromTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
+		//插入完索引，需要在记录里面打上标记
+		if(tRowIndex.IsCurNodeInConflict())
+        {
+            m_pRowCtrl->SetIndexPos(pAddr,m_pAttachTable->tIndex[iIndexPos].iRIdxOffset,iIndexPos, false,tRowIndex.iConflictIndexPos);
+        }
+        else
+        {
+            m_pRowCtrl->SetIndexPos(pAddr,m_pAttachTable->tIndex[iIndexPos].iRIdxOffset,iIndexPos, true,tRowIndex.iBaseIndexPos);
+        }
+		
+	    TADD_FUNC("Finish.");
+	    return iRet;
+	}int TMdbHashIndexCtrl::ApplyConflictNodeFromTable(ST_LINK_INDEX_INFO& tLinkIndexInfo, ST_HASH_INDEX_INFO& tTableHashIndex)
     {
     	int iRet = 0;
 		//tTableHashIndex 属于表级别的公共资源，需要加锁保护
         CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
 		int iAskNodeNum = GetCApplyNum(m_pAttachTable->iTabLevelCnts);
 
-		if(tTableHashIndex.pConflictIndex->iFreeHeadPos < 0) 
+		do
 		{
-			return ERR_TAB_NO_CONFLICT_INDEX_NODE;
-		}
+			if(tTableHashIndex.pConflictIndex->iFreeHeadPos < 0) 
+			{
+				iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
+				break;
+			}
 
-		tLinkIndexInfo.iHashCFreeHeadPos= tTableHashIndex.pConflictIndex->iFreeHeadPos;
-		
-		int iFreePos = -1;	
-		int iLastPos = -1;//记录申请到的最后一个节点的位置
-		for(int i = 0;i<iAskNodeNum;i++)
-		{	
-			iFreePos = tTableHashIndex.pConflictIndex->iFreeHeadPos;
-			//表上面的冲突节点也申请完了
-			if(-1 == iFreePos){break;}
+			tLinkIndexInfo.iHashCFreeHeadPos= tTableHashIndex.pConflictIndex->iFreeHeadPos;
 			
-			TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);
+			int iFreePos = -1;	
+			int iLastPos = -1;//记录申请到的最后一个节点的位置
+			for(int i = 0;i<iAskNodeNum;i++)
+			{	
+				iFreePos = tTableHashIndex.pConflictIndex->iFreeHeadPos;
+				//表上面的冲突节点也申请完了
+				if(-1 == iFreePos){break;}
+				
+				TMdbIndexNode * pFreeNode = &(tTableHashIndex.pConflictIndexNode[iFreePos]);
 
-			//削减表的冲突节点长度
-			tTableHashIndex.pConflictIndex->iFreeHeadPos = pFreeNode->iNextPos;
-			tTableHashIndex.pConflictIndex->iFreeNodeCounts--;
-			
-			tLinkIndexInfo.iHashCFreeNodeCounts++;
-			iLastPos = iFreePos;
+				//削减表的冲突节点长度
+				tTableHashIndex.pConflictIndex->iFreeHeadPos = pFreeNode->iNextPos;
+				tTableHashIndex.pConflictIndex->iFreeNodeCounts--;
+				
+				tLinkIndexInfo.iHashCFreeNodeCounts++;
+				iLastPos = iFreePos;
 
-		}
+			}
 
-		if(-1 != iLastPos)
-		{
-			TMdbIndexNode* pLastNode = &(tTableHashIndex.pConflictIndexNode[iLastPos]);
-			pLastNode->iNextPos = -1;
-		}
-		
+			if(-1 != iLastPos)
+			{
+				TMdbIndexNode* pLastNode = &(tTableHashIndex.pConflictIndexNode[iLastPos]);
+				pLastNode->iNextPos = -1;
+			}
+
+		}while(0);
 
 		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
 		return iRet;
@@ -335,8 +483,7 @@
 		CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");		
 		return iRet;
 	}
-	
-    /******************************************************************************
+	    /******************************************************************************
     * 函数名称	:  FindRowIndexCValue
     * 函数描述	:  查找冲突索引值
     * 输入		:  iIndexPos - 表上的第几条索引
@@ -388,23 +535,6 @@
         return iRet;
     }
 
-    /******************************************************************************
-    * 函数名称	:  CleanTableIndexInfo
-    * 函数描述	:  清理表的索引信息
-    * 输入		:
-    * 输入		:
-    * 输出		:
-    * 返回值	:
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*void TMdbHashIndexCtrl::CleanTableIndexInfo()
-    {
-        int i = 0;
-        for(i = 0; i<MAX_INDEX_COUNTS; i++)
-        {
-            m_arrTableIndex[i].Clear();//清理
-        }
-    }*/
 
     /******************************************************************************
     * 函数名称	:  OutPutInfo
@@ -449,8 +579,19 @@
     {
         int iRet = 0;
         int iBICounts = tIndexInfo.pBaseIndex->iSize/sizeof(TMdbIndexNode);//基础索引个数
-        int iCICounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbIndexNode);//冲突索引个数
-        OutPutInfo(bConsole,"\n\n============[%s]===========\n",tIndexInfo.pBaseIndex->sName);
+        
+		int iCICounts = 0;
+		bool bReConf = (NULL == tIndexInfo.pReConfNode) ? false :true;
+        if(bReConf)
+        {
+            iCICounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbReIndexNode);
+        }
+        else
+        {
+            iCICounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbIndexNode);//冲突索引个数
+        }
+        OutPutInfo(bConsole,"\n\n============[%s]===========\n",tIndexInfo.pBaseIndex->sName);		
+        OutPutInfo(bConsole,"[IsRedirectIndex] 	 [%d]\n",bReConf);
         OutPutInfo(bConsole,"[BaseIndex] 	 counts=[%d]\n",iBICounts);
         OutPutInfo(bConsole,"[ConfilictIndex] counts=[%d],FreeHeadPos=[%d],FreeNodes=[%d]\n",
                    iCICounts,
@@ -458,10 +599,84 @@
                    tIndexInfo.pConflictIndex->iFreeNodeCounts);
         if(iDetialLevel >0 )
         {//详细信息
-           PrintIndexInfoDetail(iDetialLevel,bConsole,tIndexInfo);
+       	 	if(bReConf)
+            {
+                PrintRePosIndexInfoDetail(iDetialLevel,bConsole,tIndexInfo);
+            }
+			else
+			{
+           		PrintIndexInfoDetail(iDetialLevel,bConsole,tIndexInfo);
+			}
         }
         return iRet;
     }
+
+	
+	int TMdbHashIndexCtrl::PrintRePosIndexInfoDetail(int iDetialLevel,bool bConsole, ST_HASH_INDEX_INFO & stIndexInfo)
+	{
+		int arrRange[][3] = {{0,10,0},{10,100,0},{100,500,0},{500,2000,0},{2000,5000,0},{5000,-1,0}};//区间范围，值
+		int iRangeCount = sizeof(arrRange)/(3*sizeof(int));
+		int iBICounts = stIndexInfo.pBaseIndex->iSize/sizeof(TMdbIndexNode);//基础索引个数
+		int iCICounts = stIndexInfo.pConflictIndex->iSize/sizeof(TMdbReIndexNode);//冲突索引个数
+		int i = 0;
+		for(i = 0; i < iBICounts; ++i)
+		{//遍历每条链
+			int iCount = 0;
+			int iNextPos = stIndexInfo.pBaseIndexNode[i].iNextPos;
+			iCount = 0;
+			while(iNextPos >= 0)
+			{
+				iCount++;
+				if(iCount > iBICounts)
+				{
+					OutPutInfo(bConsole,"\nOMG,unlimited loop...\n");
+					return 0;
+				}
+				iNextPos = stIndexInfo.pReConfNode[iNextPos].iNextPos;
+			}
+			int j = 0;
+			for(j = 0;j < iRangeCount;++j)
+			{
+				if(iCount > arrRange[j][0] &&( iCount <= arrRange[j][1] || arrRange[j][1] < 0))
+				{
+					arrRange[j][2]++;//落在此区间内
+					break;
+				}
+			}
+		}
+		OutPutInfo(bConsole,"\nBaseIndex Detail:\n");
+		for(i = 0;i< iRangeCount;++i)
+		{
+			OutPutInfo(bConsole,"[%-6d ~ %-6d] counts = [%-6d]\n",arrRange[i][0],arrRange[i][1],arrRange[i][2]);
+		}
+		//统计冲突剩余链
+		int iNextPos = stIndexInfo.pConflictIndex->iFreeHeadPos;
+		int iCount = 0;
+		while(iNextPos >= 0)
+		{
+			iCount++;
+			if(iCount > iCICounts)
+			{
+				OutPutInfo(bConsole,"\nOMG,unlimited loop...iCount[%d],iCICounts[%d]\n",iCount,iCICounts);
+				return 0;
+			}
+			iNextPos = stIndexInfo.pReConfNode[iNextPos].iNextPos;
+		}
+		OutPutInfo(bConsole,"free conflict nodes = %d\n",iCount);
+		if(iDetialLevel > 1)
+		{
+			int i = 0;
+			int iPrintCounts = iDetialLevel<iCICounts?iDetialLevel:iCICounts;
+			printf("Conflict node detail:\n");
+			for(i = 0;i<iPrintCounts;++i)
+			{
+					if(i%10 == 0){printf("\n");}
+					printf("[%d:%d] ",i,stIndexInfo.pReConfNode[i].iNextPos);
+			}
+			printf("\n");
+		}
+		return 0;
+	}
     /******************************************************************************
     * 函数名称	:  PrintIndexInfoDetail
     * 函数描述	:  打印索引信息
@@ -538,35 +753,6 @@
     }
 
     /******************************************************************************
-    * 函数名称	:  GetBCIndex
-    * 函数描述	:  获取基础+ 冲突索引
-    * 输入		:
-    * 输入		:
-    * 输出		:  pBaseNode -一组 基础索引 pConflictNode-一组冲突索引
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*int TMdbHashIndexCtrl::GetBCIndex(TMdbIndexNode ** pBaseNode,TMdbIndexNode ** pConflictNode)
-    {
-        TADD_FUNC("Start");
-        int iRet = 0;
-        int i = 0;
-        for(i = 0; i<m_pAttachTable->iIndexCounts; i++)
-        {
-            if(false == m_arrTableIndex[i].bInit)
-            {
-                TADD_ERROR(ERROR_UNKNOWN,"Table index is not init....");
-                return -1;//信息未初始化
-            }
-            pBaseNode[i] = m_arrTableIndex[i].pBaseIndexNode;
-            pConflictNode[i] = m_arrTableIndex[i].pConflictIndexNode;
-            TADD_DETAIL("Base[%p],Conflict[%p].",pBaseNode[i],pConflictNode[i]);
-        }
-        TADD_FUNC("Finish");
-        return iRet;
-    }*/
-
-    /******************************************************************************
     * 函数名称	:  AttachDsn
     * 函数描述	:  连接上共享内存管理区
     * 输入		:
@@ -592,86 +778,47 @@
         CHECK_OBJ(pTable);
         CHECK_RET(AttachDsn(pMdbShmDsn),"attch dsn failed.");
         m_pAttachTable = pTable;
+		SAFE_DELETE(m_pRowCtrl);
+		m_pRowCtrl = new (std::nothrow) TMdbRowCtrl;
+		CHECK_OBJ(m_pRowCtrl);
+		CHECK_RET(m_pRowCtrl->Init(m_pMdbDsn->sName,pTable->sTableName),"m_pRowCtrl.AttachTable failed.");//记录管理
         return iRet;
     }
 
-
-
-    /******************************************************************************
-    * 函数名称	:  AttachTable
-    * 函数描述	:  连接上表，/获取基础+ 冲突索引信息
-    * 输入		:  pMdbShmDsn - DSN内存区
-    * 输入		:  pTable    - 表信息
-    * 输出		:
-    * 返回值	:  0 - 成功!0 -失败
-    * 作者		:  jin.shaohua
-    *******************************************************************************/
-    /*int TMdbHashIndexCtrl::AttachTable(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
+	
+    int TMdbHashIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn, TMdbTable* pTable, const char *sNewTableName, int& iFindIndexs)
     {
-        int iRet = 0;
-        TADD_FUNC("AttachTable(%s) : Start.", pTable->sTableName);
-        int iFindIndexs = 0;
-        m_pAttachTable = pTable;
-        CleanTableIndexInfo();//清理
-        //遍历所有的基础索引块
-        for(int n=0; n<MAX_SHM_ID; ++n)
-        {
-            TADD_DETAIL("SetIndex(%s) : Shm-ID no.[%d].", pTable->sTableName, n);
-            char * pBaseIndexAddr = pMdbShmDsn->GetBaseIndex(n);
-            if(pBaseIndexAddr == NULL)
-                continue;
+    	int  iRet = 0;
+		CHECK_RET(AttachTable(pMdbShmDsn, pTable),"hash index attach table failed.");
+		for(int n=0; n<MAX_SHM_ID; ++n)
+		{
+		    TADD_DETAIL("Attach (%s) hash Index : Shm-ID no.[%d].", pTable->sTableName, n);
+		    char * pBaseIndexAddr = pMdbShmDsn->GetBaseIndex(n);
+		    if(pBaseIndexAddr == NULL)
+		        continue;
 
-            TMdbBaseIndexMgrInfo *pBIndexMgr = (TMdbBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-            for(int i=0; i<pTable->iIndexCounts; ++i)
-            {
-                TADD_DETAIL("Need--pTable->tIndex[%d].sName=[%s].", i, pTable->tIndex[i].sName);
-                for(int j=0; j<MAX_BASE_INDEX_COUNTS; ++j)
-                {
-                    //比较索引名称,如果相同，则把锁地址和索引地址记录下来
-                    if((0 == TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
-                            &&(TMdbNtcStrFunc::StrNoCaseCmp(pTable->tIndex[i].sName, pBIndexMgr->tIndex[j].sName) == 0))
-                    {
-                        TADD_DETAIL("Find index[%s]",pTable->tIndex[i].sName);
-                        //找到索引
-                        char * pConflictIndexAddr = pMdbShmDsn->GetConflictIndex(pBIndexMgr->tIndex[j].iConflictMgrPos);
-                        TMdbConflictIndexMgrInfo *pCIndexMgr  = (TMdbConflictIndexMgrInfo *)pConflictIndexAddr;
-                        CHECK_OBJ(pCIndexMgr);
+		    TMdbBaseIndexMgrInfo *pBIndexMgr = (TMdbBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
+		    for(int j=0; j<MAX_BASE_INDEX_COUNTS && iFindIndexs<pTable->iIndexCounts; ++j)
+		    {
+		        if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
+		        {
+		            iFindIndexs++;
+		            SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
+		        }
 
-                        m_arrTableIndex[i].bInit  = true;
-                        m_arrTableIndex[i].iIndexPos  = i;
-                        m_arrTableIndex[i].pIndexInfo = &(pTable->tIndex[i]);//保存index的信息
-                        m_arrTableIndex[i].pBIndexMgr = pBIndexMgr;
-                        m_arrTableIndex[i].pCIndexMgr = pCIndexMgr;
-
-                        m_arrTableIndex[i].iBaseIndexPos = j;
-                        m_arrTableIndex[i].iConflictIndexPos = pBIndexMgr->tIndex[j].iConflictIndexPos;
-
-                        m_arrTableIndex[i].pBaseIndex = &(pBIndexMgr->tIndex[j]);
-                        m_arrTableIndex[i].pConflictIndex = &(pCIndexMgr->tIndex[pBIndexMgr->tIndex[j].iConflictIndexPos]);
-
-                        m_arrTableIndex[i].pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].pBaseIndex->iPosAdd);
-                        m_arrTableIndex[i].pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].pConflictIndex->iPosAdd);
-                        ++iFindIndexs;
-                        break;
-                    }
-                    //TADD_DETAIL("TMdbTableCtrl::SetIndex() :iFindIndexs=%d.", iFindIndexs);
-                }
-            }
-            TADD_DETAIL("iFindIndexs=%d.pTable->iIndexCounts=%d", iFindIndexs,pTable->iIndexCounts);
-            if(iFindIndexs == pTable->iIndexCounts)
-            {
-                break;
-            }
-        }
-
-        if(iFindIndexs < pTable->iIndexCounts)
-        {
-            TADD_ERROR(ERR_TAB_INDEX_NOT_EXIST,"AttachTable(%s) : iFindIndexs[%d] < pTable->iIndexCounts[%d].",pTable->sTableName,iFindIndexs, pTable->iIndexCounts);
-            return ERR_TAB_INDEX_NOT_EXIST;
-        }
-        TADD_FUNC("AttachTable(%s) : Finish.", pTable->sTableName);
-        return iRet;
-    }*/
+		        
+		    }
+		    if(iFindIndexs == pTable->iIndexCounts)
+		    {
+		        return iRet;
+		    }
+        
+        
+    	}	
+		return iRet;
+	
+	}
+	
     /******************************************************************************
     * 函数名称	:  InitIndexNode
     * 函数描述	:  初始化索引节点
@@ -692,7 +839,6 @@
             {
                 pNode->tData.Clear();
                 pNode->iNextPos = n + 1;//连成串
-                //pNode->iPrePos   =  - 1;
                 ++pNode;
             }
         }
@@ -702,14 +848,37 @@
             {
                 pNode->tData.Clear();
                 pNode->iNextPos = -1;
-                //pNode->iPrePos   = -1;
                 ++pNode;
             }
         }
         return 0;
     }
 
-	int TMdbHashIndexCtrl::CreateHashNewMutexShm(size_t iShmSize)
+int TMdbHashIndexCtrl::InitRePosIndexNode(TMdbReIndexNode* pNode,MDB_INT64 iSize,bool bList)
+	{
+	    MDB_INT64 iCount = iSize/sizeof(TMdbReIndexNode);
+	    if(bList)
+	    {
+	        //需要连成双链表状态
+	        pNode[iCount - 1].iNextPos = -1;//结尾
+	        for(MDB_INT64 n=0; n<iCount-1; ++n)
+	        {
+	            pNode->tData.Clear();
+	            pNode->iNextPos = n + 1;//连成串
+	            ++pNode;
+	        }
+	    }
+	    else
+	    {
+	        for(MDB_INT64 n=0; n<iCount; ++n)
+	        {
+	            pNode->tData.Clear();
+	            pNode->iNextPos = -1;
+	            ++pNode;
+	        }
+	    }
+	    return 0;
+	}	int TMdbHashIndexCtrl::CreateHashNewMutexShm(size_t iShmSize)
     {
         TADD_FUNC("Start.Size=[%lu].",iShmSize);
         int iRet = 0;
@@ -844,9 +1013,7 @@
         }
         TADD_FUNC("Finish.");
         return iRet;
-    }
-
-    /******************************************************************************
+    }    /******************************************************************************
     * 函数名称	:  CreateNewBIndexShm
     * 函数描述	:  创建新的基础索引内存块
     * 输入		:  iShmSize - 内存块大小
@@ -966,6 +1133,27 @@
         return iRet;
     }
 
+	int TMdbHashIndexCtrl::InitBRePosCIndex(ST_HASH_INDEX_INFO & tTableIndex,TMdbTable * pTable)
+	{
+	    int iRet = 0;
+	    //初始化基础索引
+        SAFESTRCPY(tTableIndex.pBaseIndex->sTabName, sizeof(tTableIndex.pBaseIndex->sTabName), pTable->sTableName);
+	    tTableIndex.pBaseIndex->cState   = '1';
+	    TMdbDateTime::GetCurrentTimeStr(tTableIndex.pBaseIndex->sCreateTime);
+	    InitIndexNode((TMdbIndexNode *)((char *)tTableIndex.pBIndexMgr + tTableIndex.pBaseIndex->iPosAdd),tTableIndex.pBaseIndex->iSize,false);
+	    tTableIndex.pBIndexMgr->iIndexCounts ++;
+	    //初始化冲突索引
+	    tTableIndex.pConflictIndex->cState = '1';
+	    TMdbDateTime::GetCurrentTimeStr(tTableIndex.pConflictIndex->sCreateTime);
+	    InitRePosIndexNode((TMdbReIndexNode *)((char *)tTableIndex.pCIndexMgr + tTableIndex.pConflictIndex->iPosAdd),
+	                  tTableIndex.pConflictIndex->iSize,true);
+	    tTableIndex.pConflictIndex->iFreeHeadPos = 0;//空闲结点位置
+	    tTableIndex.pConflictIndex->iFreeNodeCounts = tTableIndex.pConflictIndex->iSize/sizeof(TMdbReIndexNode);//记录空闲冲突节点个数
+	    tTableIndex.pCIndexMgr->iIndexCounts ++;
+
+	    return iRet;
+	}
+
     /******************************************************************************
     * 函数名称	:  GetFreeBIndexShm
     * 函数描述	:  获取空闲基础索引块，只做获取不做任何修改
@@ -1083,7 +1271,7 @@
     * 作者		:  jin.shaohua
     *******************************************************************************/
     int TMdbHashIndexCtrl::GetFreeCIndexShm(MDB_INT64 iConflictIndexSize,size_t iDataSize,
-                                        ST_HASH_INDEX_INFO & stTableIndexInfo)
+                                        ST_HASH_INDEX_INFO & stTableIndexInfo, bool bRePosIndex)
     {
         TADD_FUNC("Start.iConflictIndexSize=[%lld].iDataSize=[%lld]",iConflictIndexSize,iDataSize);
         int iRet = 0;
@@ -1135,6 +1323,7 @@
                         TMDBIndexFreeSpace & tFreeSpace = pCIndexMgr->tFreeSpace[j];
                         if(tFreeSpace.iSize >=(size_t) iConflictIndexSize)
                         {
+							pConflictIndex->bRePos = bRePosIndex;
                             pConflictIndex->cState = '2';//更改状态
                             pConflictIndex->iPosAdd   = tFreeSpace.iPosAdd;
                             pConflictIndex->iSize     = iConflictIndexSize;
@@ -1182,7 +1371,7 @@
         return iRet;
     }
 
-    int TMdbHashIndexCtrl::CalcBaseMutexCount(int iBaseCont)
+ int TMdbHashIndexCtrl::CalcBaseMutexCount(int iBaseCont)
     {
 		int iRet = 1;// at least 1
 				
@@ -1191,7 +1380,8 @@
 			iRet = iBaseCont;
 		}
 		else if(iBaseCont>= 9973 && iBaseCont < 99991)
-		{
+		{
+
 			iRet = 9973;
 		}
 		else if(iBaseCont >= 99991)
@@ -1231,32 +1421,55 @@
         TADD_FLOW("AddTableIndex Table=[%s],Size=[%lu] start.", pTable->sTableName,iDataSize);
         MDB_INT64 iBaseIndexSize     = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个基础索引需要的空间
         MDB_INT64 iConflictIndexSize = pTable->iRecordCounts * sizeof(TMdbIndexNode); //计算单个冲突索引需要的空间
+        
 		int iMutexCount = CalcBaseMutexCount(pTable->iTabLevelCnts);
 		MDB_INT64 iMutexSize = iMutexCount * sizeof(TMutex);
 		ST_HASH_INDEX_INFO stTableIndex;
         stTableIndex.Clear();
+		
         CHECK_RET(GetFreeBIndexShm(iBaseIndexSize, iDataSize,stTableIndex),"GetFreeBIndexShm failed..");
-        CHECK_RET(GetFreeCIndexShm(iConflictIndexSize, iDataSize,stTableIndex),"GetFreeCIndexShm failed...");
-        CHECK_RET(GetHashFreeMutexShm(iMutexSize, iDataSize,stTableIndex),"GetHashFreeMutexShm failed..");
-		if('2' == stTableIndex.pBaseIndex->cState)
-        {
-            //找到空闲位置
-            SAFESTRCPY(stTableIndex.pBaseIndex->sName,sizeof(stTableIndex.pBaseIndex->sName),pTable->tIndex[iIndexPos].sName);
-            CHECK_RET(InitBCIndex(stTableIndex,pTable),"InitBCIndex failed...");			
-            CHECK_RET(InitHashMutex(stTableIndex,pTable),"InitHashMutex failed...");
-            SAFESTRCPY(stTableIndex.pMutex->sName, sizeof(stTableIndex.pMutex->sName), pTable->tIndex[iIndexPos].sName);
-        }
-        else
-        {
-            CHECK_RET(-1,"not find pos for new index....");
-        }
+        CHECK_RET(GetHashFreeMutexShm(iMutexSize, iDataSize,stTableIndex),"GetFreeBIndexShm failed..");
+		CHECK_RET(InitHashMutex(stTableIndex,pTable),"InitHashMutex failed...");
+		SAFESTRCPY(stTableIndex.pMutex->sName, sizeof(stTableIndex.pMutex->sName), pTable->tIndex[iIndexPos].sName);
+		
+	    if(pTable->tIndex[iIndexPos].IsRedirectIndex())
+	    {
+	        iConflictIndexSize = pTable->iRecordCounts * sizeof(TMdbReIndexNode);
+	        CHECK_RET(GetFreeCIndexShm(iConflictIndexSize, iDataSize,stTableIndex,true),"GetFreeCIndexShm failed...");
+	        if('2' == stTableIndex.pBaseIndex->cState)
+	        {
+	            //找到空闲位置
+	            SAFESTRCPY(stTableIndex.pBaseIndex->sName,sizeof(stTableIndex.pBaseIndex->sName),pTable->tIndex[iIndexPos].sName);
+				CHECK_RET(InitBRePosCIndex(stTableIndex,pTable),"InitBRePosCIndex failed...");
+	        }
+	        else
+	        {
+	            CHECK_RET(-1,"not find pos for new index....");
+	        }
+	    }
+	    else
+	    {
+	        iConflictIndexSize = pTable->iRecordCounts * sizeof(TMdbIndexNode);
+	        CHECK_RET(GetFreeCIndexShm(iConflictIndexSize,iDataSize,stTableIndex,false),"GetFreeCIndexShm failed...");
+	        if('2' == stTableIndex.pBaseIndex->cState)
+	        {
+	            //找到空闲位置
+	            SAFESTRCPY(stTableIndex.pBaseIndex->sName,sizeof(stTableIndex.pBaseIndex->sName),pTable->tIndex[iIndexPos].sName);
+				CHECK_RET(InitBCIndex(stTableIndex,pTable),"InitBCIndex failed...");
+	        }
+	        else
+	        {
+	            CHECK_RET(-1,"not find pos for new index....");
+	        }
+	    }
+		
         TADD_FLOW("Index[%s]",pTable->tIndex[iIndexPos].sName);
         TADD_FLOW("AddTableIndex : Table=[%s] finish.", pTable->sTableName);
         return iRet;
     }
 
 
-    int TMdbHashIndexCtrl::InitHashMutex(ST_HASH_INDEX_INFO & tTableIndex,TMdbTable * pTable)
+  int TMdbHashIndexCtrl::InitHashMutex(ST_HASH_INDEX_INFO & tTableIndex,TMdbTable * pTable)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -1271,7 +1484,6 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
-
 	int TMdbHashIndexCtrl::InitMutexNode(TMutex* pNode,MDB_INT64 iSize)
     {
         MDB_INT64 iCount = iSize/sizeof(TMutex);
@@ -1376,12 +1588,23 @@
 		//初始化基础索引
 		InitIndexNode((TMdbIndexNode *)((char *)tIndexInfo.pBIndexMgr + tIndexInfo.pBaseIndex->iPosAdd),
 					  tIndexInfo.pBaseIndex->iSize,false);
-		//初始化冲突索引
-		InitIndexNode((TMdbIndexNode *)((char *)tIndexInfo.pCIndexMgr + tIndexInfo.pConflictIndex->iPosAdd),
-					  tIndexInfo.pConflictIndex->iSize,true);
-		tIndexInfo.pConflictIndex->iFreeHeadPos = 0;//空闲结点位置
-		tIndexInfo.pConflictIndex->iFreeNodeCounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbIndexNode);//记录空闲冲突节点个数
 
+		if(NULL != tIndexInfo.pReConfNode)
+		{
+		
+			//初始化冲突索引
+			InitRePosIndexNode((TMdbReIndexNode *)((char *)tIndexInfo.pCIndexMgr +tIndexInfo.pConflictIndex->iPosAdd),
+						  tIndexInfo.pConflictIndex->iSize,true);
+			tIndexInfo.pConflictIndex->iFreeHeadPos = 0;//空闲结点位置
+			tIndexInfo.pConflictIndex->iFreeNodeCounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbReIndexNode);//记录空闲冲突节点个数
+		}
+		else
+		{
+			InitIndexNode((TMdbIndexNode *)((char *)tIndexInfo.pCIndexMgr + tIndexInfo.pConflictIndex->iPosAdd),
+						  tIndexInfo.pConflictIndex->iSize,true);
+			tIndexInfo.pConflictIndex->iFreeHeadPos = 0;//空闲结点位置
+			tIndexInfo.pConflictIndex->iFreeNodeCounts = tIndexInfo.pConflictIndex->iSize/sizeof(TMdbIndexNode);//记录空闲冲突节点个数
+		}
         TADD_FUNC("Finish.");
         return iRet;
     }
@@ -1948,7 +2171,8 @@
         char * pBaseIndexAddr = NULL;//基础索引区地址
         char * pConflictIndexAddr = NULL;//冲突索引区地址
         TMdbIndexNode *pBaseIndexNode = NULL;//基础索引链
-        TMdbIndexNode *pConfIndexNode = NULL;//冲突索引链
+        TMdbIndexNode *pConfIndexNode = NULL;//冲突索引链       
+		TMdbReIndexNode* pReConfNode = NULL;
         int iBICounts = 0;//基础索引节点数
         int iCICounts = 0;//冲突索引节点数
         int iConflictIndexPos = 0;//冲突索引序号
@@ -1981,10 +2205,20 @@
                 iBICounts = pBaseIndex->iSize/sizeof(TMdbIndexNode);//基础索引个数
                 iConflictIndexPos = pBaseIndex->iConflictIndexPos;
                 pConfIndex = &pCIndexMgr->tIndex[iConflictIndexPos];
-                iCICounts =pConfIndex->iSize/sizeof(TMdbIndexNode);//冲突索引个数
+
+				if(pConfIndex->bRePos)
+	            {
+	                iCICounts =pConfIndex->iSize/sizeof(TMdbReIndexNode);//冲突索引个数
+	                pReConfNode = (TMdbReIndexNode*)(pConflictIndexAddr + pConfIndex->iPosAdd);//冲突索引连
+	            }
+				else
+		        {
+		            iCICounts =pConfIndex->iSize/sizeof(TMdbIndexNode);//冲突索引个数
+		            pConfIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + pConfIndex->iPosAdd);//冲突索引连
+		        }
+				 
 
                 pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + pBaseIndex->iPosAdd);//基础索引链
-                pConfIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + pConfIndex->iPosAdd);//冲突索引连
 
                 iIndexLinkCount = 0;
                 for(int j = 0; j < iBICounts; j++)
@@ -1999,7 +2233,14 @@
                             OutPutInfo(true,"\nOMG,unlimited loop...\n");
                             return 0;
                         }
-                        iNextPos = pConfIndexNode[iNextPos].iNextPos;
+						if(pConfIndex->bRePos)
+	                    {
+	                        iNextPos = pReConfNode[iNextPos].iNextPos;
+	                    }
+						else
+						{
+                        	iNextPos = pConfIndexNode[iNextPos].iNextPos;
+						}
                     }
                     if (iIndexNodeCount > iMaxCNodeCount)
                     {

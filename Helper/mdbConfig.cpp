@@ -1,3 +1,4 @@
+
 /****************************************************************************************
 *@Copyrights  2007，中兴软创（南京）计算机有限公司 开发部 CCB项目组
 *@                   All rights reserved.
@@ -51,8 +52,10 @@
         iRepType  = 1;
         iOraRepCounts = 1;
         bIsRep    = false; 
+		bIsMemLoad = false;
         bIsOraRep = false; 
         bIsPeerRep = false;
+		bIsOnlineRep = false;
         bIsCaptureRouter = false;
         iLogBuffSize = 256;
         iLogFileSize = 128;
@@ -184,8 +187,10 @@
 
         iLogLevel = 0;             //日志级别
         bIsRep    = false;         //是否开启主备同步
+        bIsMemLoad = false;        //是否采用内存传输方式加载
         bIsOraRep = false;          //是否开启Oracle的同步
         bIsPeerRep = false;
+		bIsOnlineRep = false;
         bIsCaptureRouter = false;
         // bIsLoadView = true;    //是否支持多表关联上载
         bIsReadOnlyAttr = false;
@@ -263,6 +268,8 @@
 
         TADD_DETAIL("    iLogLevel   = %d", iLogLevel);
         TADD_DETAIL("    bIsRep      = %s", bIsRep?"TRUE":"FALSE");
+        TADD_DETAIL("    bIsMemLoad  = %s", bIsMemLoad?"TRUE":"FALSE");
+        TADD_DETAIL("    bIsOnlineRep = %s", bIsOnlineRep?"TRUE":"FALSE");
         TADD_DETAIL("    bIsReadOnly = %s", bIsReadOnlyAttr?"TRUE":"FALSE");
         TADD_DETAIL("    bIsOraRep   = %s", bIsOraRep?"TRUE":"FALSE");
         TADD_DETAIL("    bIsCaptureRouter  = %s", bIsCaptureRouter?"TRUE":"FALSE");
@@ -423,7 +430,7 @@
 					memset(sTempPort, 0, sizeof(sTempPort));
 					SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
 					TMdbNtcStrFunc::Trim(sTempPort, ' ');
-					m_tDsn.iAgentPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+					m_tDsn.iAgentPort[i] = static_cast<int>(TMdbNtcStrFunc::StrToInt(sTempPort));//代理端口
 					if(m_tDsn.iAgentPort[i] <= 0)
 					{
 						TADD_ERROR(ERR_NET_IP_INVALID, "Invalid agent port value!");
@@ -462,12 +469,12 @@
 			else
 			{
 				char sTempPort[16] = {0};
-				for(int i = 0; i<tSplit.GetFieldCount(); i++)
+				for(unsigned int i = 0; i<tSplit.GetFieldCount(); i++)
 				{
 					memset(sTempPort, 0, sizeof(sTempPort));
 					SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
 					TMdbNtcStrFunc::Trim(sTempPort, ' ');
-					iPortArray[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+					iPortArray[i] = static_cast<int>(TMdbNtcStrFunc::StrToInt(sTempPort));//代理端口
 					if(iPortArray[i] <= 0)
 					{
 						TADD_ERROR(ERR_NET_IP_INVALID,"Invalid agent port value!");
@@ -941,6 +948,8 @@
                 return -1;
             }
         }
+
+		
         if(!bCheck) return 0;
         //对参数进行校验
         if (m_tDsn.sOracleID[0] == '\0')
@@ -1233,6 +1242,7 @@
 					// shard-backup
 					SET_PARAM_BOOL_VALUE(m_tDsn.bIsPeerRep,pAttr->Value(),"is-Peer-rep",pAttrValue->Value());
 					SET_PARAM_BOOL_VALUE(m_tDsn.bIsRep,pAttr->Value(),"is-Rep",pAttrValue->Value());
+					SET_PARAM_BOOL_VALUE(m_tDsn.bIsMemLoad,pAttr->Value(),"is-Mem-Load",pAttrValue->Value());
 					SET_PARAM_BOOL_VALUE(m_tDsn.m_bIsShardBackup,pAttr->Value(),"is-shard-backup",pAttrValue->Value());
 					SET_SYS_PARAM_CHAR_VALUE(m_tDsn.sRepSvrIp,sizeof(m_tDsn.sRepSvrIp),pAttr->Value(),"Rep-Server-ip",pAttrValue->Value());
 					SET_SYS_PARAM_INT_VALUE(m_tDsn.iRepSvrPort,pAttr->Value(),"Rep-Server-port",pAttrValue->Value(),-1);
@@ -1241,6 +1251,7 @@
 					//SET_SYS_PARAM_CHAR_VALUE(m_tDsn.sRepLocalIp,sizeof(m_tDsn.sRepLocalIp),pAttr->Value(),"Rep-Local-Ip",pAttrValue->Value());
 					SET_SYS_PARAM_INT_VALUE(m_tDsn.iRepLocalPort,pAttr->Value(),"Rep-Local-port",pAttrValue->Value(),-1);
 					SET_SYS_PARAM_INT_VALUE(m_tDsn.iInvalidRepFileTime,pAttr->Value(),"Rep-file-invalid-time",pAttrValue->Value(),3);
+					SET_PARAM_BOOL_VALUE(m_tDsn.bIsOnlineRep,pAttr->Value(),"is-Online-rep",pAttrValue->Value());
 					///////////////////////////////////////////////////////////////////////////////////////////
 					// define ,but not be used
 						  
@@ -3136,6 +3147,23 @@
         {
             pTable->iOneRecordNullOffset = -1;
         }
+
+		// 加上反向索引记录索引位置的长度
+		int iRIndexFlagSize = 0;
+		int iRIndexSize = pTable->CalcRIndexSize(iRIndexFlagSize);
+		if(0 != iRIndexSize)
+		{
+		    pTable->iReIdxFlagOffset = pTable->iOneRecordSize;
+		    pTable->iReIdxPosOffset = pTable->iReIdxFlagOffset + iRIndexFlagSize;
+		    pTable->iOneRecordSize += iRIndexSize;
+		}
+		else
+		{
+		    pTable->iReIdxFlagOffset = -1;
+		    pTable->iReIdxPosOffset = -1;
+		}
+
+		
         TMdbTableSpace * pTS = GetTableSpaceByName(pTable->m_sTableSpace);
         if(NULL == pTS)
         {
@@ -3574,7 +3602,18 @@
                 {
                     pTable->tIndex[iIndexCounts].iMaxLayer= atoi(pAttr->Value());
                 }
-                else
+				else if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "re-position") == 0)
+	            {
+	                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Value(), "Y") == 0)
+	                {
+	                    pTable->tIndex[iIndexCounts].bRePos = true;
+	                }
+	                else
+	                {
+	                    pTable->tIndex[iIndexCounts].bRePos = false;
+	                }
+	            }
+	            else
                 {
                     TADD_ERROR(ERR_APP_INVALID_PARAM,"[%s : %d] : TMdbConfig::LoadIndex() : Invalid element=[%s].", __FILE__, __LINE__, pAttr->Name());
                     return ERR_APP_INVALID_PARAM;
@@ -4366,7 +4405,8 @@
     * 返回值	:  正确则返回true，否则返回false
     * 作者		:  li.shugang
     *******************************************************************************/
-    bool TMdbConfig::CheckLicense()
+	/*
+	bool TMdbConfig::CheckLicense()
     {
         //如果不需要检测序列号，直接返回
         if(m_tDsn.bIsLicense == false)
@@ -4416,21 +4456,7 @@
         fread(sFileL, 16, 1, fp);
         //fgets(sFileL, 17, fp);
         SAFE_CLOSE(fp);
-        /*
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("TMdbConfig::CheckLicense() : Need=[%s], Read=[%s].", sLincese, sFileL);
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        TADD_NORMAL("");
-        */
+        
         //进行比较
         if(strcmp(sFileL, sLincese) == 0)
         {
@@ -4441,7 +4467,7 @@
             return false;
         }
     }
-
+	*/
 
     /******************************************************************************
     * 函数名称	:  GetLincese()
@@ -4451,7 +4477,7 @@
     * 返回值	:  无
     * 作者		:  li.shugang
     *******************************************************************************/
-    void TMdbConfig::GetLincese(char* pLicense)
+    /*void TMdbConfig::GetLincese(char* pLicense)
     {
         TMdbNtcSplit tSplit;
         tSplit.SplitString(m_tDsn.sLocalIP,'.');
@@ -4493,6 +4519,7 @@
         sprintf(&pLicense[strlen(pLicense)], "%c", (atoi(tSplit[2])+iUserID)%19+'A');
         sprintf(&pLicense[strlen(pLicense)], "%c", (atoi(tSplit[3])+iUserID)%23+'A');
     }
+	*/
     /******************************************************************************
     * 函数名称	:  GetTableCounts()
     * 函数描述	:  获取表数目
@@ -4862,7 +4889,7 @@
         }
         TADD_DETAIL("iSize=%ld.", llSize);
         //计算出所需要的共享内存数
-        iDataShmCounts  = llSize /GetDSN()->iDataSize + 1;
+        iDataShmCounts  = static_cast<int>(llSize /static_cast<long long>(GetDSN()->iDataSize)) + 1;
         TADD_FLOW("DataShmCount =%d.", iDataShmCounts);
         TADD_FUNC("Finish.");
         return iRet;    
@@ -5250,8 +5277,8 @@
             return false;
         }
         //名称只能由字母数字以及_下化线组长的字符串
-        int iLen = strlen(pName);
-    	for(int i=0; i<iLen; ++i)
+        size_t iLen = strlen(pName);
+    	for(size_t i=0; i<iLen; ++i)
     	{
     	    if(pName[i]>='A' && pName[i]<='Z')
             {
@@ -5272,6 +5299,69 @@
     	}
         return true;
     }
+
+	//获取全路径名称
+	int TMdbConfig::GetFullPathCfgName(const char* pszDsn,char *sCfgFileName)
+	{
+		int iRet = 0;
+        CHECK_OBJ(pszDsn);
+      
+        char   dsnName[MAX_NAME_LEN] = {0};
+        memset(dsnName,0,sizeof(dsnName));
+        SAFESTRCPY(dsnName, sizeof(dsnName),pszDsn );
+        TMdbNtcStrFunc::ToUpper(dsnName);
+        
+       
+   
+		if (NULL == getenv("QuickMDB_HOME"))
+        {
+            return -1;
+        }
+        char *pszHome = getenv("QuickMDB_HOME");
+       
+
+
+        char sConfigHome[MAX_PATH_NAME_LEN] = {0};
+        SAFESTRCPY(sConfigHome,sizeof(sConfigHome),pszHome);
+        if(sConfigHome[strlen(sConfigHome)-1] != '/')
+        {
+            sConfigHome[strlen(sConfigHome)] = '/';
+        }
+
+        char sTempzhy[MAX_PATH_NAME_LEN] = {0};
+        snprintf(sTempzhy,sizeof(sTempzhy),"%s.config/",sConfigHome);
+        snprintf(sConfigHome,sizeof(sConfigHome), "%s",sTempzhy) ;
+
+        
+        memset(sTempzhy,0,sizeof(sTempzhy));
+        snprintf(sTempzhy,sizeof(sTempzhy),"%s.%s/",sConfigHome,dsnName);
+        snprintf(sConfigHome,sizeof(sConfigHome), "%s",sTempzhy) ;
+        if(!TMdbNtcDirOper::IsExist(sConfigHome))
+        {
+           // SAFESTRCPY(m_szHome,sizeof(m_szHome),sConfigHome);
+           return ERR_OS_NO_DIR;
+        }
+        
+        
+
+        sprintf(sCfgFileName, "%s.QuickMDB_SYS_%s.xml", sConfigHome,dsnName);
+
+        //检测文件是否存在
+
+        iRet = access(sCfgFileName, F_OK);
+        if(iRet != 0)
+        {
+        	sCfgFileName[0] = '\0';
+            TADD_ERROR(ERROR_UNKNOWN, "Sys configuration not found.");
+            return ERR_OS_NO_FILE;
+        }
+
+		
+        return 0;
+	
+		
+	}
+	
 
     //单独上载DSN配置文件
     int TMdbConfig::LoadDsnConfigFile(const char* pszDsn,const bool bCheck)
@@ -5823,7 +5913,7 @@
         //TADD_DETAIL("table dir=[%s]", psDir);
         TMdbNtcSplit tSplit;
         tSplit.SplitString(psDir,'/');
-        int iCnt = tSplit.GetFieldCount();
+        unsigned int iCnt = tSplit.GetFieldCount();
         if(iCnt<=4) // 起码第4层
         {
             TADD_ERROR(-1, "error table configuration path.");
@@ -6374,7 +6464,7 @@
                 TMdbConfig * pNewMdbConfig = NULL;
                 do
                 {
-                    pNewMdbConfig = new TMdbConfig();
+                    pNewMdbConfig = new(std::nothrow) TMdbConfig();
                     if( NULL == pNewMdbConfig)
                     {
                         CHECK_RET_BREAK(ERR_OS_NO_MEMROY,"TMdbConfig is NULL.");
@@ -6425,7 +6515,7 @@
                 TMdbConfig * pNewMdbConfig = NULL;
                 do
                 {
-                    pNewMdbConfig = new TMdbConfig();
+                    pNewMdbConfig = new(std::nothrow) TMdbConfig();
                     if( NULL == pNewMdbConfig)
                     {
                         CHECK_RET_BREAK(ERR_OS_NO_MEMROY,"TMdbConfig is NULL.");
@@ -6479,7 +6569,8 @@
         {
             iCount ++;
         }
-        return iCount * MDB_CHAR_SIZE;
+        //return iCount * MDB_CHAR_SIZE;//浪费空间?
+        return iCount;
     }
     /******************************************************************************
     * 函数名称	:  IsColumnNULL

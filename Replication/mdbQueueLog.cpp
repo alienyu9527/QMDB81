@@ -8,6 +8,7 @@
 *@History:
 ******************************************************************************************/
 #include "Replication/mdbQueueLog.h"
+#include "Replication/mdbRepCtrl.h"
 #include "Control/mdbMgrShm.h"
 #include "Helper/mdbDateTime.h"
 #include "Helper/mdbQueue.h"
@@ -45,12 +46,49 @@
         CHECK_OBJ(pMemQueue);
         CHECK_RET(m_tMdbQueueCtrl.Init(pMemQueue,m_pShmDsn->GetInfo(),true),"tMdbQueueCtrl init failed.");
 
-        CHECK_RET(m_mdbDBlog.Init(sDsn, m_tMdbQueueCtrl),"mdbDBlog init failed.");
-
         if(m_pConfig->GetIsStartShardBackupRep() == true)
         {
-            CHECK_RET(m_mdbReplog.Init(sDsn, m_tMdbQueueCtrl),"mdbReplog init failed.");
+			TMdbNtcString m_strName;
+			m_strName.Assign(sDsn);
+	        m_strName.ToUpper();
+	        m_strName.Append("_");
+	        m_strName.Append(MDB_SHM_ROUTING_REP_NAME);
+			if (!TMdbNtcShareMem::CheckExist(m_strName.c_str(), ENV_QMDB_HOME_NAME))
+	        {
+            	CHECK_RET(m_pShmDsn->CreateShardBackupRepInfoShm(sDsn),"Can't create shard-backup info share memory.");
+	        }
+			TMdbShardBuckupCfgCtrl tSBCfgCtrl;
+            CHECK_RET(tSBCfgCtrl.Init(sDsn), "m_tSBCfgCtrl init failed.");
+			CHECK_RET(tSBCfgCtrl.GetShardBuckupInfo(), "GetShardBuckupInfo failed.");
+			CHECK_RET(m_pShmDsn->CreateShardBakBufAreaShm(sDsn), "CreateShardBakBufAreaShm failed.");
+			
+	        TMdbShmRepMgr * pShmMgr = new (std::nothrow)TMdbShmRepMgr(sDsn);
+			CHECK_OBJ(pShmMgr);
+			CHECK_RET(pShmMgr->Attach(),"Attach shm failed."); 
+
+			TMdbShmRep * pShmRep = (TMdbShmRep*)pShmMgr->GetRoutingRep();
+			CHECK_OBJ(pShmRep);
+			
+			TMdbOnlineRepMemQueue * pOnlineRepMemQueue;
+			for(int i = 0; i<pShmRep->m_iRepHostCount; i++)
+			{
+				pOnlineRepMemQueue = NULL;
+				int iHostID = pShmRep->m_arHosts[i].m_iHostID;
+				if(iHostID != MDB_REP_EMPTY_HOST_ID)
+				{
+					pOnlineRepMemQueue = (TMdbOnlineRepMemQueue *)m_pShmDsn->GetShardBakBufAreaShm(iHostID);
+			        CHECK_OBJ(pOnlineRepMemQueue);
+			        CHECK_RET(m_tMdbOnlineRepQueueCtrl[iHostID].Init(pOnlineRepMemQueue,m_pShmDsn->GetInfo(), true),"tMdbOnlineRepQueueCtrl init failed.");
+				}
+				else
+				{
+					TADD_ERROR(ERR_APP_INVALID_PARAM, "pShmRep->m_arHosts[%d] is empty.", i);
+				}
+			}
+			CHECK_RET(m_mdbRepDispatcher.Init(sDsn, m_tMdbQueueCtrl, m_tMdbOnlineRepQueueCtrl),"Init m_mdbRepDispatcher failed.");
         }
+
+        CHECK_RET(m_mdbDBlog.Init(sDsn, m_tMdbQueueCtrl),"mdbDBlog init failed.");
 
         if(true == m_pDsn->m_bIsCaptureRouter)
         {
@@ -159,7 +197,8 @@
         m_mdbRedolog.Log(bRedoEmpty);
         if(m_pConfig->GetIsStartShardBackupRep() == true)
         {
-            m_mdbReplog.Log(bShardEmpty);
+            //m_mdbReplog.Log(bShardEmpty);
+			m_mdbRepDispatcher.Dispatch(bShardEmpty);
         }
         if(true == m_pDsn->m_bIsCaptureRouter)
         {
@@ -178,7 +217,8 @@
         m_mdbRedolog.Log(true);
         if(m_pConfig->GetIsStartShardBackupRep() == true)
         {
-            m_mdbReplog.Log(true);
+            //m_mdbReplog.Log(true);
+			m_mdbRepDispatcher.Dispatch(true);
         }        
         if(true == m_pDsn->m_bIsCaptureRouter)
         {

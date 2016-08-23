@@ -639,6 +639,7 @@ int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort)
         if(0 == tCSLink.m_sClientIP[0])
         {
             SAFESTRCPY(pRemoteLink->sIP, MAX_IP_LEN,inet_ntoa(tCSLink.tAddr.sin_addr));
+            SAFESTRCPY(tCSLink.m_sClientIP, MAX_IP_LEN,pRemoteLink->sIP);
         }
         else
         {

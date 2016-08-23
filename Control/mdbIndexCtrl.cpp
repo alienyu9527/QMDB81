@@ -12,6 +12,7 @@
 #include <map>
 //#include "BillingSDK.h"
 #include "Control/mdbRowCtrl.h"
+#include "Control/mdbMgrShm.h"
 #include "Control/mdbLinkCtrl.h"
 //using namespace ZSmart::BillingSDK;
 
@@ -414,7 +415,7 @@ int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
 				m_arrTableIndex[i].m_MHashIndexInfo.pMutex = &(pMutexMgr->aBaseMutex[pMHashBIndexMgr->tIndex[j].iMutexPos]);
 				
 				m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndexNode = (TMdbMHashBaseIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndex->iPosAdd);
-				m_arrTableIndex[i].m_MHashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_MHashIndexInfo.pMutex->iPosAdd);
+				m_arrTableIndex[i].m_MHashIndexInfo.pMutexNode = (TMiniMutex*)(pMutexAddr+ m_arrTableIndex[i].m_MHashIndexInfo.pMutex->iPosAdd);
 				
 				break;
 			}
@@ -563,7 +564,7 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
                 for(int j=0; j<MAX_BASE_INDEX_COUNTS; ++j)
                 {
                     //比较索引名称,如果相同，则把锁地址和索引地址记录下来
-                    if((0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
+                     if((0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
                         &&(TMdbNtcStrFunc::StrNoCaseCmp(pTable->tIndex[i].sName, pBIndexMgr->tIndex[j].sName) == 0))
                     {
                         TADD_DETAIL("Find index[%s]",pTable->tIndex[i].sName);
@@ -593,7 +594,16 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
                         m_arrTableIndex[i].m_HashIndexInfo.pMutex = &(pMutexMgr->aBaseMutex[pBIndexMgr->tIndex[j].iMutexPos]);						
 
 						m_arrTableIndex[i].m_HashIndexInfo.pBaseIndexNode = (TMdbIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pBaseIndex->iPosAdd);
-                        m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
+    					if(m_arrTableIndex[i].pIndexInfo->IsRedirectIndex())
+	                    {
+	                        m_arrTableIndex[i].m_HashIndexInfo.pReConfNode = (TMdbReIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
+							m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode  = NULL;
+						}
+	                    else
+	                    {
+							m_arrTableIndex[i].m_HashIndexInfo.pReConfNode = NULL;
+							m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
+	                    }
                         m_arrTableIndex[i].m_HashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_HashIndexInfo.pMutex->iPosAdd);
 						
                         ++iFindIndexs;
@@ -658,7 +668,7 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
                         m_arrTableIndex[i].m_MHashIndexInfo.pMutex = &(pMutexMgr->aBaseMutex[pMHashBIndexMgr->tIndex[j].iMutexPos]);
                         
                         m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndexNode = (TMdbMHashBaseIndexNode*)(pBaseIndexAddr + m_arrTableIndex[i].m_MHashIndexInfo.pBaseIndex->iPosAdd);
-                        m_arrTableIndex[i].m_MHashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_MHashIndexInfo.pMutex->iPosAdd);
+                        m_arrTableIndex[i].m_MHashIndexInfo.pMutexNode = (TMiniMutex*)(pMutexAddr+ m_arrTableIndex[i].m_MHashIndexInfo.pMutex->iPosAdd);
                         
                         ++iFindIndexs;
                         break;
@@ -979,9 +989,14 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
                 TADD_ERROR(iError,"CalcIndexValue(iError=%d) failed.",iError);
                 return -1;
             }
-            
-
-            iRet = m_tHashIndex.InsertIndexNode(iIndexPos,tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+            if(stTableIndex.pIndexInfo->IsRedirectIndex())
+		    {
+		        iRet = m_tHashIndex.InsertRedirectIndexNode(iIndexPos,pAddr, tRowIndex,stTableIndex.m_HashIndexInfo,  rowID);
+		    }
+			else
+			{
+            	iRet = m_tHashIndex.InsertIndexNode(iIndexPos, tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+			}
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
         {
@@ -1033,8 +1048,15 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
                 TADD_ERROR(iError,"CalcIndexValue(iError=%d) failed.",iError);
                 return -1;
             }
-            iRet = m_tHashIndex.DeleteIndexNode(iIndexPos,tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
-        }
+			if(stTableIndex.pIndexInfo->IsRedirectIndex())
+		    {
+		        iRet = m_tHashIndex.DeleteRedirectIndexNode(iIndexPos,pAddr, tRowIndex,stTableIndex.m_HashIndexInfo,  rowID);
+		    }
+			else
+			{
+    	        iRet = m_tHashIndex.DeleteIndexNode(iIndexPos, tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
+			}
+		}
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
         {
             long long iHashValue = CalcIndexValue(tRowCtrl, pAddr, stTableIndex.pIndexInfo, iError);
@@ -1104,9 +1126,15 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
             TMdbRowIndex tNewRowIndex;
             tNewRowIndex.Clear();
             tNewRowIndex.iBaseIndexPos = llNewValue;
-            
-            
-            iRet = m_tHashIndex.UpdateIndexNode(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+		
+			if(stTableIndex.pIndexInfo->IsRedirectIndex())
+			{
+				iRet = m_tHashIndex.UpdateRedirectIndexNode(iIndexPos,pOldData ,tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+			}
+			else
+			{
+				iRet = m_tHashIndex.UpdateIndexNode(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+			}
             
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1370,6 +1398,7 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 
         CHECK_RET(m_tMHashIndex.AttachDsn(pMdbShmDsn),"mhash attach failed...");
         CHECK_RET(m_tTrieIndex.AttachDsn(pMdbShmDsn),"trie attach failed...");
+        CHECK_RET(m_tTrieIndex.AttachDsn(pMdbShmDsn),"hash attach failed...");
         return iRet;
     }
 
@@ -1426,88 +1455,10 @@ int TMdbIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,c
 {
     int iRet = 0;
     int iFindIndexs = 0;
-    CHECK_RET(m_tHashIndex.AttachTable(pMdbShmDsn, pTable),"hash index attach table failed.");
-    CHECK_RET(m_tMHashIndex.AttachTable(pMdbShmDsn, pTable),"M-hash index attach table failed.");
-    CHECK_RET(m_tTrieIndex.AttachTable(pMdbShmDsn, pTable),"Trie index attach table failed.");
 
-    // attach hash index
-    for(int n=0; n<MAX_SHM_ID; ++n)
-    {
-        TADD_DETAIL("Attach (%s) hash Index : Shm-ID no.[%d].", pTable->sTableName, n);
-        char * pBaseIndexAddr = pMdbShmDsn->GetBaseIndex(n);
-        if(pBaseIndexAddr == NULL)
-            continue;
-
-        TMdbBaseIndexMgrInfo *pBIndexMgr = (TMdbBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-
-        for(int j=0; j<MAX_BASE_INDEX_COUNTS,iFindIndexs<pTable->iIndexCounts; ++j)
-        {
-            if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
-            {
-                iFindIndexs++;
-                SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-
-			}
-        }
-        if(iFindIndexs == pTable->iIndexCounts)
-        {
-            return iRet;
-        }
-        
-        
-    }
-
-    // attach m-hash index, if exist
-    for(int n=0; n<MAX_SHM_ID; ++n)
-    {
-        char * pBaseIndexAddr = pMdbShmDsn->GetMHashBaseIndex(n);
-        if(pBaseIndexAddr == NULL)
-            continue;
-
-        TMdbMHashBaseIndexMgrInfo *pMHashBIndexMgr = (TMdbMHashBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-        TMdbMHashConflictIndexMgrInfo* pMHashConfMgr = pMdbShmDsn->GetMHashConfMgr();
-        CHECK_OBJ(pMHashConfMgr);
-        TMdbMHashLayerIndexMgrInfo* pMHashLayerMgr = pMdbShmDsn->GetMHashLayerMgr();
-        CHECK_OBJ(pMHashLayerMgr);
-        for(int j=0; j<MAX_MHASH_INDEX_COUNT,iFindIndexs<pTable->iIndexCounts; ++j)
-        {
-            //比较索引名称,如果相同，则把锁地址和索引地址记录下来
-            if(0 == TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName,pMHashBIndexMgr->tIndex[j].sTabName))
-            {
-                ++iFindIndexs;
-                SAFESTRCPY(pMHashBIndexMgr->tIndex[j].sTabName,sizeof(pMHashBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-            }
-        }
-        
-        if(iFindIndexs == pTable->iIndexCounts)
-        {
-            return iRet;
-        }
-    }  
-
-	for(int n=0; n<MAX_TRIE_SHMID_COUNT; ++n)
-    {
-        char * pBaseIndexAddr = pMdbShmDsn->GetTrieRootIndex(n);
-        if(pBaseIndexAddr == NULL)
-            continue;
-
-        TMdbTrieRootIndexMgrInfo *pBIndexMgr = (TMdbTrieRootIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
-        for(int j=0; j<MAX_TRIE_INDEX_COUNT,iFindIndexs<pTable->iIndexCounts; ++j)
-        {
-            if(0 == TMdbNtcStrFunc::StrNoCaseCmp( pTable->sTableName, pBIndexMgr->tIndex[j].sTabName))
-            {
-                iFindIndexs++;
-                SAFESTRCPY(pBIndexMgr->tIndex[j].sTabName,sizeof(pBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
-            }
-            
-        }
-        if(iFindIndexs == pTable->iIndexCounts)
-        {
-            return iRet;
-        }
-        
-        
-    }
+    CHECK_RET(m_tHashIndex.RenameTableIndex(pMdbShmDsn,pTable,sNewTableName,iFindIndexs),"hash index RenameTableIndex failed");
+    CHECK_RET(m_tMHashIndex.RenameTableIndex(pMdbShmDsn,pTable,sNewTableName,iFindIndexs),"mhash index RenameTableIndex failed");
+    CHECK_RET(m_tTrieIndex.RenameTableIndex(pMdbShmDsn,pTable,sNewTableName,iFindIndexs),"trie index RenameTableIndex failed");
 
 
     if(iFindIndexs != pTable->iIndexCounts)

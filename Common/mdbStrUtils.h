@@ -401,6 +401,6 @@
             char m_szBuffer[32];///< 用于整数，浮点数快速转换用
         };
         extern TMdbNtcStrFunc g_oMdbNtcStrFunc;
-        #define MdbNtcStrUtils /*QuickMDB::*/g_oMdbNtcStrFunc
+        #define MdbNtcStrUtils g_oMdbNtcStrFunc
 //}
 #endif

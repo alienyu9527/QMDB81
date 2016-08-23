@@ -16,6 +16,10 @@
 #include "Control/mdbIndexCtrl.h"
 #include "Control/mdbProcCtrl.h"
 
+#include "Replication/mdbRepCtrl.h"
+
+#include "Replication/mdbRepLoadData.h"
+
 #include <errno.h>
 #include <sys/types.h>
 
@@ -130,6 +134,8 @@
         if(m_pConfig->GetIsStartShardBackupRep())
         {
             pRepShm = new(std::nothrow) TMdbShmRepMgr(m_pConfig->GetDSN()->sName);
+			 CHECK_OBJ(pRepShm);
+			 
             CHECK_RET(pRepShm->Attach(), "Attach TMdbShmRep failed.");
             const char* pFailedRoutingList = pRepShm->GetFailedRoutingList();
             if (pFailedRoutingList[0] == '\0')
@@ -451,6 +457,113 @@
         return true;
     }
 
+	int TMdbReLoadFromOra::LoadTables(const char* pszTable, const char * pszFilterSql,TMdbDatabase *mdb,TMdbDAOLoad *dao)
+	{
+
+		int iRet = 0;
+		TADD_FUNC("begin.");
+		if(TMdbNtcStrFunc::StrNoCaseCmp(pszTable,"all") == 0)
+        {
+
+			 TMdbRepLoadDataCtrl repCtrl;
+			 int iRtn = -1;
+			 repCtrl.Init(m_tConfig.GetDSN()->sName,&m_tConfig);
+			 if(m_tConfig.GetIsStartShardBackupRep() == true)
+			 	iRtn = repCtrl.LoadDataForReLoadTool(const_cast<char*>(pszTable));
+			 
+            TShmList<TMdbTable>::iterator itor = m_pShmDSN->m_TableList.begin();
+            for(;itor != m_pShmDSN->m_TableList.end();++itor)
+            {
+                TMdbTable * pTable = &(*itor);
+                if(pTable->sTableName[0]== 0){continue;}
+                // 过滤系统表和表空间
+                if(FilterTable(pTable,pTable->sTableName) == false)
+                {
+                    continue;
+                }
+
+				//已从对端
+				if(iRtn == 0 && pTable->m_bShardBack == true)
+					continue;
+				
+				
+                //初始化改表的上载SQL和插入SQL
+                CHECK_RET(dao->Init(m_pShmDSN, pTable),"dao init error.");
+                //用户表上载
+                TADD_DETAIL("ReLoad table[%s] Start.",pTable->sTableName);
+                iRet = dao->ReLoad(mdb);
+                if(iRet != 0)
+                {
+                    TADD_ERROR(iRet,"Can't Load table=%s.",pTable->sTableName);
+                    SAFE_DELETE(dao);
+                    mdb->Disconnect();
+                    SAFE_DELETE(mdb);
+                    return iRet;
+                }
+                TADD_NORMAL("ReLoad Table[%s] OK.", pTable->sTableName);
+            }
+        }
+        else
+        {
+            TMdbTable * pTable = m_pShmDSN->GetTableByName(pszTable);
+			
+			if(pTable == NULL)
+			{
+				iRet = ERR_TAB_NO_TABLE;
+				TADD_ERROR(iRet,"Table[%s] does not exist in the shared memory.",pszTable);
+				SAFE_DELETE(dao);
+                mdb->Disconnect();
+                SAFE_DELETE(mdb);
+				return iRet;
+			}
+
+			if(pTable->m_bShardBack == true && m_tConfig.GetIsStartShardBackupRep() == true)
+			{
+				TMdbRepLoadDataCtrl repCtrl;
+			 	int iRtn = 0;
+			 	repCtrl.Init(m_tConfig.GetDSN()->sName,&m_tConfig);
+			 	iRtn = repCtrl.LoadDataForReLoadTool(const_cast<char*> (pszTable));
+				if(iRtn == 0)
+				{
+					TADD_NORMAL("ReLoad Table=[%s] OK.",pTable->sTableName);
+					SAFE_DELETE(dao);
+                	mdb->Disconnect();
+                	SAFE_DELETE(mdb);
+					return iRtn;
+				}
+
+			}
+			
+            if(FilterTable(pTable,pTable->sTableName) == true)
+            {
+                //初始化改表的上载SQL和插入SQL
+                dao->Init(m_pShmDSN, pTable,NULL,pszFilterSql);
+
+                //用户表上载
+                TADD_DETAIL("ReLoad table[%s] Start.",pTable->sTableName);
+                iRet = dao->ReLoad(mdb);
+                if(iRet != 0)
+                {
+                    TADD_ERROR(iRet,"Can't Load table=%s.",pTable->sTableName);
+                    SAFE_DELETE(dao);
+                    mdb->Disconnect();
+                    SAFE_DELETE(mdb);
+                    return iRet;
+                }
+                TADD_NORMAL("ReLoad Table=[%s] OK.",pTable->sTableName);
+            }    
+        }
+
+		
+        SAFE_DELETE(dao);
+        mdb->Disconnect();
+        SAFE_DELETE(mdb);
+        TADD_FUNC("END.");
+		
+        return 0;
+
+	}
+	
     int TMdbReLoadFromOra::LoadAll(const char* pszTable, const char * pszFilterSql)
     {
         TADD_FUNC("begin.");
@@ -496,6 +609,7 @@
             return ERR_DB_NOT_CONNECTED;
         }
 
+
         TMdbDAOLoad *dao = new(std::nothrow) TMdbDAOLoad(&m_tConfig);
         if(dao == NULL)
         {
@@ -514,73 +628,10 @@
             return ERR_APP_CONNCET_ORACLE_FAILED;
         }
 
-        if(TMdbNtcStrFunc::StrNoCaseCmp(pszTable,"all") == 0)
-        {
-            TShmList<TMdbTable>::iterator itor = m_pShmDSN->m_TableList.begin();
-            for(;itor != m_pShmDSN->m_TableList.end();++itor)
-            {
-                TMdbTable * pTable = &(*itor);
-                if(pTable->sTableName[0]== 0){continue;}
-                // 过滤系统表和表空间
-                if(FilterTable(pTable,pTable->sTableName) == false)
-                {
-                    continue;
-                }
-
-                //初始化改表的上载SQL和插入SQL
-                CHECK_RET(dao->Init(m_pShmDSN, pTable),"dao init error.");
-                //用户表上载
-                TADD_DETAIL("ReLoad table[%s] Start.",pTable->sTableName);
-                iRet = dao->ReLoad(mdb);
-                if(iRet != 0)
-                {
-                    TADD_ERROR(iRet,"Can't Load table=%s.",pTable->sTableName);
-                    SAFE_DELETE(dao);
-                    mdb->Disconnect();
-                    SAFE_DELETE(mdb);
-                    return iRet;
-                }
-                TADD_NORMAL("ReLoad Table[%s] OK.", pTable->sTableName);
-            }
-        }
-        else
-        {
-            TMdbTable * pTable = m_pShmDSN->GetTableByName(pszTable);
-			
-			if(pTable == NULL)
-			{
-				iRet = ERR_TAB_NO_TABLE;
-				TADD_ERROR(iRet,"Table[%s] does not exist in the shared memory.",pszTable);
-				SAFE_DELETE(dao);
-                mdb->Disconnect();
-                SAFE_DELETE(mdb);
-				return iRet;
-			}
-			
-            if(FilterTable(pTable,pTable->sTableName) == true)
-            {
-                //初始化改表的上载SQL和插入SQL
-                dao->Init(m_pShmDSN, pTable,NULL,pszFilterSql);
-
-                //用户表上载
-                TADD_DETAIL("ReLoad table[%s] Start.",pTable->sTableName);
-                iRet = dao->ReLoad(mdb);
-                if(iRet != 0)
-                {
-                    TADD_ERROR(iRet,"Can't Load table=%s.",pTable->sTableName);
-                    SAFE_DELETE(dao);
-                    mdb->Disconnect();
-                    SAFE_DELETE(mdb);
-                    return iRet;
-                }
-                TADD_NORMAL("ReLoad Table=[%s] OK.",pTable->sTableName);
-            }    
-        }
-        SAFE_DELETE(dao);
-        mdb->Disconnect();
-        SAFE_DELETE(mdb);
-        TADD_FUNC("END.");
-        return 0;
+		//ccn check 分开函数
+		CHECK_RET(LoadTables(pszTable, pszFilterSql,mdb,dao),"LoadTables failed");
+		TADD_FUNC("END.");
+        return iRet;
     }
 
 

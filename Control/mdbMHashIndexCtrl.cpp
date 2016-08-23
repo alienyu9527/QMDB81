@@ -42,6 +42,42 @@
         return iRet;
     }
 
+	
+    int TMdbMHashIndexCtrl::RenameTableIndex(TMdbShmDSN * pMdbShmDsn, TMdbTable* pTable, const char *sNewTableName, int& iFindIndexs)
+    {
+    	int iRet = 0;
+		CHECK_RET(AttachTable(pMdbShmDsn, pTable),"M-hash index attach table failed.");
+	    for(int n=0; n<MAX_SHM_ID; ++n)
+	    {
+	        char * pBaseIndexAddr = pMdbShmDsn->GetMHashBaseIndex(n);
+	        if(pBaseIndexAddr == NULL)
+	            continue;
+
+	        TMdbMHashBaseIndexMgrInfo *pMHashBIndexMgr = (TMdbMHashBaseIndexMgrInfo*)pBaseIndexAddr;//获取基础索引内容
+	        TMdbMHashConflictIndexMgrInfo* pMHashConfMgr = pMdbShmDsn->GetMHashConfMgr();
+	        CHECK_OBJ(pMHashConfMgr);
+	        TMdbMHashLayerIndexMgrInfo* pMHashLayerMgr = pMdbShmDsn->GetMHashLayerMgr();
+	        CHECK_OBJ(pMHashLayerMgr);
+	        for(int j=0; j<MAX_MHASH_INDEX_COUNT && iFindIndexs<pTable->iIndexCounts; ++j)
+	        {
+	            //比较索引名称,如果相同，则把锁地址和索引地址记录下来
+	            if(0 == TMdbNtcStrFunc::StrNoCaseCmp(pTable->sTableName,pMHashBIndexMgr->tIndex[j].sTabName))
+	            {
+	                ++iFindIndexs;
+	                SAFESTRCPY(pMHashBIndexMgr->tIndex[j].sTabName,sizeof(pMHashBIndexMgr->tIndex[j].sTabName),sNewTableName);                    
+	                
+	            }
+	            
+	        }
+	        
+	        if(iFindIndexs == pTable->iIndexCounts)
+	        {
+	            return iRet;
+	        }
+    	} 
+		
+		return iRet;
+	}
     int TMdbMHashIndexCtrl::AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize)
     {
         int iRet = 0;
@@ -50,7 +86,7 @@
         
         MDB_INT64 iBaseIndexSize     = pTable->iTabLevelCnts * sizeof(TMdbMHashBaseIndexNode); //计算单个基础索引需要的空间
         int iMutexCount = CalcBaseMutexCount(pTable->iTabLevelCnts);
-        MDB_INT64 iMutexSize = iMutexCount *sizeof(TMutex);
+        MDB_INT64 iMutexSize = iMutexCount *sizeof(TMiniMutex);
 
         TADD_DETAIL("TAB:[%s],iTabLevelCnts=[%d],iBaseIndexSize=[%d],iMutexSize=[%d],iMutexCount=[%d]",
             pTable->sTableName,pTable->iTabLevelCnts, iBaseIndexSize,iMutexSize,iMutexCount);
@@ -85,9 +121,9 @@
         //初始化基础索引
         SAFESTRCPY(tTableIndex.pMutex->sTabName, sizeof(tTableIndex.pMutex->sTabName), pTable->sTableName);
         tTableIndex.pMutex->cState   = '1';
-        tTableIndex.pMutex->iMutexCnt = tTableIndex.pMutex->iSize/sizeof(TMutex);
+        tTableIndex.pMutex->iMutexCnt = tTableIndex.pMutex->iSize/sizeof(TMiniMutex);
         TMdbDateTime::GetCurrentTimeStr(tTableIndex.pMutex->sCreateTime);
-        InitMutexNode((TMutex*)((char *)tTableIndex.pMutexMgr+ tTableIndex.pMutex->iPosAdd),
+        InitMutexNode((TMiniMutex*)((char *)tTableIndex.pMutexMgr+ tTableIndex.pMutex->iPosAdd),
                       tTableIndex.pMutex->iSize);
         tTableIndex.pMutexMgr->iCounts++;
         TADD_FUNC("Finish.");
@@ -377,7 +413,7 @@
         bool bFound = false;
         while(pBlock != NULL)
         {
-            if(pBlock->iSize > iConflictSize)
+            if(pBlock->iSize >= iConflictSize)
             {
                 bFound = true;
                 break;
@@ -391,6 +427,7 @@
         {
             CHECK_RET(RemoveBlock(pBlock, pMgr->iFreeBlockId,true),"Remove free conflict block failed.");
             pFreeBlock = pBlock;
+			TADD_NORMAL("Conf  Find FreeBlock : %d,next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
             return iRet;
         }
         else
@@ -418,7 +455,7 @@
              pFreeBlock->iBlockId = pMgr->iTotalBlocks;
              pMgr->iTotalBlocks++;
              pFreeBlock->tMutex.Create();
-             
+			 TADD_NORMAL("Conf  Create FreeBlock : %d,next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
              CHECK_RET(m_pMdbDsn->tMutex.UnLock(true, m_pMdbDsn->sCurTime),"unlock failed.");
             
         }
@@ -446,7 +483,7 @@
         bool bFound = false;
         while(pBlock != NULL)
         {
-            if(pBlock->iSize > iLayerSize)
+            if(pBlock->iSize >= iLayerSize)
             {
                 bFound = true;
                 break;
@@ -459,6 +496,7 @@
         {
             CHECK_RET(RemoveBlock(pBlock, pMgr->iFreeBlockId,false),"Remove free layer block failed.");
             pFreeBlock = pBlock;
+			TADD_NORMAL("Layer  Find FreeBlock : %d,Next:%d\n",pFreeBlock->iBlockId, pFreeBlock->iNextBlock);
             return iRet;
         }
         else
@@ -486,6 +524,7 @@
              pFreeBlock->iBlockId = pMgr->iTotalBlocks;
              pMgr->iTotalBlocks++;
              pFreeBlock->tMutex.Create();
+			 TADD_NORMAL("Layer  Create FreeBlock : %d,Next:%d\n",pFreeBlock->iBlockId,pFreeBlock->iNextBlock);
              
              CHECK_RET(m_pMdbDsn->tMutex.UnLock(true, m_pMdbDsn->sCurTime),"unlock failed.");
             
@@ -566,7 +605,7 @@
         
         TMdbMHashBaseIndexNode * pBaseNode = &(tMHashIndex.pBaseIndexNode[iBaseIndexPos]);
         int iMutexPos = iBaseIndexPos % tMHashIndex.pMutex->iMutexCnt;
-        TMutex* pMutex = &(tMHashIndex.pMutexNode[iMutexPos]);
+        TMiniMutex* pMutex = &(tMHashIndex.pMutexNode[iMutexPos]);
         
 
         CHECK_RET(pMutex->Lock(true),"lock failed.");
@@ -845,9 +884,9 @@
     }
 
 
-    int TMdbMHashIndexCtrl::InitMutexNode(TMutex* pNode,MDB_INT64 iSize)
+    int TMdbMHashIndexCtrl::InitMutexNode(TMiniMutex* pNode,MDB_INT64 iSize)
     {
-        MDB_INT64 iCount = iSize/sizeof(TMutex);
+        MDB_INT64 iCount = iSize/sizeof(TMiniMutex);
         for(MDB_INT64 n=0; n<iCount; ++n)
         {
             pNode->Create();
@@ -900,7 +939,7 @@
         TADD_DETAIL("DELETE:[%s][%s] basepos=[%lld],hash[%lld],row[%d]",tMHashIndex.pBaseIndex->sTabName,tMHashIndex.pBaseIndex->sName,iBaseIndexPos,iHashValue,rowID.m_iRowID);
         TMdbMHashBaseIndexNode * pBaseNode = &(tMHashIndex.pBaseIndexNode[iBaseIndexPos]);
         int iMutexPos = iBaseIndexPos % tMHashIndex.pMutex->iMutexCnt;
-        TMutex* pMutex = &(tMHashIndex.pMutexNode[iMutexPos]);
+        TMiniMutex* pMutex = &(tMHashIndex.pMutexNode[iMutexPos]);
         bool bFound = false;
         CHECK_RET(pMutex->Lock(true), "lock failed.");
         do
@@ -1223,10 +1262,10 @@
 		              tIndexInfo.pBaseIndex->iSize,false);
 
 		//重置所有链mutex
-		TMutex* pMutex = (TMutex*)((char *)tIndexInfo.pMutexMgr+ tIndexInfo.pMutex->iPosAdd);
-		for(MDB_INT64 n=0; n<tIndexInfo.pMutex->iSize/sizeof(TMutex); ++n)
+		TMiniMutex* pMutex = (TMiniMutex*)((char *)tIndexInfo.pMutexMgr+ tIndexInfo.pMutex->iPosAdd);
+		for(MDB_INT64 n=0; n<tIndexInfo.pMutex->iSize/sizeof(TMiniMutex); ++n)
 		{
-		    CHECK_RET(pMutex->UnLock(true, m_pMdbDsn->sCurTime), "unlock failed.");
+		    CHECK_RET(pMutex->UnLock(true), "unlock failed.");
 		    ++pMutex;
 		}
 
@@ -1242,11 +1281,15 @@
 			TMdbMhashBlock* pBlock = GetBlockById(tIndexInfo.pConflictIndex->iHeadBlockId, true);
 			while(pBlock)
 			{
+				int iNextBlockId = pBlock->iNextBlock;
+				
+				TADD_NORMAL("Conf  Return Block:%d,next:%d\n",pBlock->iBlockId,iNextBlockId);
+	
 				if(AddBlock(pConfMgr->iFreeBlockId, pBlock, true) < 0)
 				{
 					break;
 				}			
-				pBlock = GetBlockById(pBlock->iNextBlock, true);
+				pBlock = GetBlockById(iNextBlockId, true);
 			}
 			tIndexInfo.pConflictIndex->iFreeHeadPos = -1;
 		    tIndexInfo.pConflictIndex->iFreeNodeCounts = 0;
@@ -1262,11 +1305,14 @@
 			TMdbMhashBlock* pLayerBlock = GetBlockById(tIndexInfo.pLayerIndex->iHeadBlockId, false);
 			while(pLayerBlock)
 			{
+				int iNextBlockId = pLayerBlock->iNextBlock;
+				TADD_NORMAL("Layer  Return Block:%d,next:%d\n",pLayerBlock->iBlockId,iNextBlockId);				
+	
 				if(AddBlock(pLayerMgr->iFreeBlockId, pLayerBlock, false) < 0)
 				{
 					break;
 				}			
-				pLayerBlock = GetBlockById(pLayerBlock->iNextBlock, false);
+				pLayerBlock = GetBlockById(iNextBlockId, false);
 			}
 			tIndexInfo.pLayerIndex->iFreeHeadPos = -1;
 		    tIndexInfo.pLayerIndex->iFreeNodeCounts = 0;
@@ -1568,6 +1614,7 @@
         if(iHeadId < 0)
         {
             iHeadId= pBlockToAdd->iBlockId;
+			pBlockToAdd->iNextBlock = -1;
         }
         else
         {

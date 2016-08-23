@@ -14,6 +14,7 @@
 #include "Interface/mdbQuery.h"
 #include "Control/mdbProcCtrl.h"
 #include "Control/mdbTableSpaceCtrl.h"
+#include "Replication/mdbRepCtrl.h"
 #include <vector>
 
 //namespace QuickMDB{
@@ -54,6 +55,7 @@ private:
     int GetProcToStart(std::vector<std::string > & vProcToStart);//获取要启动的进程信息
     bool NeedRemoveFile();
     int LoadFromDisk();//从磁盘加载
+	int CreateSBBufShm();
 
     /******************************************************************************
     * 函数名称	:  CheckTablespace
@@ -111,6 +113,7 @@ private:
     char sPeerIP[MAX_IP_LEN];
     int iPeerPort;
     bool m_bLoadFromDisk;//是否从磁盘加载
+    TMdbShardBuckupCfgCtrl m_tSBCfgCtrl;
 };
 
 //}

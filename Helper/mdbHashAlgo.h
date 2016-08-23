@@ -34,11 +34,11 @@
             unsigned long pot = (dwHashType << 8);
 
             unsigned long seed1 = 0x7FED7FED, seed2 = 0xEEEEEEEE;
-            int ch;
+            unsigned long ch;
 
             while(*key != 0)
             {
-                ch = (*key>='a' && *key<='z')? *key+('A'-'a') : *key;
+                ch = static_cast<unsigned long>((*key>='a' && *key<='z')? *key+('A'-'a') : *key);
                 key++;
 
                 seed1 = cryptTable[pot + ch] ^ (seed1 + seed2);
@@ -59,7 +59,7 @@
             while(m_HashIndexTable[nHashPos].bExists)
             {
                 if (m_HashIndexTable[nHashPos].nHashA == nHashA && m_HashIndexTable[nHashPos].nHashB == nHashB)
-                    return nHashPos;
+                    return static_cast<long>(nHashPos);
                 else
                     nHashPos = (nHashPos + 1) % m_tablelength;
 

@@ -17,12 +17,12 @@
 #include "Common/mdbPeerEvent.h"
 //namespace QuickMDB
 //{
-mdb_ntc_extern_thread_local(/*QuickMDB::*/TMdbNtcThreadEvent*, g_pSendThreadEvent);
+mdb_ntc_extern_thread_local(TMdbNtcThreadEvent*, g_pSendThreadEvent);
 /**
  * @brief 代理基类
  * 
  */
- class TMdbNtcBaseProxy:public /*QuickMDB::*/TMdbNtcBaseObject
+ class TMdbNtcBaseProxy:public TMdbNtcBaseObject
 {
     MDB_ZF_DECLARE_OBJECT(TMdbNtcBaseProxy);
 public:
@@ -54,10 +54,10 @@ public:
     TMdbNtcHttpProxy(const char* pszProxyAddress, int iProxyPort = 80, const char* pszUserName = NULL, const char* pszPassword = NULL);
     virtual QuickMDB_SOCKET Connect(const char* pszRemote, int iPort = 80, int iMilliSeconds = -1) const;
 protected:
-    /*QuickMDB::*/TMdbNtcStringBuffer   m_sProxyAddress;
+    TMdbNtcStringBuffer   m_sProxyAddress;
     int m_iProxyPort;
-    /*QuickMDB::*/TMdbNtcStringBuffer   m_sUserName;
-    /*QuickMDB::*/TMdbNtcStringBuffer   m_sPassword;
+    TMdbNtcStringBuffer   m_sUserName;
+    TMdbNtcStringBuffer   m_sPassword;
 };
 /**
  * @brief 事件泵,对应一个线程
@@ -159,7 +159,7 @@ public:
      * @retval NULL 表示未连接成功
      */
     TMdbSharedPtr<TMdbPeerInfo> Connect(const char* pszRemote, int iPort, TMdbProtocol* pProtocol = NULL, int iMilliSeconds = -1, MDB_UINT16 uiPeerFlag = 0,
-        const /*QuickMDB::*/TMdbRuntimeObject* pPeerRuntimeObject = NULL, const TMdbNtcBaseProxy& oProxy = g_oMdbNtcNonProxy);
+        const TMdbRuntimeObject* pPeerRuntimeObject = NULL, const TMdbNtcBaseProxy& oProxy = g_oMdbNtcNonProxy);
     /**
      * @brief 监听本机的某一端口
      * 
@@ -170,7 +170,7 @@ public:
      * @return bool
      * @retval true 成功
      */
-    bool AddListen(const char* pszAddress, int iPort, TMdbProtocol* pProtocol = NULL, const /*QuickMDB::*/TMdbRuntimeObject* pPeerRuntimeObject = NULL);
+    bool AddListen(const char* pszAddress, int iPort, TMdbProtocol* pProtocol = NULL, const TMdbRuntimeObject* pPeerRuntimeObject = NULL);
     /**
      * @brief 断开指定的连接
      * 
@@ -236,7 +236,7 @@ public://下面与pno信息维护有关
      * @param fd [in] socket描述符
      * @return TMdbNtcSocket*
      */
-    inline /*QuickMDB::*/TMdbNtcSocket* FindSocketInfo(QuickMDB_SOCKET fd)
+    inline TMdbNtcSocket* FindSocketInfo(QuickMDB_SOCKET fd)
     {
         return m_arraySocketInfo[fd];
     }
@@ -530,10 +530,10 @@ public://下面与流量相关
     }
 protected:
     TMdbIdMgr                          m_oIdMgr;///< ID分配器
-    /*QuickMDB::*/TMdbNtcBaseList   m_lsServerInfo;///< 服务端信息
+    TMdbNtcBaseList   m_lsServerInfo;///< 服务端信息
     TMdbSharedPtr<TMdbPeerInfo>*          m_ppPeerNo;        ///< pno对应peer信息
-    /*QuickMDB::*/TMdbNtcSocket*    m_arraySocketInfo[65536];
-    /*QuickMDB::*/TMdbNtcThreadLock   m_oSpinLock;///< 自旋锁，用于短时间的互斥
+    TMdbNtcSocket*    m_arraySocketInfo[65536];
+    TMdbNtcThreadLock   m_oSpinLock;///< 自旋锁，用于短时间的互斥
     TMdbPeerProactor*                  m_pSocketProactor;///< 所用的socket前摄器
     
     TMdbTrafficCtrl                    m_oTotalTrafficCtrl;///< 总的流量速率限制
@@ -582,7 +582,7 @@ protected:
     virtual bool ProcessEvent(TMdbEventInfo* pEventInfo, TMdbEventPump* pEventPump);
 protected:
     //可能有多个事件泵向消息队列中压入，所以需要使用尾锁，但只有一个线程GetMessage所以头部无需加锁
-    /*QuickMDB::*/TMdbNtcQueue m_oMsgQueue;///< 阻塞式的消息队列
+    TMdbNtcQueue m_oMsgQueue;///< 阻塞式的消息队列
 };
 //}
 #endif

@@ -146,7 +146,7 @@
         }
         
         //创建DAO对象
-        TMdbDAOBase* pDAOBase = new TMdbDAOBase();
+        TMdbDAOBase* pDAOBase = new(std::nothrow) TMdbDAOBase();
         if(pDAOBase == NULL)
         {
             TADD_ERROR(-1,"[%s : %d] : TMdbDataExport::Export() : Can't c CreateDAO().", __FILE__, __LINE__);
@@ -236,7 +236,7 @@
             
             //把剩余的数据提交
             iRet = pDAOBase->Execute(m_pDBLink); 
-            m_pDBLink->Commit();
+           	 m_pDBLink->Commit();
             
             TADD_NORMAL("[%s]==>[%s] Total-iCounts=%d.", pszTableName, pszObjTable, iCounts);    
             
@@ -290,7 +290,7 @@
         }
         
         //创建DAO对象
-        TMdbDAOBase* pDAOBase = new TMdbDAOBase();
+        TMdbDAOBase* pDAOBase = new(std::nothrow) TMdbDAOBase();
         if(pDAOBase == NULL)
         {
             TADD_ERROR(-1,"[%s : %d] : TMdbDataExport::Export() : Can't CreateDAO().", __FILE__, __LINE__);
@@ -490,7 +490,12 @@
         memset(m_sMDBSQL, 0, sizeof(m_sMDBSQL));
         sprintf(m_sMDBSQL, "select * from %s", pszTableName);
 
-        m_pCountSQL = new char[512];
+        m_pCountSQL = new(std::nothrow) char[512];
+		if(m_pCountSQL == NULL)
+		{
+			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pCountSQL");
+			return ERR_OS_NO_MEMROY;
+		}
         memset(m_pCountSQL, 0, sizeof(m_pCountSQL));
         sprintf(m_pCountSQL, "select count(*) from %s", pszTableName);
         

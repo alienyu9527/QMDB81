@@ -77,7 +77,7 @@
 		if(vGroupBy.size() != m_vGroupBy.size())
 		{
 			TADD_WARNING("vGroupBy.size() != m_vGroupBy.size()");
-			return vGroupBy.size() - m_vGroupBy.size();
+			return static_cast<int>(vGroupBy.size() - m_vGroupBy.size());
 		}
 		unsigned int i = 0;
 		for(i = 0;i < vGroupBy.size();++i)
@@ -187,7 +187,8 @@
 			0 != pSqlParser->m_listOutputGroupBy.iItemNum ||
 			0 != pSqlParser->m_listOutputOrderby.iItemNum)
 		{
-			m_pCacheRowDef = new TMdbCacheRow();
+			m_pCacheRowDef = new(std::nothrow) TMdbCacheRow();
+			CHECK_OBJ(m_pCacheRowDef);
 			//只是拷贝的指针
 			m_pCacheRowDef->m_vOrderby  = pSqlParser->m_listOutputOrderby.vMemValue;
 			m_pCacheRowDef->m_vGroupBy = pSqlParser->m_listOutputGroupBy.vMemValue;
@@ -262,7 +263,7 @@
 		if(NULL == pCacheRow)
 		{//新值插入一条
 			TADD_FLOW("need to insert");
-			Insert(pCacheRow);
+			CHECK_RET(Insert(pCacheRow),"Insert pCacheRow failed");
 		}
 		else
 		{//更新聚合值
@@ -377,7 +378,7 @@
 	*******************************************************************************/
 	unsigned int TMdbCacheTable::GetHashValue(std::vector<ST_MEM_VALUE*>  vGroup)
 	{
-		int i;
+		long unsigned int  i;
 		char     m_sTempValue[MAX_BLOB_LEN];
 		m_sTempValue[0] = 0;
 		for(i=0; i<vGroup.size(); i++)
@@ -408,7 +409,7 @@
 		i = 0;
 		 while(ptr[i] != 0)
        	 {
-       		 hash = hash *33 + ptr[i]; 
+       		 hash = hash *33 + static_cast<unsigned int>(ptr[i]); 
 			 i++;
 		  }
 		 
@@ -435,12 +436,13 @@
 		//compute hash value;
 		hashValue = GetHashValue(m_pCacheRowDef->m_vGroupBy);
 		
-		iRet = m_hashTable->hash_search_with_hash_value(hashValue,m_iRowCached, findNode);
+		iRet = m_hashTable->hash_search_with_hash_value(hashValue,static_cast<int>(m_iRowCached), findNode);
 		CHECK_RET(iRet,"GetRowByHashTable: do operation with hash table failed");
 		
 		if(findNode != -1)
 		{
-			pRetRow = m_vData[findNode];
+			long unsigned int lOffset =  static_cast<long unsigned int>(findNode);
+			pRetRow = m_vData[lOffset];
 		}
 		
 		TADD_FUNC("Finish.");
@@ -477,7 +479,12 @@
 		//TODO:检测数据量是否过大
 		if(m_iRowCached >= m_vData.size())
 		{
-			pNewRow = new TMdbCacheRow();
+			pNewRow = new(std::nothrow) TMdbCacheRow();
+			if(pNewRow == NULL)
+			{
+				TADD_ERROR(ERR_OS_NO_MEMROY,"cant't create new TMdbCacheRow ");
+				return ERR_OS_NO_MEMROY;
+			}
 			m_vData.push_back(pNewRow);
 		}
 		else
@@ -582,9 +589,9 @@
             }
 
 			
-			if(iSortNum > 0 && iSortNum < m_iRowCached)//通过堆排序解决，
+			if(iSortNum > 0 && static_cast<long unsigned int>(iSortNum) < m_iRowCached)//通过堆排序解决，
 			{
-				HeapSortForKNum(m_iRowCached,iSortNum);
+				HeapSortForKNum(static_cast<long unsigned int>(m_iRowCached),static_cast<long unsigned int>(iSortNum));
 
 				
 			}
@@ -667,7 +674,7 @@
 	int TMdbCacheTable::CompareOrderby(TMdbCacheRow * pLeft,TMdbCacheRow * pRight)
 	{
 		long long llRet = 0;
-		unsigned int i = 0;
+		long unsigned int i = 0;
 		for(i = 0; i < pLeft->m_vOrderby.size();++i)
 		{
 			llRet = TMdbMemValue::CompareExprValue(pLeft->m_vOrderby[i],pRight->m_vOrderby[i]);
@@ -680,6 +687,7 @@
 		if(0 == llRet){return 0;}
 		if(0 > llRet){return -1;}
 		if(0 < llRet){return 1;}
+		return 0;
 	}
 	
 	/******************************************************************************
@@ -692,11 +700,11 @@
 	* 作者		:  miao.jianxin
 
 	*******************************************************************************/
-	int TMdbCacheTable::MinHeap(int iParent, int iLen)
+	int TMdbCacheTable::MinHeap(long unsigned int iParent, long unsigned int iLen)
 	{
-		int iSmallInx = -1;  
-		int iLeft = iParent*2+1;  
-		int iRight = iParent*2+2;
+		long unsigned int iSmallInx = 0;  
+		long unsigned int iLeft = iParent*2+1;  
+		long unsigned int iRight = iParent*2+2;
 		if(iParent < iLen/2)
 		{
 			if (iLeft < iLen && CompareOrderby(m_vData[iLeft],m_vData[iParent]) < 0)  
@@ -730,12 +738,12 @@
 	* 作者		:  miao.jianxin
 
 	*******************************************************************************/
-	int TMdbCacheTable::BuildHeap(int iLen)
+	int TMdbCacheTable::BuildHeap(long unsigned int iLen)
 	{
-		int index = iLen/2-1;  
+		int index = static_cast<int>(iLen/2-1);  
 		int i;
 		for (i = index; i >= 0; i--)  
-			MinHeap(i, iLen); 
+			MinHeap(static_cast<long unsigned int>(i), iLen); 
 		return 0;
 
 	}
@@ -750,9 +758,9 @@
 	* 作者		:  miao.jianxin
 
 	*******************************************************************************/
-	int TMdbCacheTable::HeapSortForKNum(int iTotalNum, int iKNum)
+	int TMdbCacheTable::HeapSortForKNum(long unsigned int iTotalNum, long unsigned int iKNum)
 	{
-		int i;
+		long unsigned int i;
 		TMdbCacheRow * pTempRow = NULL;
 		BuildHeap(iTotalNum);
 		
@@ -805,10 +813,10 @@
 	* 返回值	:  0 - 成功!0 -失败
 	* 作者		:  jin.shaohua
 	*******************************************************************************/
-	int TMdbCacheTable::QuickSort(int iLeft,int iRight)
+	int TMdbCacheTable::QuickSort(long unsigned int iLeft,long unsigned int iRight)
 	{
 		if(iLeft >= iRight){return 0;}
-		int i,j;
+		long unsigned int i,j;
 		TMdbCacheRow * pTempRow = NULL; 
 
 		for(i=iLeft; i<iRight; i++)
@@ -826,7 +834,7 @@
 
 		if(i == iRight)
 		{
-			for(int iPos = 0; iPos<(iRight-iLeft+1)/2;iPos++)
+			for(long unsigned int iPos = 0; iPos<(iRight-iLeft+1)/2;iPos++)
 			{
 				pTempRow = m_vData[iRight-iPos];
 				m_vData[iRight-iPos] = m_vData[iLeft+iPos];
@@ -865,7 +873,7 @@
 		}
 		
 		m_vData[i] = pTempRow;
-		if(iLeft < i-1)
+		if(i>=1 && iLeft < i-1)
 			QuickSort(iLeft,i - 1);
 		if(i+1 < iRight)
 			QuickSort(i+1,iRight);
@@ -884,7 +892,7 @@
 	int TMdbCacheTable::CompareOrderbyForGroupBy(TMdbCacheRow * pLeft,TMdbCacheRow * pRight)
 	{
 		long long llRet = 0;
-		unsigned int i = 0;
+		long unsigned int i = 0;
 		for(i = 0; i < pLeft->m_vGroupBy.size();++i)
 		{
 			llRet = TMdbMemValue::CompareExprValue(pLeft->m_vGroupBy[i],pRight->m_vGroupBy[i]);
@@ -897,6 +905,7 @@
 		if(0 == llRet){return 0;}
 		if(0 > llRet){return -1;}
 		if(0 < llRet){return 1;}
+		return 0;
 	}
 
 	/******************************************************************************
@@ -913,7 +922,7 @@
 		TMdbCacheRow  *pLeft = NULL, *pRight = NULL;
 		pLeft = m_pCacheRowDef;
 		CHECK_OBJ(pLeft);
-		pRight = m_vData[iPos];
+		pRight = m_vData[static_cast<long unsigned int>(iPos)];
 		CHECK_OBJ(pRight);
 		return CompareOrderbyForGroupBy(pLeft,pRight);
 		

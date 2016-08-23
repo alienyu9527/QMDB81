@@ -14,7 +14,12 @@
     TFlushDAONode::TFlushDAONode()
     {
         memset(m_sSQL,0x00,sizeof(m_sSQL));
+		memset(m_sMdbSelSQL,0x00,sizeof(m_sMdbSelSQL));
+		memset(m_sMdbUptSQL,0x00,sizeof(m_sMdbUptSQL));
         m_pQuery = NULL;
+		m_pMdbSelQuery =  NULL;
+		m_pMdbUptQuery =  NULL;
+		
     }
     TFlushDAONode::~TFlushDAONode()
     {
@@ -24,7 +29,13 @@
     void TFlushDAONode::Clear()
     {
         memset(m_sSQL,0x00,sizeof(m_sSQL));
+		memset(m_sMdbSelSQL,0x00,sizeof(m_sMdbSelSQL));
+		memset(m_sMdbUptSQL,0x00,sizeof(m_sMdbUptSQL));
+		
         SAFE_DELETE(m_pQuery);
+		SAFE_DELETE(m_pMdbSelQuery);
+		SAFE_DELETE(m_pMdbUptQuery);
+		
     }
 
     TMdbQuery* TFlushDAONode::CreateQuery(const char * sSQL,int iNodePos,TMdbDatabase * ptDB)
@@ -307,7 +318,7 @@
 
         if(NULL == m_arrDaoNode[iPos])
         {
-            m_arrDaoNode[iPos] = new TFlushDAONode();
+            m_arrDaoNode[iPos] = new(std::nothrow) TFlushDAONode();
             if(NULL == m_arrDaoNode[iPos])
             {
                 TADD_ERROR(ERR_OS_NO_MEMROY,"new dao node failed.");
@@ -395,7 +406,7 @@
 
         if(NULL == m_arrDaoNode[iPos])
         {
-            m_arrDaoNode[iPos] = new TFlushDAONode();
+            m_arrDaoNode[iPos] = new(std::nothrow) TFlushDAONode();
             if(NULL == m_arrDaoNode[iPos])
             {
                 TADD_ERROR(ERR_OS_NO_MEMROY,"new dao node failed.");
@@ -431,7 +442,7 @@
                 
                 for (unsigned int i = 0; i< m_arPKs.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     if (0 == i)
                     {
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s", m_arPKs[i].c_str());
@@ -443,14 +454,14 @@
                 }
                 for (unsigned int i= 0; i<m_arCols.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ",%s", m_arCols[i].c_str());
                 }
-                iSqlLen = strlen(pNode->m_sSQL);
+                iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                 snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ") VALUES(");
                 for (unsigned int i = 0; i< m_arPKs.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     if (0 == i)
                     {
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ":%s", m_arPKs[i].c_str());
@@ -462,10 +473,10 @@
                 }
                 for (unsigned int i = 0; i<m_arCols.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ",:%s", m_arCols[i].c_str());
                 }
-                iSqlLen = strlen(pNode->m_sSQL);
+                iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                 snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ")");
                 break;
             }
@@ -475,7 +486,7 @@
 
                 for (unsigned int i = 0; i<m_arCols.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     if (0 == i)
                     {
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", m_arCols[i].c_str(), m_arCols[i].c_str());
@@ -485,11 +496,11 @@
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ", %s = :%s", m_arCols[i].c_str(), m_arCols[i].c_str());
                     }                    
                 }
-                iSqlLen = strlen(pNode->m_sSQL);
+                iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                 snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " WHERE ");
                 for (unsigned int i = 0; i< m_arPKs.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     if (0 == i)
                     {
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", m_arPKs[i].c_str(), m_arPKs[i].c_str());
@@ -507,7 +518,7 @@
                 snprintf(pNode->m_sSQL, MAX_SQL_LEN, "DELETE FROM %s WHERE", m_strTableName.c_str());
                 for (unsigned int i = 0; i< m_arPKs.size(); i++)
                 {
-                    iSqlLen = strlen(pNode->m_sSQL);
+                    iSqlLen = static_cast<int>(strlen(pNode->m_sSQL));
                     if (0 == i)
                     {
                         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", (m_arPKs[i]).c_str(), (m_arPKs[i]).c_str());
@@ -691,11 +702,28 @@
         m_pNode = new(std::nothrow)TFlushDAONode();
         CHECK_OBJ(m_pNode);
         m_pNode->m_pQuery = pDataBase->CreateDBQuery();
+		
+		m_pNode->m_pMdbSelQuery = pDataBase->CreateDBQuery();
+		m_pNode->m_pMdbUptQuery = pDataBase->CreateDBQuery();
+		
         CHECK_OBJ(m_pNode->m_pQuery);        
         return iRet;
     }
 
-  
+  	//获取主键的所在序号
+  	int TRepLoadDao::GetPrimaryKey(std::vector<int > &  vKeyNo)
+  	{
+  		//prkey jizhu
+  		TMdbTable* pTable =m_pMdbCfg->GetTable(m_strTableName.c_str());
+		for(int i=0; i<(pTable->m_tPriKey).iColumnCounts; i++)
+		{
+			//m_priCols.push_back(pTable->tColumn[pTable->m_tPriKey->iColumnNo[i]].sName);
+			vKeyNo.push_back((pTable->m_tPriKey).iColumnNo[i]);
+		}
+	
+  		return 0;
+
+  	}
 
     TMdbQuery* TRepLoadDao::GetQuery(std::string strTableName, bool bSelect, const char* sRoutinglist /* = NULL */)throw (TMdbException)
     {
@@ -745,6 +773,7 @@
             m_arCols.push_back(pTable->tColumn[i].sName);
         }
 
+		
         if (bSelect)
         {
             iRet = SetSelectSQL(m_pNode, sRoutinglist);
@@ -768,10 +797,12 @@
         return m_pNode->m_pQuery;
     }
 
+	
+
     int TRepLoadDao::SetSelectSQL(TFlushDAONode *pNode, const char* sRoutinglist/* =NULL */)throw (TMdbException)
     {
         int iRet = 0;
-        int iSqlLen = 0;
+       	size_t iSqlLen = 0;
         snprintf(pNode->m_sSQL, MAX_SQL_LEN, "SELECT ");
 
         for (unsigned int i = 0; i< m_arCols.size(); i++)
@@ -812,6 +843,202 @@
         } 
         return iRet;
     }
+
+
+	
+	TMdbQuery* TRepLoadDao::GetMdbSelQuery(std::string strTableName)throw (TMdbException)
+	   {
+		   TADD_FUNC("Start.");
+		   int iRet = 0;
+		   m_strTableName = strTableName;
+		   m_arCols.clear();
+		   m_priCols.clear();
+		   TMdbTable* pTable =m_pMdbCfg->GetTable(m_strTableName.c_str());
+		   if (NULL == pTable)
+		   {
+			   TADD_ERROR(ERR_APP_INVALID_PARAM, "Table[%s] does not exist in Dsn[%s]", m_strTableName.c_str(), m_pMdbCfg->GetDSN()->sName);
+			   return NULL;
+		   }
+		   for(int i=0; i<pTable->iColumnCounts; ++i)
+		   {
+			   m_arCols.push_back(pTable->tColumn[i].sName);
+		   }
+
+		   //prkey jizhu
+			for(int i=0; i<(pTable->m_tPriKey).iColumnCounts; i++)
+			{
+				m_priCols.push_back(pTable->tColumn[(pTable->m_tPriKey).iColumnNo[i]].sName);
+			}
+	
+		  
+			iRet = SetMdbSelectSQL(m_pNode);
+			if (iRet != ERROR_SUCCESS)
+			{
+				TADD_ERROR(iRet, "SetSQL failed.");
+				return NULL;
+			}
+		
+		   
+		   TADD_FUNC("Finish.");
+		   return m_pNode->m_pMdbSelQuery;
+	   }
+
+	TMdbQuery* TRepLoadDao::GetMdbUpdateQuery(std::string strTableName)throw (TMdbException)
+	   {
+		   TADD_FUNC("Start.");
+		   int iRet = 0;
+		   m_strTableName = strTableName;
+		   m_arCols.clear();
+		   m_priCols.clear();
+		   TMdbTable* pTable =m_pMdbCfg->GetTable(m_strTableName.c_str());
+		   if (NULL == pTable)
+		   {
+			   TADD_ERROR(ERR_APP_INVALID_PARAM, "Table[%s] does not exist in Dsn[%s]", m_strTableName.c_str(), m_pMdbCfg->GetDSN()->sName);
+			   return NULL;
+		   }
+		   for(int i=0; i<pTable->iColumnCounts; ++i)
+		   {
+			   m_arCols.push_back(pTable->tColumn[i].sName);
+		   }
+		   
+		   //prkey jizhu
+			for(int i=0; i<(pTable->m_tPriKey).iColumnCounts; i++)
+			{
+				m_priCols.push_back(pTable->tColumn[(pTable->m_tPriKey).iColumnNo[i]].sName);
+			}
+			
+		 
+			iRet = SetMdbUpdateSQL(m_pNode);
+			if (iRet != ERROR_SUCCESS)
+			{
+				 TADD_ERROR(iRet, "SetSQL failed.");
+				 return NULL;
+			}
+		
+		   
+		   TADD_FUNC("Finish.");
+		   return m_pNode->m_pMdbUptQuery;
+	   }
+	
+
+	 int TRepLoadDao::SetMdbSelectSQL(TFlushDAONode *pNode)throw (TMdbException)
+	 {
+	 	int iRet = 0;
+        int iSqlLen = 0;
+        snprintf(pNode->m_sMdbSelSQL, MAX_SQL_LEN, "SELECT ");
+
+        for (unsigned int i = 0; i< m_arCols.size(); i++)
+        {
+            iSqlLen = strlen(pNode->m_sMdbSelSQL);
+            if (0 == i)
+            {
+                snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s", m_arCols[i].c_str());
+            }
+            else
+            {
+                snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ",%s", m_arCols[i].c_str());
+            }          
+        }
+      
+        iSqlLen = strlen(pNode->m_sMdbSelSQL);
+        snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " FROM %s", m_strTableName.c_str());
+
+       	if(m_priCols.size() != 0)
+       	{
+       		iSqlLen = strlen(pNode->m_sMdbSelSQL);
+			snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " WHERE ");
+			for(unsigned int i = 0; i< m_priCols.size(); i++)
+				
+            {
+                 iSqlLen = strlen(pNode->m_sMdbSelSQL);
+                 if (0 == i)
+                 {
+                        snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", (m_priCols[i]).c_str(), (m_priCols[i]).c_str());
+                 }
+                 else
+                 {
+                        snprintf(pNode->m_sMdbSelSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " And %s = :%s", m_priCols[i].c_str(), m_priCols[i].c_str());
+                 }          
+            }
+       	}
+        try
+        {
+            pNode->m_pMdbSelQuery->CloseSQL();
+            pNode->m_pMdbSelQuery->SetSQL(pNode->m_sMdbSelSQL,QUERY_NO_ORAFLUSH |QUERY_NO_REDOFLUSH|QUERY_NO_SHARDFLUSH|QUERY_NO_ROLLBACK,0);
+        }
+        catch(TMdbException& e)
+        {
+            CHECK_RET(ERROR_UNKNOWN,"ERROR_SQL=%s.\nERROR_MSG=%s\n",  e.GetErrSql(), e.GetErrMsg());   
+        }
+        catch(...)
+        {
+            CHECK_RET(ERROR_UNKNOWN, "Unknown error!\n");   
+        } 
+        return iRet;
+	 	
+	 	
+
+	 }
+
+	 int TRepLoadDao::SetMdbUpdateSQL(TFlushDAONode *pNode)throw (TMdbException)
+	 {
+	 	int iRet = 0;
+        int iSqlLen = 0;
+	 	snprintf(pNode->m_sMdbUptSQL, MAX_SQL_LEN, "UPDATE %s SET ", m_strTableName.c_str());
+		int iCnt = 0;
+        for (unsigned int i = 0; i<m_arCols.size(); i++)
+        {
+        	unsigned int j = 0;
+        	for(j = 0; j<m_priCols.size(); j++)
+				if(TMdbNtcStrFunc::StrNoCaseCmp(m_arCols[i].c_str(),m_priCols[j].c_str())== 0)
+					break;
+				
+			if(j<m_priCols.size())
+				continue;
+			
+             iSqlLen = strlen(pNode->m_sMdbUptSQL);
+             if (0 == iCnt)
+             {
+                  snprintf(pNode->m_sMdbUptSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", m_arCols[i].c_str(), m_arCols[i].c_str());
+             }
+              else
+             {
+                  snprintf(pNode->m_sMdbUptSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, ", %s = :%s", m_arCols[i].c_str(), m_arCols[i].c_str());
+             }  
+			 iCnt++;
+        }
+
+		iSqlLen = strlen(pNode->m_sMdbUptSQL);
+        snprintf(pNode->m_sMdbUptSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " WHERE ");
+        for (unsigned int i = 0; i< m_priCols.size(); i++)
+        {
+            iSqlLen = strlen(pNode->m_sMdbUptSQL);
+            if (0 == i)
+            {
+                 snprintf(pNode->m_sMdbUptSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, "%s = :%s", m_priCols[i].c_str(), m_priCols[i].c_str());
+            }
+            else
+            {
+                 snprintf(pNode->m_sMdbUptSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " And %s = :%s", m_priCols[i].c_str(), m_priCols[i].c_str());
+            }          
+         }
+
+		try
+        {
+            pNode->m_pMdbUptQuery->CloseSQL();
+            pNode->m_pMdbUptQuery->SetSQL(pNode->m_sMdbUptSQL,QUERY_NO_ORAFLUSH |QUERY_NO_REDOFLUSH|QUERY_NO_SHARDFLUSH|QUERY_NO_ROLLBACK,0);
+        }
+        catch(TMdbException& e)
+        {
+            CHECK_RET(ERROR_UNKNOWN,"ERROR_SQL=%s.\nERROR_MSG=%s\n",  e.GetErrSql(), e.GetErrMsg());   
+        }
+        catch(...)
+        {
+            CHECK_RET(ERROR_UNKNOWN, "Unknown error!\n");   
+        } 
+        return iRet;
+
+	 }
 
     int TRepLoadDao::SetInsertSQL(TFlushDAONode *pNode)throw (TMdbException)
     {
@@ -865,6 +1092,9 @@
         } 
         return iRet;
     }
+
+
+	
 
     TRepFlushDAOCtrl::TRepFlushDAOCtrl():m_ptDatabase(NULL), m_pRcd12Parser(NULL),m_pRcdParser(NULL),m_pConfig(NULL)
     {
@@ -938,7 +1168,7 @@
             // 兼容1.2 格式
             if(NULL == m_pRcd12Parser)
             {
-                m_pRcd12Parser = new TMdbRep12Decode();
+                m_pRcd12Parser = new(std::nothrow) TMdbRep12Decode();
                 CHECK_OBJ(m_pRcd12Parser);
             }
             CHECK_RET(m_pRcd12Parser->Analyse(sMsg,m_pConfig,m_tCurRedoRecd),"1.2:Parse[%s] failed.ret=[%d]",sMsg,iRet);

@@ -436,7 +436,7 @@
     	* 返回值	:  DELETE/UPDATE/INSERT语句修改的记录数目
     	* 作者		:  li.shugang
     	*******************************************************************************/
-    	int  RowsAffected() { return fTotalRowsFetched;};              
+    	int  RowsAffected() { return static_cast<int>(fTotalRowsFetched);};              
     	/******************************************************************************
     	* 函数名称	:  GetSQLCode()
     	* 函数描述	:  返回Oracle执行结果代码

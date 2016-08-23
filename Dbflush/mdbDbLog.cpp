@@ -183,7 +183,7 @@ using namespace std;
         {
             if(m_pszMyFileTemp[i] == NULL)
             {
-                m_pszMyFileTemp[i] = new char[MAX_VALUE_LEN];
+                m_pszMyFileTemp[i] = new(std::nothrow) char[MAX_VALUE_LEN];
                 CHECK_OBJ(m_pszMyFileTemp[i]);
                 memset(m_pszMyFileTemp[i],0,MAX_VALUE_LEN);
             }
@@ -191,7 +191,7 @@ using namespace std;
 
         if(m_psMyFileTempInsert == NULL)
         {
-            m_psMyFileTempInsert = new char[MAX_VALUE_LEN];
+            m_psMyFileTempInsert = new(std::nothrow) char[MAX_VALUE_LEN];
             CHECK_OBJ(m_psMyFileTempInsert);
             memset(m_psMyFileTempInsert,0,MAX_VALUE_LEN);
         }
@@ -475,7 +475,7 @@ using namespace std;
         CHECK_RET(m_tProcCtrl.Init(pszDSN),"m_tProcCtrl.Init(%s)",pszDSN);
         if(m_pszMyFileTemp == NULL)
         {
-            m_pszMyFileTemp = new char[MAX_VALUE_LEN];
+            m_pszMyFileTemp = new(std::nothrow) char[MAX_VALUE_LEN];
             CHECK_OBJ(m_pszMyFileTemp);
             memset(m_pszMyFileTemp,0,MAX_VALUE_LEN);
         }
