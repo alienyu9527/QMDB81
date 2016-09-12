@@ -2516,6 +2516,7 @@ TMdbDatabase::TMdbDatabase()
     m_pLinkCtrl = NULL;
     m_pLocalLink = NULL;
     m_pMultiProtector = NULL;
+	m_pMdbFlushTrans = NULL;
 }
 
 
@@ -2524,6 +2525,7 @@ TMdbDatabase::~TMdbDatabase()
     Disconnect();
     SAFE_DELETE(m_pLinkCtrl);
     SAFE_DELETE(m_pMultiProtector);
+	SAFE_DELETE(m_pMdbFlushTrans);
 }
 
 /******************************************************************************
@@ -2776,7 +2778,16 @@ void TMdbDatabase::TransBegin()
 *******************************************************************************/                          																								//¿ªÆôÊÂÎñ
 void TMdbDatabase::Commit()
 {
-	m_pLocalLink->Commit(m_pShmDSN);
+	if(NULL == m_pMdbFlushTrans)
+	{
+		m_pMdbFlushTrans  = new(std::nothrow) TMdbFlushTrans();
+		if(m_pMdbFlushTrans == NULL)
+		{
+			TADD_ERROR(-1,"new m_pMdbFlushTrans failed.");
+			return;
+		}
+	}
+	m_pLocalLink->Commit(m_pShmDSN, m_pMdbFlushTrans);
     m_iTransactionState = TRANS_IN;
     return;
 }

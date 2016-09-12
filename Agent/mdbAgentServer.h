@@ -136,6 +136,7 @@ using namespace std;
         TMdbQuery *m_pQuery;
         int m_iSqlLabel;//SQL标识
         int m_iMaxNextNum;//select 每次最大的next结果数
+        bool m_bFirstNext;
         TMdbParamArray m_tParamArray;//批量绑定参数数组，中间转储过渡用
     };
     //agent的序号处理
@@ -277,7 +278,7 @@ private:
     int AppNextSQLResultBin(TAgentClient *ptClient);//响应next操作
     int AuthenticationBin(TAgentClient *ptClient);//认证
     int SendAnswer(TAgentClient *ptClient,int AnsCode,const char * sMsg);//发回复信息
-    int FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool bFirstNext=false)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
+    int FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
     int AppTransActionBin(TAgentClient *ptClient);//事务处理
     int AppGetQmdbInfoBin(TAgentClient *ptClient);//获取qmdb 信息包
     int AppGetSequenceBin(TAgentClient *ptClient);//获取序列
@@ -437,7 +438,7 @@ private:
         int AppNextSQLResultBin(TAgentClient *ptClient);//响应next操作
         int AuthenticationBin(TAgentClient *ptClient);//认证
         int SendAnswer(TAgentClient *ptClient,int AnsCode,const char * sMsg);//发回复信息
-        int FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool bFirstNext=false)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
+        int FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
         int AppTransActionBin(TAgentClient *ptClient);//事务处理
         int AppGetQmdbInfoBin(TAgentClient *ptClient);//获取qmdb 信息包
         int AppGetSequenceBin(TAgentClient *ptClient);//获取序列

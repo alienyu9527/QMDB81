@@ -92,6 +92,7 @@ ClientQuery::ClientQuery()
 {
     m_pQuery = NULL;
     m_iSqlLabel = -1;
+    m_bFirstNext = true;
 }
 
 ClientQuery::~ClientQuery()
@@ -2723,6 +2724,7 @@ int TMdbNoNtcAgentServer::AppSendSQLBin(TAgentClient *ptClient)
     int iSqlLabel = 0;
     int iSqlFlag = 0;
     int iTmp = 0;
+    short int iTmpSh = 0;
     //char sSQL[MAX_SQL_LEN]   = "";
     try
     {
@@ -2742,9 +2744,9 @@ int TMdbNoNtcAgentServer::AppSendSQLBin(TAgentClient *ptClient)
         TADD_NORMAL("QuerySqlLabel=[%d],SetSQL(%s),IsDynamic=[%s],SqlFlag=[%d]",iSqlLabel,pSQL,(ptClient->m_iParamCount != 0)?"TRUE":"FALSE",iSqlFlag);
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->m_sSendPackage,CSP_APP_SEND_SQL,ptClient->m_iSessionID,ptClient->m_tHead.GetSequence());
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
-        ptClient->m_bFirstNext = true;
-        ptClient->m_iFieldCount = pQuery->FieldCount();
-        ptClient->m_iSqlType = pQuery->GetSQLType();
+        pClientQuery->m_bFirstNext = true;
+        //ptClient->m_iFieldCount = pQuery->FieldCount();
+        //ptClient->m_iSqlType = pQuery->GetSQLType();
         if(ptClient->m_iParamCount != 0)
         {
             //动态SQL
@@ -2755,19 +2757,19 @@ int TMdbNoNtcAgentServer::AppSendSQLBin(TAgentClient *ptClient)
         else
         {
             //静态SQL
-            if(TK_SELECT == ptClient->m_iSqlType)
+            if(TK_SELECT == pQuery->GetSQLType())
             {
                 pQuery->Open();
                 TADD_FLOW("QuerySqlLabel=[%d],Open(),StaticSQL.",iSqlLabel);
-                CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+                CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             }
             else
             {
                 pQuery->Execute();
                 iTmp = 0;
                 ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(char));//AVP_SELECT_HAVE_NEXT
-                iTmp = pQuery->RowsAffected();
-                ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(short int));//AVP_AFFECTED_ROW
+                iTmpSh = (short int)pQuery->RowsAffected();
+                ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//AVP_AFFECTED_ROW
                 
                 TADD_FLOW("QuerySqlLabel=[%d],Execute(),StaticSQL.",iSqlLabel);
             
@@ -2808,9 +2810,9 @@ int TMdbNoNtcAgentServer::AppSendParamBin(TAgentClient *ptClient)
         }
         TMdbQuery * pQuery = pClientQuery->m_pQuery;
         CHECK_OBJ(pQuery);
-        int iParamCount = 0;
-        int iParamPackageLen = 0;
-        int iParamIndex = 0;
+        char iParamCount = 0;
+        short int iParamPackageLen = 0;
+        char iParamIndex = 0;
         int iParamPos = 0;
         //head+sqllabel+cnt+packageLen+paramIndex+Value
         //packageLen = sizeof(int) * 2 -> null
@@ -2818,7 +2820,7 @@ int TMdbNoNtcAgentServer::AppSendParamBin(TAgentClient *ptClient)
         iParamPos += NO_OCP_PARAMCNT_POS + sizeof(char); 
         for(int i=0; i<iParamCount; ++i)
         {
-            ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,iParamPos,sizeof(short int));
+            ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,(size_t)iParamPos,sizeof(short int));
             ptClient->m_tRecvDataParse.GetData(&iParamIndex,iParamPos+sizeof(short int),sizeof(char));
             if(iParamPackageLen == (sizeof(char)+ sizeof(short int)))
             {//NULL
@@ -2848,18 +2850,19 @@ int TMdbNoNtcAgentServer::AppSendParamBin(TAgentClient *ptClient)
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->m_sSendPackage,CSP_APP_SEND_SQL,ptClient->m_iSessionID,ptClient->m_tHead.GetSequence());
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
         //ptClient->m_bFirstNext = true;
-        if(ptClient->m_iSqlType == TK_SELECT)
+        //ptClient->m_iFieldCount = pQuery->FieldCount();
+        if(pQuery->GetSQLType() == TK_SELECT)
         {
             pQuery->Open();
-            CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
         }
         else
         {//
             pQuery->Execute();
             int iTmp = 0;
             ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(char));//AVP_SELECT_HAVE_NEXT
-            iTmp = pQuery->RowsAffected();
-            ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(short int));//AVP_AFFECTED_ROW
+            short int iTmpSh = (short int)pQuery->RowsAffected();
+            ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//AVP_AFFECTED_ROW
         
         }
         //ptClient->m_bFirstNext = false;
@@ -2917,12 +2920,12 @@ int TMdbNoNtcAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
             return iRet;
         }
 
-        int iBatchCount = 0;
-        int iParamCount = 0;
-        int iParamPackageLen = 0;
-        int iParamIndex = 0;
+        short int iBatchCount = 0;
+        char iParamCount = 0;
+        short int iParamPackageLen = 0;
+        char iParamIndex = 0;
         int iParamPos = 0;
-        int iRowEffect = 0;
+        short int iRowEffect = 0;
         
         //head+sqllabel+batchcnt+pramcount+packageLen+Value
         //packageLen = sizeof(int) * 2 -> null
@@ -2931,12 +2934,12 @@ int TMdbNoNtcAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
         iParamPos += NO_OCP_BATCHCNT_POS + sizeof(short int) + sizeof(char); 
         
         //获取首个BATCH_GROUP
-        for(int iBatchIndex = 0; iBatchIndex < iBatchCount; ++iBatchIndex)
+        for(short int iBatchIndex = 0; iBatchIndex < iBatchCount; ++iBatchIndex)
         {
             //一个批次
             for(iParamIndex=0; iParamIndex<iParamCount; ++iParamIndex)
             {
-                ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,iParamPos,sizeof(short int));
+                ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,(size_t)iParamPos,sizeof(short int));
                 //ptClient->m_tRecvDataParse.GetData(&iParamIndex,iParamPos+sizeof(int),sizeof(int));
                 if(iParamPackageLen == sizeof(short int) )
                 {
@@ -2965,7 +2968,7 @@ int TMdbNoNtcAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
                 iParamPos += iParamPackageLen;
             }
             pQuery->Execute();
-            iRowEffect += pQuery->RowsAffected();//执行
+            iRowEffect += (short int)pQuery->RowsAffected();//执行
         }
 
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->m_sSendPackage,CSP_APP_SEND_SQL,ptClient->m_iSessionID,ptClient->m_tHead.GetSequence());
@@ -2993,12 +2996,14 @@ int TMdbNoNtcAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
     return iRet;
 }
 
-int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool bFirstNext)throw(TMdbException,TMdbCSPException)
+int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException)
 {
     int iRet = 0;
-    int iCount = 0;
-    int iSetTmp = 0;
-    int iValueLen = 0;
+    int iFieldCount = pQuery->FieldCount();
+    short int iCount = 0;
+    char iTmpCh = 0;
+    short iTmpSh = 0;
+    short int iValueLen = 0;
     char cDataType = 0;
     bool bHaveNext = true;
     bool bFirstNextTmp = bFirstNext;
@@ -3006,8 +3011,8 @@ int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQue
     //bool bFirst = false;
     //head+sqllabel+haveNext+recordCount+fieldCount+nameLen+fieldName+valueLen+Value
     //fieldLen=4 -> null, value no
-    ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(char));//have next
-    ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(short int));//记录个数
+    ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//have next
+    ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//记录个数
     
     while(1)
     {
@@ -3017,8 +3022,8 @@ int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQue
             int j = 0;
             if(bFirstNextTmp)
             {
-                iSetTmp = ptClient->m_iFieldCount;
-                ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(char));//字段个数
+                iTmpCh = (char)iFieldCount;
+                ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//字段个数
                 //bSetFieldCount = true;
             }
             #if 0
@@ -3029,12 +3034,12 @@ int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQue
             pQuery->FillFieldForCSBin(ptClient->m_tSendDataParse,bFirst);
             #endif
             //#if 0
-            for(j = 0; j<ptClient->m_iFieldCount; j++)
+            for(j = 0; j<iFieldCount; j++)
             {
                 cDataType = pQuery->Field(j).GetDataType();
                 if(bFirstNextTmp)
                 {
-                    iValueLen = strlen(pQuery->Field(j).GetName())+1;
+                    iValueLen = (short int)(strlen(pQuery->Field(j).GetName())+1);
                     ptClient->m_tSendDataParse.SetData(&cDataType,sizeof(cDataType));//name len
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));//name len
                     ptClient->m_tSendDataParse.SetData(pQuery->Field(j).GetName(),iValueLen);//name value
@@ -3047,21 +3052,21 @@ int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQue
                 else if(DT_Int == cDataType)
                 {
                     long long lData = pQuery->Field(j).AsRealnt();
-                    iValueLen = sizeof(lData);
+                    iValueLen = (short int)sizeof(lData);
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));
                     ptClient->m_tSendDataParse.SetData(&lData,iValueLen);
                 }
                 else
                 {
                     char *pData = pQuery->Field(j).AsRealStr();
-                    iValueLen = strlen(pData) + 1;
+                    iValueLen = (short int)(strlen(pData) + 1);
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));
                     ptClient->m_tSendDataParse.SetData(pData,iValueLen);
                 }
             }
             //#endif
             bFirstNextTmp = false;
-            ptClient->m_bFirstNext = false;
+            bFirstNext = false;
             //break;
             if(ptClient->m_tSendDataParse.GetSize() > MAX_CSP_LEN - 4096)
             {//达到最大值
@@ -3082,13 +3087,13 @@ int TMdbNoNtcAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQue
     ptClient->m_tSendDataParse.SetData(&iCount,SIZE_MSG_BIN_HEAD+5,sizeof(short int));//记录个数
     if(bHaveNext)
     {
-        iSetTmp = 1;
-        ptClient->m_tSendDataParse.SetData(&iSetTmp,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
+        iTmpCh = 1;
+        ptClient->m_tSendDataParse.SetData(&iTmpCh,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
     }
     else
     {
-        iSetTmp = 0 ;
-        ptClient->m_tSendDataParse.SetData(&iSetTmp,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
+        iTmpCh = 0 ;
+        ptClient->m_tSendDataParse.SetData(&iTmpCh,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
     }
     return iRet;
 }
@@ -3113,7 +3118,7 @@ int TMdbNoNtcAgentServer::AppNextSQLResultBin(TAgentClient *ptClient)
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
         if(pQuery->GetSQLType() == TK_SELECT)
         {
-            CHECK_RET(FillNextResult(ptClient,pQuery),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             SendAnswer(ptClient,0,"AppNextSQLResult OK");
         }
         else
@@ -3263,7 +3268,8 @@ int TMdbNoNtcAgentServer::SendAnswer(TAgentClient *ptClient,int iAnsCode,const c
     int iRet = 0;
     try
     {
-        ptClient->m_tSendDataParse.SetData(&iAnsCode,sizeof(short int),true);
+        short int iAnsCodeSh = (short int)iAnsCode;
+        ptClient->m_tSendDataParse.SetDataAnsCode(&iAnsCodeSh,sizeof(short int));
         if(sMsg)
         {
             ptClient->m_tSendDataParse.SetData((char*)sMsg,strlen(sMsg)+1);
@@ -5423,7 +5429,8 @@ int TMdbAgentServer::AppSendSQLBin(TAgentClient *ptClient)
     int iRet = 0;
     int iSqlLabel = 0;
     int iSqlFlag = 0;
-    int iTmp = 0;
+    char iTmpCh = 0;
+    short int iTmpSh = 0;
     //char sSQL[MAX_SQL_LEN]   = "";
     try
     {
@@ -5442,13 +5449,14 @@ int TMdbAgentServer::AppSendSQLBin(TAgentClient *ptClient)
         TADD_NORMAL("QuerySqlLabel=[%d],SetSQL(%s),IsDynamic=[%s],SqlFlag=[%d]",iSqlLabel,pSQL,(pQuery->ParamCount() != 0)?"TRUE":"FALSE",iSqlFlag);
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->m_sSendPackage,CSP_APP_SEND_SQL,ptClient->m_iSessionID,ptClient->m_tHead.GetSequence());
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
-        ptClient->m_bFirstNext = true;
+        pClientQuery->m_bFirstNext = true;
         if(pQuery->ParamCount() != 0)
         {
             //动态SQL
-            iTmp = 0;
-            ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(char));//AVP_SELECT_HAVE_NEXT
-            ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(short int));//AVP_AFFECTED_ROW
+            iTmpCh = 0;
+            iTmpSh = 0;
+            ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//AVP_SELECT_HAVE_NEXT
+            ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//AVP_AFFECTED_ROW
         }
         else
         {
@@ -5457,15 +5465,15 @@ int TMdbAgentServer::AppSendSQLBin(TAgentClient *ptClient)
             {
                 pQuery->Open();
                 TADD_FLOW("QuerySqlLabel=[%d],Open(),StaticSQL.",iSqlLabel);
-                CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+                CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             }
             else
             {
                 pQuery->Execute();
-                iTmp = 0;
-                ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(char));//AVP_SELECT_HAVE_NEXT
-                iTmp = pQuery->RowsAffected();
-                ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(short int));//AVP_AFFECTED_ROW
+                iTmpCh = 0;
+                ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//AVP_SELECT_HAVE_NEXT
+                iTmpSh = (short int)pQuery->RowsAffected();
+                ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//AVP_AFFECTED_ROW
                 
                 TADD_FLOW("QuerySqlLabel=[%d],Execute(),StaticSQL.",iSqlLabel);
             
@@ -5506,9 +5514,9 @@ int TMdbAgentServer::AppSendParamBin(TAgentClient *ptClient)
         }
         TMdbQuery * pQuery = pClientQuery->m_pQuery;
         CHECK_OBJ(pQuery);
-        int iParamCount = 0;
-        int iParamPackageLen = 0;
-        int iParamIndex = 0;
+        char iParamCount = 0;
+        short int iParamPackageLen = 0;
+        char iParamIndex = 0;
         int iParamPos = 0;
         //head+sqllabel+cnt+packageLen+paramIndex+Value
         //packageLen = sizeof(int) * 2 -> null
@@ -5516,8 +5524,8 @@ int TMdbAgentServer::AppSendParamBin(TAgentClient *ptClient)
         iParamPos += NO_OCP_PARAMCNT_POS + sizeof(char); 
         for(int i=0; i<iParamCount; ++i)
         {
-            ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,iParamPos,sizeof(short int));
-            ptClient->m_tRecvDataParse.GetData(&iParamIndex,iParamPos+sizeof(short int),sizeof(char));
+            ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,(size_t)iParamPos,sizeof(short int));
+            ptClient->m_tRecvDataParse.GetData(&iParamIndex,iParamPos+sizeof(short int),(int)sizeof(char));
             if(iParamPackageLen == (sizeof(short int)+sizeof(char)) )
             {//NULL
                 pQuery->SetParameterNULL(iParamIndex);
@@ -5549,15 +5557,15 @@ int TMdbAgentServer::AppSendParamBin(TAgentClient *ptClient)
         if(pQuery->GetSQLType() == TK_SELECT)
         {
             pQuery->Open();
-            CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
         }
         else
         {//
             pQuery->Execute();
             int iTmp = 0;
             ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(char));//AVP_SELECT_HAVE_NEXT
-            iTmp = pQuery->RowsAffected();
-            ptClient->m_tSendDataParse.SetData(&iTmp,sizeof(short int));//AVP_AFFECTED_ROW
+            short int iTmpSh = (short int)pQuery->RowsAffected();
+            ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//AVP_AFFECTED_ROW
         
         }
         //ptClient->m_bFirstNext = false;
@@ -5615,12 +5623,12 @@ int TMdbAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
             return iRet;
         }
 
-        int iBatchCount = 0;
-        int iParamCount = 0;
-        int iParamPackageLen = 0;
-        int iParamIndex = 0;
+        short int iBatchCount = 0;
+        char iParamCount = 0;
+        short int iParamPackageLen = 0;
+        char iParamIndex = 0;
         int iParamPos = 0;
-        int iRowEffect = 0;
+        short int iRowEffect = 0;
         
         //head+sqllabel+batchcnt+pramcount+packageLen+Value
         //packageLen = sizeof(int) * 2 -> null
@@ -5629,12 +5637,12 @@ int TMdbAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
         iParamPos += NO_OCP_BATCHCNT_POS + sizeof(short int) + sizeof(char); 
         
         //获取首个BATCH_GROUP
-        for(int iBatchIndex = 0; iBatchIndex < iBatchCount; ++iBatchIndex)
+        for(short int iBatchIndex = 0; iBatchIndex < iBatchCount; ++iBatchIndex)
         {
             //一个批次
             for(iParamIndex=0; iParamIndex<iParamCount; ++iParamIndex)
             {
-                ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,iParamPos,sizeof(short int));
+                ptClient->m_tRecvDataParse.GetData(&iParamPackageLen,(size_t)iParamPos,sizeof(short int));
                 //ptClient->m_tRecvDataParse.GetData(&iParamIndex,iParamPos+sizeof(int),sizeof(int));
                 if(iParamPackageLen == sizeof(short int) )
                 {
@@ -5663,7 +5671,7 @@ int TMdbAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
                 iParamPos += iParamPackageLen;
             }
             pQuery->Execute();
-            iRowEffect += pQuery->RowsAffected();//执行
+            iRowEffect += (short int)pQuery->RowsAffected();//执行
         }
 
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->m_sSendPackage,CSP_APP_SEND_SQL,ptClient->m_iSessionID,ptClient->m_tHead.GetSequence());
@@ -5691,12 +5699,13 @@ int TMdbAgentServer::AppSendParamArrayBin(TAgentClient *ptClient)
     return iRet;
 }
 
-int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool bFirstNext)throw(TMdbException,TMdbCSPException)
+int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException)
 {
     int iRet = 0;
-    int iCount = 0;
-    int iSetTmp = 0;
-    int iValueLen = 0;
+    short int iCount = 0;
+    char iTmpCh = 0;
+    short int iTmpSh = 0;
+    short int iValueLen = 0;
     char cDataType = 0;
     bool bHaveNext = true;
     bool bFirstNextTmp = bFirstNext;
@@ -5704,8 +5713,8 @@ int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bo
     //bool bFirst = false;
     //head+sqllabel+haveNext+recordCount+fieldCount+nameLen+fieldName+valueLen+Value
     //fieldLen=4 -> null, value no
-    ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(char));//have next
-    ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(short int));//记录个数
+    ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//have next
+    ptClient->m_tSendDataParse.SetData(&iTmpSh,sizeof(short int));//记录个数
     
     while(1)
     {
@@ -5715,8 +5724,8 @@ int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bo
             int j = 0;
             if(bFirstNextTmp)
             {
-                iSetTmp = pQuery->FieldCount();
-                ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(char));//字段个数
+                iTmpCh = (char)pQuery->FieldCount();
+                ptClient->m_tSendDataParse.SetData(&iTmpCh,sizeof(char));//字段个数
                 //bSetFieldCount = true;
             }
             #if 0
@@ -5732,7 +5741,7 @@ int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bo
                 cDataType = pQuery->Field(j).GetDataType();
                 if(bFirstNextTmp)
                 {
-                    iValueLen = strlen(pQuery->Field(j).GetName())+1;
+                    iValueLen = (short int)(strlen(pQuery->Field(j).GetName())+1);
                     ptClient->m_tSendDataParse.SetData(&cDataType,sizeof(cDataType));//name len
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));//name len
                     ptClient->m_tSendDataParse.SetData(pQuery->Field(j).GetName(),iValueLen);//name value
@@ -5745,21 +5754,21 @@ int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bo
                 else if(DT_Int == cDataType)
                 {
                     long long lData = pQuery->Field(j).AsRealnt();
-                    iValueLen = sizeof(lData);
+                    iValueLen = (short int)sizeof(lData);
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));
                     ptClient->m_tSendDataParse.SetData(&lData,iValueLen);
                 }
                 else
                 {
                     char *pData = pQuery->Field(j).AsRealStr();
-                    iValueLen = strlen(pData) + 1;
+                    iValueLen = (short int)strlen(pData) + 1;
                     ptClient->m_tSendDataParse.SetData(&iValueLen,sizeof(short int));
                     ptClient->m_tSendDataParse.SetData(pData,iValueLen);
                 }
             }
             //#endif
             bFirstNextTmp = false;
-            ptClient->m_bFirstNext = false;
+            bFirstNext = false;
             //break;
             if(ptClient->m_tSendDataParse.GetSize() > MAX_CSP_LEN - 4096)
             {//达到最大值
@@ -5780,13 +5789,13 @@ int TMdbAgentServer::FillNextResult(TAgentClient *ptClient,TMdbQuery * pQuery,bo
     ptClient->m_tSendDataParse.SetData(&iCount,SIZE_MSG_BIN_HEAD+5,sizeof(short int));//记录个数
     if(bHaveNext)
     {
-        iSetTmp = 1;
-        ptClient->m_tSendDataParse.SetData(&iSetTmp,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
+        iTmpCh = 1;
+        ptClient->m_tSendDataParse.SetData(&iTmpCh,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
     }
     else
     {
-        iSetTmp = 0 ;
-        ptClient->m_tSendDataParse.SetData(&iSetTmp,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
+        iTmpCh = 0 ;
+        ptClient->m_tSendDataParse.SetData(&iTmpCh,SIZE_MSG_BIN_HEAD+4,sizeof(char));//have next
     }
     return iRet;
 }
@@ -5811,7 +5820,7 @@ int TMdbAgentServer::AppNextSQLResultBin(TAgentClient *ptClient)
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
         if(pQuery->GetSQLType() == TK_SELECT)
         {
-            CHECK_RET(FillNextResult(ptClient,pQuery),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             SendAnswer(ptClient,0,"AppNextSQLResult OK");
         }
         else
@@ -5890,7 +5899,7 @@ int TMdbAgentServer::AppGetQmdbInfoBin(TAgentClient *ptClient)
     {
         char sCmd[32]="";
         ptClient->m_tRecvDataParse.InitDataSrc((char*)ptClient->m_sRecvPackage);
-        ptClient->m_tRecvDataParse.GetData(sCmd,SIZE_MSG_BIN_HEAD,ptClient->m_tHead.iLen - SIZE_MSG_BIN_HEAD);
+        ptClient->m_tRecvDataParse.GetData(sCmd,SIZE_MSG_BIN_HEAD,(int)(ptClient->m_tHead.iLen - SIZE_MSG_BIN_HEAD));
         TMdbInfoCollect mdbInfoCollect;
         mdbInfoCollect.Attach(m_pDsn->sName);
         std::string str;
@@ -5923,7 +5932,7 @@ int TMdbAgentServer::AppGetSequenceBin(TAgentClient *ptClient)
     {
         char sSeqName[64]="";
         ptClient->m_tRecvDataParse.InitDataSrc((char*)ptClient->m_sRecvPackage);
-        ptClient->m_tRecvDataParse.GetData(sSeqName,SIZE_MSG_BIN_HEAD,ptClient->m_tHead.iLen - SIZE_MSG_BIN_HEAD);
+        ptClient->m_tRecvDataParse.GetData(sSeqName,SIZE_MSG_BIN_HEAD,(int)(ptClient->m_tHead.iLen - SIZE_MSG_BIN_HEAD));
         TMdbSequenceMgr * pSeqMgr = ptClient->GetSeqMgrByName(sSeqName,m_pConfig);
         if(NULL == pSeqMgr)
         {
@@ -5961,10 +5970,11 @@ int TMdbAgentServer::SendAnswer(TAgentClient *ptClient,int iAnsCode,const char *
     int iRet = 0;
     try
     {
-        ptClient->m_tSendDataParse.SetData(&iAnsCode,sizeof(short int),true);
+        short int iAnsCodeSh = (short int)iAnsCode;
+        ptClient->m_tSendDataParse.SetDataAnsCode(&iAnsCodeSh,sizeof(short int));
         if(sMsg)
         {
-            ptClient->m_tSendDataParse.SetData((char*)sMsg,strlen(sMsg)+1);
+            ptClient->m_tSendDataParse.SetData((char*)sMsg,(int)(strlen(sMsg)+1));
         }
         ptClient->m_tSendDataParse.SetSize();
         ptClient->m_tHead.iLen = (unsigned int)ptClient->m_tSendDataParse.GetSize();

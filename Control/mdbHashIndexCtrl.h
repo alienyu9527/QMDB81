@@ -27,7 +27,7 @@
         TMdbIndexNode            * pConflictIndexNode;//冲突索引链
 		TMdbReIndexNode 		 * pReConfNode; 
 		TMdbHashBaseMutex		 * pMutex;
-        TMutex* pMutexNode;
+        TMiniMutex* pMutexNode;
         void Clear()
         {
             pBIndexMgr = NULL;
@@ -112,10 +112,16 @@
         int AddTableSingleIndex(TMdbTable * pTable,int iIndexPos,size_t iDataSize);
         int DeleteTableIndex(ST_HASH_INDEX_INFO& tIndexInfo);//删除某个表的索引
         int TruncateTableIndex(ST_HASH_INDEX_INFO& tIndexInfo);
-        int InsertIndexNode(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndex, TMdbRowID& rowID);//插入索引节点
-        int UpdateIndexNode(int iIndexPos,TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashInfo,TMdbRowID& tRowId);//更新索引节点
-        int DeleteIndexNode(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndexInfo,TMdbRowID& rowID);
-        int PrintIndexInfo(ST_HASH_INDEX_INFO& tIndexInfo,int iDetialLevel,bool bConsole);//打印详细索引信息iDetialLevel=[0~3] 0-最少信息，1-一般信息，2-详细信息
+
+		int InsertIndexNode(TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndex, TMdbRowID& rowID);//插入索引节点
+	    int UpdateIndexNode(TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashInfo,TMdbRowID& tRowId);//更新索引节点
+	    int DeleteIndexNode(TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndexInfo,TMdbRowID& rowID);
+
+		int InsertIndexNode2(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndex, TMdbRowID& rowID);//插入索引节点
+        int UpdateIndexNode2(int iIndexPos,TMdbRowIndex& tOldRowIndex,TMdbRowIndex& tNewRowIndex,ST_HASH_INDEX_INFO& tHashInfo,TMdbRowID& tRowId);//更新索引节点
+        int DeleteIndexNode2(int iIndexPos,TMdbRowIndex& tRowIndex,ST_HASH_INDEX_INFO& tHashIndexInfo,TMdbRowID& rowID);
+
+		int PrintIndexInfo(ST_HASH_INDEX_INFO& tIndexInfo,int iDetialLevel,bool bConsole);//打印详细索引信息iDetialLevel=[0~3] 0-最少信息，1-一般信息，2-详细信息
         int PrintIndexInfoDetail(int iDetialLevel,bool bConsole,ST_HASH_INDEX_INFO & stIndexInfo);//打印详细索引信息iDetialLevel=[0~3] 0-最少信息，1-一般信息，2-详细信息
 		int PrintRePosIndexInfoDetail(int iDetialLevel,bool bConsole, ST_HASH_INDEX_INFO & stIndexInfo);        int PrintWarnIndexInfo(int iMaxCNodeCount);//打印存在冲突链大于指定长度的索引
         int FindRowIndexCValue(ST_HASH_INDEX_INFO tHashIndexInfo,TMdbRowIndex & tRowIndex,TMdbRowID& rowID);//查找冲突索引值
@@ -135,7 +141,7 @@
         int InitIndexNode(TMdbIndexNode* pNode,MDB_INT64 iSize,bool bList);
 		int InitRePosIndexNode(TMdbReIndexNode* pNode,MDB_INT64 iSize,bool bList);
 		int InitHashMutex(ST_HASH_INDEX_INFO & tTableIndex,TMdbTable * pTable);		
-		int InitMutexNode(TMutex* pNode,MDB_INT64 iSize);
+		int InitMutexNode(TMiniMutex* pNode,MDB_INT64 iSize);
 		
         int GetFreeBIndexShm(MDB_INT64 iBaseIndexSize,size_t iDataSize,ST_HASH_INDEX_INFO & stTableIndexInfo);//获取空闲索引内存块
         int GetFreeCIndexShm(MDB_INT64 iConflictIndexSize,size_t iDataSize,ST_HASH_INDEX_INFO & stTableIndexInfo,bool bRePosIndex);//获取空闲索引内存块

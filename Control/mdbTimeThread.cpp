@@ -245,6 +245,7 @@
             }
             //设置当前时间
             TMdbDateTime::GetCurrentTimeStr(m_pDsn->sCurTime);
+			m_pDsn->iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
             gettimeofday(&m_pDsn->tCurTime, NULL);
             TADD_DETAIL("m_pDsn->sCurTime=[%s].", m_pDsn->sCurTime);
             

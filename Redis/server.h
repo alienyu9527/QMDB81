@@ -114,11 +114,12 @@
 class stClientQuery
 {
 public:
-    stClientQuery(){m_pQuery=NULL;m_iSqlLabel=0;};
+    stClientQuery(){m_pQuery=NULL;m_iSqlLabel=0;m_bFirstNext=true;};
     ~stClientQuery(){SAFE_DELETE(m_pQuery);};
 public:
     TMdbQuery *m_pQuery;
     int m_iSqlLabel;//SQL标识
+    bool m_bFirstNext;
 };
 
 /* With multiplexing we need to take per-client state.
@@ -241,7 +242,7 @@ public:
     int AppNextSQLResultBin(client *ptClient);//响应next操作
     int AuthenticationBin(client *ptClient);//认证
     int SendAnswer(client *ptClient,int AnsCode,const char * sMsg);//发回复信息
-    int FillNextResult(client *ptClient,TMdbQuery * pQuery,bool bFirstNext=false)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
+    int FillNextResult(client *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException);//填充查询的next 返回值
     int AppTransActionBin(client *ptClient);//事务处理
     int AppGetQmdbInfoBin(client *ptClient);//获取qmdb 信息包
     int AppGetSequenceBin(client *ptClient);//获取序列

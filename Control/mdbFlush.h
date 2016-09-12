@@ -184,8 +184,8 @@
 		int Init(TMdbShmDSN * pShmDSN,TMdbTable*  pTable, int iSqlType,char* pDataAddr);
 		int InsertBufIntoQueue();
 		int InsertBufIntoCapture();		
-		int MakeBuf(MDB_INT64 iLsn,long long iTimeStamp);
-		
+		int MakeBuf(MDB_INT64 iLsn);
+		bool IsNeedMakeBuf();
 		
     private:
 		bool bNeedToFlush();//ÊÇ·ñÐèÒªflush
@@ -199,6 +199,7 @@
 		bool CheckIsPK(int iPos);
 
     private:
+		TMdbShmDSN * m_pShmDsn;
         TMdbMemQueue* m_pQueue;
 		TMdbConfig* m_pConfig;
         TMdbDSN     * m_pDsn;
@@ -220,6 +221,9 @@
         char* m_psNameBuff;
 		char* m_psColmLenBuff;
 		char* m_psColmValueBuff;
+
+		bool m_bNeedFlush;
+		bool m_bIsCurRowNeedCapture;
 		
     };
 

@@ -224,7 +224,7 @@ if(MemValueHasAnyProperty(M,MEM_Str|MEM_Date|MEM_Blob))\
 {\
        if(NULL != M->sValue){delete [] (M->sValue);M->sValue=NULL;}\
 	M->sValue = new char[S];\
-	memset(M->sValue,0x00,S);\
+	memset(M->sValue,0x00,(size_t)S);\
 	MemValueSetProperty(M,MEM_Dyn);\
 }
 

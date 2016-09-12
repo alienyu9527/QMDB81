@@ -143,7 +143,7 @@ TOraQueueBase::~TOraQueueBase()
 
 void TOraQueueBase::SetLogin(const char *user, const char *password, const char *tnsString) throw (TOraDBException)
 {
-    int nLen;
+    size_t nLen;
     //保存外部传递的参数
     if ( usr != NULL) 
         delete[] usr;
@@ -400,7 +400,7 @@ void TOraDBDatabase::SetLogin(const char *user, const char *password, const char
         throw TOraDBException("SetLogin()", MDB_ERR_SET_LOGIN , __LINE__);
         }
 
-    int nLen;
+    size_t nLen;
     //保存外部传递的参数
     if ( usr != NULL) 
         delete[] usr;

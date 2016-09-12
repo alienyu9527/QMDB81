@@ -136,7 +136,7 @@ char* StrPair::ParseName( char* p )
         return 0;
     }
 
-    while( *p && ( p == start ? XMLUtil::IsNameStartChar( *p ) : XMLUtil::IsNameChar( *p ) )) {
+    while( *p && ( p == start ? XMLUtil::IsNameStartChar( (unsigned char)(*p) ) : XMLUtil::IsNameChar( (unsigned char)(*p) ) )) {
         ++p;
     }
 
@@ -225,7 +225,7 @@ const char* StrPair::GetStr()
                     else {
                         int i=0;
                         for(; i<NUM_ENTITIES; ++i ) {
-                            if (    strncmp( p+1, entities[i].pattern, entities[i].length ) == 0
+                            if (    strncmp( p+1, entities[i].pattern, (size_t)(entities[i].length) ) == 0
                                     && *(p+entities[i].length+1) == ';' ) {
                                 // Found an entity convert;
                                 *q = entities[i].value;
@@ -355,13 +355,13 @@ const char* XMLUtil::GetCharacterRef( const char* p, char* value, int* length )
 
             while ( *q != 'x' ) {
                 if ( *q >= '0' && *q <= '9' ) {
-                    ucs += mult * (*q - '0');
+                    ucs += mult * (unsigned int)(*q - '0');
                 }
                 else if ( *q >= 'a' && *q <= 'f' ) {
-                    ucs += mult * (*q - 'a' + 10);
+                    ucs += mult * (unsigned int)(*q - 'a' + 10);
                 }
                 else if ( *q >= 'A' && *q <= 'F' ) {
-                    ucs += mult * (*q - 'A' + 10 );
+                    ucs += mult * (unsigned int)(*q - 'A' + 10 );
                 }
                 else {
                     return 0;
@@ -388,7 +388,7 @@ const char* XMLUtil::GetCharacterRef( const char* p, char* value, int* length )
 
             while ( *q != '#' ) {
                 if ( *q >= '0' && *q <= '9' ) {
-                    ucs += mult * (*q - '0');
+                    ucs += mult * (unsigned int)(*q - '0');
                 }
                 else {
                     return 0;
@@ -407,19 +407,19 @@ const char* XMLUtil::GetCharacterRef( const char* p, char* value, int* length )
 
 void XMLUtil::ToStr( int v, char* buffer, int bufferSize )
 {
-    TIXML_SNPRINTF( buffer, bufferSize, "%d", v );
+    TIXML_SNPRINTF( buffer, (size_t)bufferSize, "%d", v );
 }
 
 
 void XMLUtil::ToStr( unsigned v, char* buffer, int bufferSize )
 {
-    TIXML_SNPRINTF( buffer, bufferSize, "%u", v );
+    TIXML_SNPRINTF( buffer, (size_t)bufferSize, "%u", v );
 }
 
 
 void XMLUtil::ToStr( bool v, char* buffer, int bufferSize )
 {
-    TIXML_SNPRINTF( buffer, bufferSize, "%d", v ? 1 : 0 );
+    TIXML_SNPRINTF( buffer, (size_t)bufferSize, "%d", v ? 1 : 0 );
 }
 
 /*
@@ -428,13 +428,13 @@ void XMLUtil::ToStr( bool v, char* buffer, int bufferSize )
 */
 void XMLUtil::ToStr( float v, char* buffer, int bufferSize )
 {
-    TIXML_SNPRINTF( buffer, bufferSize, "%.8g", v );
+    TIXML_SNPRINTF( buffer, (size_t)bufferSize, "%.8g", v );
 }
 
 
 void XMLUtil::ToStr( double v, char* buffer, int bufferSize )
 {
-    TIXML_SNPRINTF( buffer, bufferSize, "%.17g", v );
+    TIXML_SNPRINTF( buffer, (size_t)bufferSize, "%.17g", v );
 }
 
 
@@ -1437,7 +1437,7 @@ char* XMLElement::ParseAttributes( char* p )
         }
 
         // attribute.
-        if (XMLUtil::IsNameStartChar( *p ) ) {
+        if (XMLUtil::IsNameStartChar( (unsigned char)*p ) ) {
             XMLAttribute* attrib = new (_document->_attributePool.Alloc() ) XMLAttribute();
             attrib->_memPool = &_document->_attributePool;
 			attrib->_memPool->SetTracked();
@@ -1696,7 +1696,7 @@ XMLError XMLDocument::LoadFile( FILE* fp )
     }
 
     fseek( fp, 0, SEEK_END );
-    size_t size = ftell( fp );
+    size_t size = (size_t)ftell( fp );
     fseek( fp, 0, SEEK_SET );
 
     if ( size == 0 ) {
@@ -1875,7 +1875,7 @@ void XMLPrinter::Print( const char* format, ... )
         va_end( va );
         va_start( va, format );
         char* p = _buffer.PushArr( len ) - 1;
-        vsnprintf( p, len+1, format, va );
+        vsnprintf( p, (size_t)(len+1), format, va );
 #endif
     }
     va_end( va );

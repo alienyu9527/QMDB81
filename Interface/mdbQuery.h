@@ -27,6 +27,7 @@ class TMdbLocalLink;
 class TMdbConfig;
 class TMdbLinkCtrl;
 class TMdbMultiProtector;
+class TMdbFlushTrans;
 class TMdbClientEngine;
 class TMdbDDLExecuteEngine;
 class TMdbNosqlQuery;
@@ -421,6 +422,8 @@ private:
 
     TMdbLinkCtrl * m_pLinkCtrl;//链接管理
     TMdbMultiProtector * m_pMultiProtector;//并发保护
+    
+	TMdbFlushTrans* m_pMdbFlushTrans;
 };
 
 
@@ -479,48 +482,34 @@ public:
     * 函数描述	:  设置数据
     * 输入		:  bAnsCode表示是否为应答码
     *******************************************************************************/
-    void    SetData(char* pData,int iLen,bool bAnsCode = false)
+    void    SetData(char* pData,int iLen)
     {
         memcpy(m_pData+m_iSize,pData,(size_t)iLen);
-        if(bAnsCode)
-        {
-            iAnsCodePos = (unsigned short int)m_iSize;
-            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
-        }
         m_iSize += iLen;
     }
-    void    SetData(int * pData,int iLen,bool bAnsCode = false)
+    void    SetData(int * pData,int iLen)
     {
         memcpy(m_pData+m_iSize,pData,(size_t)iLen);
-        if(bAnsCode)
-        {
-            iAnsCodePos = (unsigned short int)m_iSize;
-            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
-        }
         m_iSize += iLen;
     }
-    void    SetData(long long * pData,int iLen,bool bAnsCode = false)
+    void    SetData(long long * pData,int iLen)
     {
         memcpy(m_pData+m_iSize,pData,(size_t)iLen);
-        if(bAnsCode)
-        {
-            iAnsCodePos = (unsigned short int)m_iSize;
-            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
-        }
         m_iSize += iLen;
     }
-    void    SetData(unsigned short int * pData,int iLen,bool bAnsCode = false)
+    void    SetData(short int * pData,int iLen)
     {
         memcpy(m_pData+m_iSize,pData,(size_t)iLen);
-        if(bAnsCode)
-        {
-            iAnsCodePos = (unsigned short int)m_iSize;
-            //memcpy(m_pData+6,&m_iSize,sizeof(short int));//anscode 位置
-        }
         m_iSize += iLen;
     }
-        
-    void    SetData(char *pData,int iPos,int iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
+    void    SetDataAnsCode(short int * pData,size_t iLen)
+    {
+        memcpy(m_pData+m_iSize,pData,iLen);
+        iAnsCodePos = (unsigned short int)m_iSize;
+        m_iSize += (int)iLen;
+    }
+    void    SetData(short int *pData,int iPos,size_t iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
+    void    SetData(char *pData,int iPos,size_t iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
     void    SetData(int *pData,int iPos,int iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
     void    SetData(int *pData,int iPos,size_t iLen){memcpy(m_pData+iPos,pData,(size_t)iLen);};
     void    SetSize();
@@ -528,7 +517,7 @@ public:
     void    GetData(char* pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
     void    GetData(int * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
     void    GetData(long long * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
-    void    GetData(unsigned short int * pData,int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
+    void    GetData(short int * pData,size_t iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
     void    GetData(unsigned short int * pData,unsigned short int iPos,int iLen){memcpy(pData,m_pData+iPos,(size_t)iLen);};
     
     void    InitDataSrc(char *pSrc){m_pData = pSrc;};
@@ -670,6 +659,11 @@ private:
     int 					m_iNextStep;
     char* 					m_sSQL; //存放临时的SQL语句
     int 					m_iSQLBuffLen;
+    //bin
+    char 			        m_iFiledCountsBin;  //filed个数
+    short int   	        m_iRowsAffBin;
+    short int               m_iRowsCurNextBin;        //select ,update delete 等影响的行数
+    char 					m_iIsNeedNextOperBin;   //返回的数据量大,是否需要next指令继续查询
     //char 					m_sMsgHead[SIZE_MSG_AVP_HEAD+1];
     unsigned char 			m_sRecvPackage[65536];
     unsigned char 			m_sSendPackage[65536];

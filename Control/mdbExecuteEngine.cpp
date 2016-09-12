@@ -250,14 +250,8 @@
             TADD_FLOW("Create new Update Block.size[%d].",m_pTable->iOneRecordSize);
         }
 		
-        bool bNext = false;
-        
-        long long iTimeStamp = 0;
-        iTimeStamp = m_pMdbSqlParser->GetTimeStamp();
-        if(iTimeStamp <= 0)
-        {
-            iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
-        }
+        bool bNext = false; 
+        long long iTimeStamp = m_pDsn->iTimeStamp;  
         
         while(1)
         {
@@ -309,14 +303,6 @@
         }
 		
 		bool bNext = false;
-        
-        long long iTimeStamp = 0;
-        iTimeStamp = m_pMdbSqlParser->GetTimeStamp();
-        if(iTimeStamp <= 0)
-        {
-            iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
-        }
-        
         while(1)
         {
             
@@ -335,6 +321,11 @@
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
 			//复制VarChar和blob
 			CloneVarChar(m_pInsertBlock, m_pDataAddr);
+
+			char* pOldDataAddr = m_pDataAddr;
+			CHECK_OBJ(pOldDataAddr);
+			char* pOldPageAddr = m_pPageAddr;
+			CHECK_OBJ(pOldPageAddr);
 			
 			TMdbRowID RowID;
 			do
@@ -349,12 +340,16 @@
 	        }
 			while(0);
 
-			
 			TRBRowUnit tRBRowUnit;
 			tRBRowUnit.pTable = m_pTable;
 			tRBRowUnit.SQLType = TK_UPDATE;
 			tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
 			tRBRowUnit.iVirtualRowID = RowID.m_iRowID;
+			tRBRowUnit.pRealDataAddr = pOldDataAddr;
+			tRBRowUnit.pVirtualDataAddr = m_pDataAddr;
+			tRBRowUnit.pRealPageAddr = pOldPageAddr;
+			tRBRowUnit.pVirtualPageAddr = m_pPageAddr;
+			
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 
             m_iRowsAffected ++;
@@ -417,7 +412,6 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        //CHECK_RET_FILL(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue[InputCollist] error.");
         CHECK_RET_FILL(m_pMdbSqlParser->ExecuteSQL(),"ExecuteSQL error.");
         //对于创建的表如果没有索引不允许插入操作
         if(m_pTable->iIndexCounts == 0)
@@ -444,13 +438,7 @@
             TADD_FLOW("Create new Insert Block.size[%d].",m_pTable->iOneRecordSize);
         }
         memset(m_pInsertBlock,0x00,m_pTable->iOneRecordSize);
-        //m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);//加表锁
-        
-        long long iTimeStamp = m_pMdbSqlParser->GetTimeStamp();
-        if(iTimeStamp <= 0)
-        {
-            iTimeStamp = TMdbDateTime::StringToTime(m_pDsn->sCurTime);
-        }
+        long long iTimeStamp = m_pDsn->iTimeStamp;  
 
         TMdbRowID  rowID;
         do
@@ -458,7 +446,6 @@
             CHECK_RET_FILL_BREAK(InsertDataFill(m_pInsertBlock),"InsertDataFill failed....");//填充数据
             // 设置记录时间戳
             CHECK_RET_FILL_BREAK(SetRowDataTimeStamp(m_pInsertBlock, m_pTable->m_iTimeStampOffset,iTimeStamp),"insert row data timestamp failed.");
-            //CHECK_RET_FILL_BREAK(PushRollbackData(m_pInsertBlock,NULL),"PushRollbackData failed...");//压入回滚数据成功后才能更新内核数据
             CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize,rowID),"InsertData failed");//插入到内存中
             CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue failed.");//填充其他需要填充的信心
         }
@@ -473,6 +460,10 @@
 			tRBRowUnit.SQLType = TK_INSERT;
 			tRBRowUnit.iRealRowID = 0;
 			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
+			tRBRowUnit.pRealDataAddr = NULL;
+			tRBRowUnit.pVirtualDataAddr = m_pDataAddr ;
+			tRBRowUnit.pRealPageAddr = NULL;
+			tRBRowUnit.pVirtualPageAddr = m_pPageAddr;
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 		}
 		else
@@ -480,6 +471,7 @@
 	        m_pTable->tTableMutex.Lock(m_pTable->bWriteLock,&m_pDsn->tCurTime);
 	        ++m_pTable->iCounts;//表记录数增加1
 	        m_pTable->tTableMutex.UnLock(m_pTable->bWriteLock);
+			
 			CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoQueue(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoQueue failed[%d].",iRet);
         	CHECK_RET_FILL_CODE(m_tMdbFlush.InsertIntoCapture(((TMdbPage *)m_pPageAddr)->m_iPageLSN,iTimeStamp),ERR_SQL_FLUSH_DATA,"InsertIntoCapture failed[%d].",iRet);       
 		}
@@ -490,6 +482,7 @@
     }
 
 	//删除某一条记录,外部调用,非sql调用
+	//steps: 删除索引->删除varchar->删除内存
     int TMdbExecuteEngine::ExecuteDelete(char* pPage,char* pDataAddr,TMdbRowID rowID,TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable)
     {		
         TADD_FUNC("Start.");
@@ -569,6 +562,10 @@
 				tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
 				tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
 				tRBRowUnit.iVirtualRowID = 0;
+				tRBRowUnit.pRealDataAddr  =  m_pDataAddr;
+				tRBRowUnit.pVirtualDataAddr  = NULL;
+				tRBRowUnit.pRealPageAddr = m_pPageAddr;
+				tRBRowUnit.pVirtualPageAddr = NULL;
 				CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 			}
 			else
@@ -674,6 +671,7 @@
             if(iRet == 0)
             {
                 m_mdbTSCtrl.SetPageDirtyFlag(pFreePage->m_iPageID);
+				InitDataMutex(m_pDataAddr);
 				SetDataFlagInsert(m_pDataAddr);
             }
             m_mdbPageCtrl.UnWLock();//解页锁
@@ -2393,6 +2391,15 @@
 		{
 			pNode->iSessionID = 0;
 			pNode->cFlag = DATA_REAL;
+		}
+	}
+
+	void  TMdbExecuteEngine::InitDataMutex(char* pAddr)
+	{
+		if(IsUseTrans())
+		{
+			TMdbPageNode*  pNode = (TMdbPageNode*)pAddr -1;
+			pNode->tMutex.Create();
 		}
 	}
 

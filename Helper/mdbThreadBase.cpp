@@ -45,7 +45,7 @@ using namespace std;
     {
         m_iTID = -1; 
         m_lpVoid = NULL;  
-        m_iStack = -1;
+        m_iStack = 0;
     }
 
     TMdbThreadBase::TMdbThreadBase()
@@ -155,7 +155,7 @@ using namespace std;
 #ifdef _WIN32
     	iRet = TerminateThread((HANDLE)m_iTID, 0);
 #else
-    	iRet = pthread_cancel(m_iTID);
+    	iRet = pthread_cancel((pthread_t)m_iTID);
 #endif
 
     	return iRet;    

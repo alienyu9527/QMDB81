@@ -220,7 +220,7 @@
 	                pFreePageNode->iNextNode = m_iFullPageNode;
 	                m_iFullPageNode = iNewDataOffset - static_cast<int>(sizeof(TMdbPageNode));
 				}
-				pFreePageNode->tMutex.Create();
+				//pFreePageNode->tMutex.Create();
 				pFreePageNode->cFlag = 0;
 				
             }
@@ -245,7 +245,7 @@
 	                m_iFullPageNode = m_iFreeOffSet;
 	                m_iFreeOffSet += m_iRecordSize + static_cast<int>(sizeof(TMdbPageNode));
             	}
-				pFreePageNode->tMutex.Create();
+				//pFreePageNode->tMutex.Create();
 				pFreePageNode->cFlag = 0;
 				
             }

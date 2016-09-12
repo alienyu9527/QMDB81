@@ -365,14 +365,10 @@ char* TMsqDBField::AsString() throw (TMsqDBException)
         }     
         case MYSQL_TYPE_STRING:
         case MYSQL_TYPE_VAR_STRING:
+        case MYSQL_TYPE_BLOB:
         {
             return (char*)buffer; 
         }    
-        case MYSQL_TYPE_BLOB:
-        {
-            sprintf((char *)fStrBuffer, "BLOB...");
-            return (char *)fStrBuffer;
-        }  
         default:
         {
             TADD_ERROR(ERROR_UNKNOWN,"[%s:%d] TMsqDBField::AsString()  MDB_ERR_DATA_TYPE_CONVERT  buffer_type[%d]",__FILE__,__LINE__,buffer_type);

@@ -134,7 +134,7 @@ bool TMdbQueue::Push(char * const sData, const int iLen)
 
         if(ShmIsEnable == true)
         {
-            memcpy(m_pCurAddr, sData, iLen);
+            memcpy(m_pCurAddr, sData, static_cast<size_t>(iLen));
             m_pQueueShm->iPushPos += iLen;
              m_pQueueShm->tPushMutex.UnLock(true); 
             break;
@@ -196,9 +196,9 @@ int TMdbQueue::Pop()
         iRet = CheckRepDataIsValid();
         if(iRet == T_SUCCESS)
         {
-            memcpy(m_pszRecord,m_pCurAddr,m_iRecordLen);
+            memcpy(m_pszRecord,m_pCurAddr,static_cast<size_t>(m_iRecordLen));
             m_pszRecord[m_iRecordLen] = 0;
-            memset(m_pCurAddr,0,m_iRecordLen);
+            memset(m_pCurAddr,0,static_cast<size_t>(m_iRecordLen));
             break;
         }
         if(ERROR_TIMES-1 == iErrorCount)
@@ -224,7 +224,7 @@ int TMdbQueue::Pop()
         m_iRecordLen = 0;
         m_iRecordLen = GetPosOfNext();
         WriteInvalidData(m_iRecordLen);
-        memset(m_pCurAddr,0,m_iRecordLen);
+        memset(m_pCurAddr,0,static_cast<size_t>(m_iRecordLen));
     }
     m_pQueueShm->iPopPos+=m_iRecordLen;
     TADD_FUNC("Finish.");
@@ -259,10 +259,10 @@ int TMdbQueue::PopRepData()
         iRet = CheckRepDataIsValid();
         if(iRet == T_SUCCESS)
         {
-            memcpy(m_pszRecord,m_pCurAddr,m_iRecordLen);
+            memcpy(m_pszRecord,m_pCurAddr,static_cast<size_t>(m_iRecordLen));
 
             m_pszRecord[m_iRecordLen] = 0;
-            memset(m_pCurAddr,0,m_iRecordLen);
+            memset(m_pCurAddr,0,static_cast<size_t>(m_iRecordLen));
             break;
         }
         if(ERROR_TIMES-1 == iErrorCount)
@@ -288,7 +288,7 @@ int TMdbQueue::PopRepData()
         m_iRecordLen = 0;
         m_iRecordLen = GetPosOfNext();
         WriteInvalidData(m_iRecordLen);
-        memset(m_pCurAddr,0,m_iRecordLen);
+        memset(m_pCurAddr,0,(size_t)m_iRecordLen);
     }
     m_pQueueShm->iPopPos+=m_iRecordLen;
     TADD_FUNC("Finish.");
@@ -458,7 +458,7 @@ int TMdbQueue::CheckRepDataIsValid()
 bool TMdbQueue::CheckRecord(char *pszRecord,const int iLen)
 {
     TADD_FUNC("Start.");
-    int iRealLen = strlen(pszRecord);
+    int iRealLen = (int)strlen(pszRecord);
     if(iRealLen != iLen)
     {
         TADD_ERROR(ERROR_UNKNOWN,"Record length error,RealLen=%d,RecordLen=%d.",iRealLen,iLen);
@@ -502,16 +502,16 @@ bool TMdbQueue::WriteInvalidData(const int iInvalidLen)
     TMdbDateTime::GetCurrentTimeStr(sCurtime);
     memset(m_pszErrorRecord,0,sizeof(m_pszErrorRecord));
     snprintf(m_pszErrorRecord,MAX_VALUE_LEN,"\n%s [Invalid Data] : ",sCurtime);
-    iLen = strlen(m_pszErrorRecord);
+    iLen = (int)strlen(m_pszErrorRecord);
     if(iInvalidLen >= MAX_VALUE_LEN-iLen)
     {
-        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,MAX_VALUE_LEN-iLen);
+        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,(size_t)(MAX_VALUE_LEN-iLen));
         iLen = MAX_VALUE_LEN;
         m_pszErrorRecord[iLen-1] = '\0';
     }
     else
     {
-        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,iInvalidLen);
+        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,(size_t)iInvalidLen);
         iLen += iInvalidLen;
         m_pszErrorRecord[iLen] = '\0';
     }
@@ -538,7 +538,7 @@ bool TMdbQueue::WriteInvalidData(const int iInvalidLen)
             return false;
         }
     }
-    if(fwrite(m_pszErrorRecord,iLen,1,m_pFile) == 0)
+    if(fwrite(m_pszErrorRecord,(size_t)iLen,1,m_pFile) == 0)
     {
         TADD_ERROR(ERROR_UNKNOWN,"fwrite() failed, errno=%d, errmsg=[%s].", errno, strerror(errno));
         return false;
@@ -700,7 +700,7 @@ bool TMdbOnlineRepQueue::Push(char * const sData, const int iLen)
 
         if(ShmIsEnable == true)
         {
-            memcpy(m_pCurAddr, sData, iLen);
+            memcpy(m_pCurAddr, sData, (size_t)iLen);
             m_pOnlineRepQueueShm->iPushPos += iLen;
             m_pOnlineRepQueueShm->tPushMutex.UnLock(true); 
 			TADD_DETAIL("iPushPos = [%d], iPopPos = [%d], iCleanPos = [%d]", m_pOnlineRepQueueShm->iPushPos, m_pOnlineRepQueueShm->iPopPos, m_pOnlineRepQueueShm->iCleanPos);
@@ -768,7 +768,7 @@ int TMdbOnlineRepQueue::Pop()
         iRet = CheckRepDataIsValid();
         if(iRet == T_SUCCESS)
         {
-            memcpy(m_pszRecord,m_pCurAddr,m_iRecordLen);
+            memcpy(m_pszRecord,m_pCurAddr,(size_t)m_iRecordLen);
             m_pszRecord[m_iRecordLen] = 0;
             //memset(m_pCurAddr,0,m_iRecordLen);
             break;
@@ -805,7 +805,7 @@ int TMdbOnlineRepQueue::Pop()
 	{
 		if(m_iPopPos - m_iCleanPos >= MAX_REP_LINK_BUF_RESERVE_LEN)
 		{
-			memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, m_iPopPos - m_iCleanPos - MAX_REP_LINK_BUF_RESERVE_LEN);
+			memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, (size_t)(m_iPopPos - m_iCleanPos - MAX_REP_LINK_BUF_RESERVE_LEN));
 			m_pOnlineRepQueueShm->iCleanPos=m_pOnlineRepQueueShm->iPopPos - MAX_REP_LINK_BUF_RESERVE_LEN;
 		}
 	}
@@ -815,13 +815,13 @@ int TMdbOnlineRepQueue::Pop()
 		{
 			if(m_iPopPos-m_iStartPos >= MAX_REP_LINK_BUF_RESERVE_LEN)
 			{
-				memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, m_iTailPos-m_iCleanPos);
-				memset((char*)m_pOnlineRepQueueShm + m_iStartPos, 0, m_iPopPos-m_iStartPos - MAX_REP_LINK_BUF_RESERVE_LEN);
+				memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, (size_t)(m_iTailPos-m_iCleanPos));
+				memset((char*)m_pOnlineRepQueueShm + m_iStartPos, 0, (size_t)(m_iPopPos-m_iStartPos - MAX_REP_LINK_BUF_RESERVE_LEN));
 				m_pOnlineRepQueueShm->iCleanPos=m_pOnlineRepQueueShm->iPopPos-MAX_REP_LINK_BUF_RESERVE_LEN;
 			}
 			else
 			{
-				memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, m_iTailPos + m_iPopPos -m_iStartPos - MAX_REP_LINK_BUF_RESERVE_LEN -m_iCleanPos);
+				memset((char*)m_pOnlineRepQueueShm + m_iCleanPos, 0, (size_t)(m_iTailPos + m_iPopPos -m_iStartPos - MAX_REP_LINK_BUF_RESERVE_LEN -m_iCleanPos));
 				m_pOnlineRepQueueShm->iCleanPos=m_pOnlineRepQueueShm->iTailPos+m_pOnlineRepQueueShm->iPopPos-m_pOnlineRepQueueShm->iStartPos-MAX_REP_LINK_BUF_RESERVE_LEN;
 			}
 		}
@@ -978,16 +978,16 @@ bool TMdbOnlineRepQueue::WriteInvalidData(const int iInvalidLen)
     TMdbDateTime::GetCurrentTimeStr(sCurtime);
     memset(m_pszErrorRecord,0,sizeof(m_pszErrorRecord));
     snprintf(m_pszErrorRecord,MAX_VALUE_LEN,"\n%s [Invalid Data] : ",sCurtime);
-    iLen = strlen(m_pszErrorRecord);
+    iLen = (int)strlen(m_pszErrorRecord);
     if(iInvalidLen >= MAX_VALUE_LEN-iLen)
     {
-        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,MAX_VALUE_LEN-iLen);
+        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,(size_t)(MAX_VALUE_LEN-iLen));
         iLen = MAX_VALUE_LEN;
         m_pszErrorRecord[iLen-1] = '\0';
     }
     else
     {
-        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,iInvalidLen);
+        memcpy(m_pszErrorRecord+iLen,m_pCurAddr,(size_t)iInvalidLen);
         iLen += iInvalidLen;
         m_pszErrorRecord[iLen] = '\0';
     }
@@ -1014,7 +1014,7 @@ bool TMdbOnlineRepQueue::WriteInvalidData(const int iInvalidLen)
             return false;
         }
     }
-    if(fwrite(m_pszErrorRecord,iLen,1,m_pFile) == 0)
+    if(fwrite(m_pszErrorRecord,(size_t)iLen,1,m_pFile) == 0)
     {
         TADD_ERROR(ERROR_UNKNOWN,"fwrite() failed, errno=%d, errmsg=[%s].", errno, strerror(errno));
         return false;

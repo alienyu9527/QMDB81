@@ -147,10 +147,10 @@
                          switch(iOpcode)
     			{
     				case TK_PLUS://+
-    					TMdbDateTime::AddDay(pstRetMemValue->sValue,pstRightMemValue->lValue);
+    					TMdbDateTime::AddDay(pstRetMemValue->sValue,static_cast<int>(pstRightMemValue->lValue));
     					break;
     				case TK_MINUS://-
-    					TMdbDateTime::AddDay(pstRetMemValue->sValue,0-pstRightMemValue->lValue);
+    					TMdbDateTime::AddDay(pstRetMemValue->sValue,static_cast<int>(0-pstRightMemValue->lValue));
     					break;
     				default:
     					CHECK_RET(-1,"opcode[%d] not support now",iOpcode);
@@ -180,7 +180,7 @@
                          switch(iOpcode)
     			{
     				case TK_PLUS://+
-    					TMdbDateTime::AddDay(pstRetMemValue->sValue,pstLeftMemValue->lValue);
+    					TMdbDateTime::AddDay(pstRetMemValue->sValue,static_cast<int>(pstLeftMemValue->lValue));
     					break;
     				case TK_MINUS://-
     					CHECK_RET(-1,"num - date is error.");
@@ -243,7 +243,7 @@
     					break;
     				case TK_MINUS://- //date类型相减的结果，增加精度
     					pstRetMemValue->lValue = (iLeftTime - iRightTime)/iOneDaySec;
-    					pstRetMemValue->dValue = (iLeftTime - iRightTime)*1.0/iOneDaySec;
+    					pstRetMemValue->dValue = static_cast<double>(iLeftTime - iRightTime)*1.0/iOneDaySec;
     					MemValueSetProperty(pstRetMemValue,MEM_Float);
     					break;
     				default:
@@ -316,14 +316,14 @@ void TMdbMemValue::CalcMemValueForStar(ST_MEM_VALUE*	pstRetMemValue,ST_MEM_VALUE
     }
     else if(MemValueHasAnyProperty(pstLeftMemValue,MEM_Float))
     {
-        pstRetMemValue->dValue = pstLeftMemValue->dValue * pstRightMemValue->lValue;
-        pstRetMemValue->lValue = pstRetMemValue->dValue;
+        pstRetMemValue->dValue = pstLeftMemValue->dValue * static_cast<double>(pstRightMemValue->lValue);
+        pstRetMemValue->lValue = static_cast<long long>(pstRetMemValue->dValue);
         MemValueSetProperty(pstRetMemValue,MEM_Float);
     }
     else if(MemValueHasAnyProperty(pstRightMemValue,MEM_Float))
     {
-        pstRetMemValue->dValue = pstLeftMemValue->lValue * pstRightMemValue->dValue;
-        pstRetMemValue->lValue = pstRetMemValue->dValue;
+        pstRetMemValue->dValue = static_cast<double>(pstLeftMemValue->lValue) * pstRightMemValue->dValue;
+        pstRetMemValue->lValue = static_cast<long long>(pstRetMemValue->dValue);
         MemValueSetProperty(pstRetMemValue,MEM_Float);
     }
     else

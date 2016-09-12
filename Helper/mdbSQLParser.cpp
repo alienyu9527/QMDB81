@@ -1440,7 +1440,7 @@ int TMdbSqlParser::SpanInsertCollumnList(ST_ID_LIST * pExistList)
                     const char * sDefault = pColumn->iDefaultValue;
                     if(DT_Blob == pColumn->iDataType)
                     {//blob型需要转化
-                        encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pColumn->iDefaultValue),strlen(pColumn->iDefaultValue));
+                        encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pColumn->iDefaultValue),(unsigned int)(strlen(pColumn->iDefaultValue)));
                         sDefault = encoded.c_str();
                     }
                     if((int)strlen(sDefault) >= pMemValue->iSize)
@@ -1549,7 +1549,7 @@ int TMdbSqlParser::SpanTKALLCollumnList(ST_EXPR_LIST * pCollist)
             {
                 Token token;
                 token.z = pTable->tColumn[j].sName;
-                token.n = strlen(pTable->tColumn[j].sName);
+                token.n = (unsigned int)(strlen(pTable->tColumn[j].sName));
                 ST_EXPR * pstExpr = tMdbExpr.BuildPExpr(TK_ID,NULL,NULL,&token);
                 tMdbExpr.ExprListAppend(pCollist,pstExpr);
                 pCollist->pExprItems[pCollist->iItemNum - 1].sSpan = 
@@ -1620,10 +1620,10 @@ int TMdbSqlParser::CollectChangeIndex(ST_ID_LIST *pstIdList)
         bool bFind = false;
         for(j = 0;j < (int)m_stSqlStruct.vIndexChanged.size();j++)
         {
-            if(pTableIndex == m_stSqlStruct.vIndexChanged[j].pstTableIndex)
+            if(pTableIndex == m_stSqlStruct.vIndexChanged[(long unsigned int)j].pstTableIndex)
             {
                 bFind = true;
-                m_stSqlStruct.vIndexChanged[j].pExprArr[iColNoPos] = pstIdList->pstItem[i].pExpr;
+                m_stSqlStruct.vIndexChanged[(long unsigned int)j].pExprArr[iColNoPos] = pstIdList->pstItem[i].pExpr;
             }
         }
         if(!bFind)
@@ -1638,7 +1638,7 @@ int TMdbSqlParser::CollectChangeIndex(ST_ID_LIST *pstIdList)
     //填充更新的组合索引中一部分值在内核中(不在set中)
     for(i = 0;i <(int) m_stSqlStruct.vIndexChanged.size();i++)
     {
-        ST_INDEX_VALUE & stIndexValue = m_stSqlStruct.vIndexChanged[i];
+        ST_INDEX_VALUE & stIndexValue = m_stSqlStruct.vIndexChanged[(long unsigned int)i];
         if(HT_CMP ==  stIndexValue.pstTableIndex->pIndexInfo->m_iIndexType)
         {
             for(j = 0;j < MAX_INDEX_COLUMN_COUNTS;j++)

@@ -893,8 +893,10 @@ public:
     int iLogLevel;               //管理进程的日志级别
 
     char sCreateTime[MAX_TIME_LEN]; //创建时间
-    char sCurTime[MAX_TIME_LEN];    //当前时间
-    struct timeval tCurTime;                 //当前时间
+    
+    char sCurTime[MAX_TIME_LEN];    //当前时间  
+    struct timeval tCurTime;        //当前时间
+    long long iTimeStamp;    		//当前时间
 
     //因为ShmID会随着系统的变化而变化，而Key是唯一的
     //数据段共享内存

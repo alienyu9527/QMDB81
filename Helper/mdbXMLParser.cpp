@@ -358,7 +358,7 @@ const char* MDBXMLBase::SkipWhiteSpace( const char* p, MDBXMLEncoding encoding )
 	}
 	else
 	{
-		while ( *p && IsWhiteSpace( *p ) || *p == '\n' || *p =='\r' )
+		while ( *p && ( IsWhiteSpace( *p ) || *p == '\n' || *p =='\r') )
 			++p;
 	}
 
@@ -432,7 +432,7 @@ const char* MDBXMLBase::ReadName( const char* p, string * name, MDBXMLEncoding e
 			++p;
 		}
 		if ( p-start > 0 ) {
-			name->assign( start, p-start );
+			name->assign( start, (long unsigned int)(p-start) );
 		}
 		return p;
 	}
@@ -468,11 +468,11 @@ const char* MDBXMLBase::GetEntity( const char* p, char* value, int* length, MDBX
 			while ( *q != 'x' )
 			{
 				if ( *q >= '0' && *q <= '9' )
-					ucs += mult * (*q - '0');
+					ucs += mult * (unsigned)(*q - '0');
 				else if ( *q >= 'a' && *q <= 'f' )
-					ucs += mult * (*q - 'a' + 10);
+					ucs += mult * (unsigned)(*q - 'a' + 10);
 				else if ( *q >= 'A' && *q <= 'F' )
-					ucs += mult * (*q - 'A' + 10 );
+					ucs += mult * (unsigned)(*q - 'A' + 10 );
 				else 
 					return 0;
 				mult *= 16;
@@ -495,7 +495,7 @@ const char* MDBXMLBase::GetEntity( const char* p, char* value, int* length, MDBX
 			while ( *q != '#' )
 			{
 				if ( *q >= '0' && *q <= '9' )
-					ucs += mult * (*q - '0');
+					ucs += mult * (unsigned)(*q - '0');
 				else 
 					return 0;
 				mult *= 10;
@@ -594,7 +594,7 @@ const char* MDBXMLBase::ReadText(	const char* p,
 			int len;
 			char cArr[4] = { 0, 0, 0, 0 };
 			p = GetChar( p, cArr, &len, encoding );
-			text->append( cArr, len );
+			text->append( cArr, (long unsigned int)len );
 		}
 	}
 	else
@@ -631,7 +631,7 @@ const char* MDBXMLBase::ReadText(	const char* p,
 				if ( len == 1 )
 					(*text) += cArr[0];	// more efficient
 				else
-					text->append( cArr, len );
+					text->append( cArr, (long unsigned int)len );
 			}
 		}
 	}

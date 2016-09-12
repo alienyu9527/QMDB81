@@ -358,7 +358,7 @@ int TMdbOS::GetProcessNameByPID(int pid, char *processName,const int iLen)
     {
         while (fgets(buf, sizeof(buf), ptr) != NULL)
         {
-            strncpy(processName,buf,iLen);
+            strncpy(processName,buf,static_cast<size_t>(iLen));
             TMdbNtcStrFunc::Trim(processName);
             if((int)strlen(buf) >= iLen)
             {
@@ -403,11 +403,11 @@ int TMdbOS::GetProcFullNameByPID(int pid, char *processName,const int iLen)
             if(mdbSplitBuf.GetFieldCount() < 2) break;//至少2位
             strncpy(Cmd,mdbSplitBuf[1],MAX_PATH_NAME_LEN);
             mdbSplitCmd.SplitString(Cmd, '/');
-            iListCount = mdbSplitCmd.GetFieldCount();
-            strncpy(processName,mdbSplitCmd[iListCount-1],iLen);
+            iListCount = static_cast<int>(mdbSplitCmd.GetFieldCount());
+            strncpy(processName,mdbSplitCmd[iListCount-1],static_cast<size_t>(iLen));
             for(iList = 2; iList< mdbSplitBuf.GetFieldCount(); iList++)
             {
-                snprintf(processName+strlen(processName),iLen-strlen(processName)," %s",mdbSplitBuf[iList]);
+                snprintf(processName+strlen(processName),(size_t)(iLen-(int)strlen(processName))," %s",mdbSplitBuf[iList]);
             }
 
             if((int)strlen(buf) >= iLen)
@@ -533,7 +533,7 @@ int TMdbOS::GetIP(char sIP[][32])
         if (!ioctl (fd, SIOCGIFCONF, (char *) &ifc))
         {
             //获取接口信息
-            intrface = ifc.ifc_len / sizeof (struct ifreq);
+            intrface = ifc.ifc_len / (int)(sizeof (struct ifreq));
             //printf("interface num is intrface=%d\n\n\n",intrface);
             //根据借口信息循环获取设备IP和MAC地址
             while (intrface-- > 0)
@@ -673,7 +673,7 @@ unsigned long long   TMdbOS::GetDiskSpace(char* sPath)
         printf("Open File Error,FileName=[%s]\n",sFileName);
         return 0;
     }
-    int percent =  ullUsedSpaceKB * 100/(ullUsedSpaceKB+ullFreeSpaceKB) + 1;
+    int percent =  (int)(ullUsedSpaceKB * 100/(ullUsedSpaceKB+ullFreeSpaceKB) + 1);
     fprintf(m_fp,"%s      [total]%llu    [used]%llu  [free]%llu   [used]%d%% ",sPath,
             ullTotalSapceKB, ullUsedSpaceKB, ullFreeSpaceKB, percent);
 

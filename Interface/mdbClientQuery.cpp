@@ -378,6 +378,10 @@
 		}
 		memset(m_sSQL, 0, MAX_SQL_LEN);
 		m_iSQLBuffLen = MAX_SQL_LEN;
+		m_iIsNeedNextOperBin = 1;
+		m_iFiledCountsBin = 0;
+		m_iRowsAffBin = 0;
+		m_iRowsCurNextBin = 0;
     }
 
     /******************************************************************************
@@ -1680,22 +1684,22 @@
                     ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                 }
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
-                m_tRecvDataParse.GetData(&m_iRowsAff,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
-                
+                m_tRecvDataParse.GetData(&m_iIsNeedNextOperBin,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                m_tRecvDataParse.GetData(&m_iRowsAffBin,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
+                m_iRowsAff = m_iRowsAffBin;
                 if(m_bIsDynamic)
                 {
                     //若是动态sql一定要向对端获取
-                    m_iIsNeedNextOper = 1;
+                    m_iIsNeedNextOperBin= 1;
                     m_bCanOpenAgain = true;
                 }
                 else
                 {
                     m_bCanOpenAgain = false;//静态SQL在setSQL的时候执行过一次了
-                    m_iRowsCurNext = m_iRowsAff;
+                    m_iRowsCurNextBin = m_iRowsAffBin;
                     m_iCurPos = SIZE_MSG_BIN_HEAD + sizeof(int)+sizeof(char)+sizeof(short int);
                 }
-                m_iFiledCounts = 0;
+                m_iFiledCounts = m_iFiledCountsBin = 0;
                 TADD_DETAIL("m_iIsNeedNextOper=[%d],m_iRowsAff=[%d].",m_iIsNeedNextOper,m_iRowsAff);
             }
         }
@@ -1728,8 +1732,8 @@
         }
         else
         {//批处理
-            int iBatchCount = m_pParamArray[0].m_iArraySize;
-            int iParamCount  = m_tParam.GetCount();
+            short int iBatchCount = (short int)m_pParamArray[0].m_iArraySize;
+            char iParamCount  = (char)m_tParam.GetCount();
             int i = 0;
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM_ARRAY,(unsigned int)m_pMdb->m_lSessionId,(unsigned int)m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
@@ -1737,7 +1741,7 @@
             m_tSendDataParse.SetData(&iParamCount,sizeof(char));//count            
             
             int iLen = 0;
-            int iPackageLen = 0;
+            short int iPackageLen = 0;
             try
             {
                 for(i = 0; i < iBatchCount; ++i)
@@ -1825,10 +1829,11 @@
                     ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                 }
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
-                m_iRowsCurNext = 0;
-                m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
-                m_iRowsAff = m_iRowsCurNext;
+                m_tRecvDataParse.GetData(&m_iIsNeedNextOperBin,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                m_iRowsCurNextBin = 0;
+                m_tRecvDataParse.GetData(&m_iRowsCurNextBin,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
+                m_iRowsAffBin = m_iRowsCurNextBin;
+                m_iRowsAff = m_iRowsAffBin;
                 m_iCurPos = SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char)+sizeof(short int);
                 
                 TADD_DETAIL("m_iIsNeedNextOper=[%d],m_iRowsAff=[%d].",m_iIsNeedNextOper,m_iRowsAff);
@@ -1875,7 +1880,7 @@
             if(FillFieldValueBin() != 0)
             {
                 //没有next 值，可能需要向对端请求获取
-                if(m_iIsNeedNextOper == 0)
+                if(m_iIsNeedNextOperBin == 0)
                 {
                     //对端也表示没有没有数据了
                     bRet =  false;
@@ -1903,12 +1908,13 @@
                             ERROR_TO_THROW(ERR_SQL_INVALID,m_sSQL,"SQL label not equal,sqllabel[%d] != m_iSQLLabel[%d]",sqllabel,m_iSQLLabel);
                         }
                         m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
-                        m_tRecvDataParse.GetData(&m_iIsNeedNextOper,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
-                        m_iRowsCurNext = 0;
-                        m_tRecvDataParse.GetData(&m_iRowsCurNext,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
-                        m_iRowsAff += m_iRowsCurNext;
+                        m_tRecvDataParse.GetData(&m_iIsNeedNextOperBin,SIZE_MSG_BIN_HEAD+sizeof(int),sizeof(char));
+                        m_iRowsCurNextBin = 0;
+                        m_tRecvDataParse.GetData(&m_iRowsCurNextBin,SIZE_MSG_BIN_HEAD+sizeof(int)+sizeof(char),sizeof(short int));
+                        m_iRowsAffBin += m_iRowsCurNextBin;
+                        m_iRowsAff = m_iRowsAffBin;
                         m_iCurPos   = SIZE_MSG_BIN_HEAD + sizeof(int) + sizeof(char) + sizeof(short int);
-                        TADD_DETAIL("m_iIsNeedNextOper=[%d].",m_iIsNeedNextOper);
+                        TADD_DETAIL("m_iIsNeedNextOper=[%d].",m_iIsNeedNextOperBin);
                         return NextBin();
                     }
                 }
@@ -1949,12 +1955,14 @@
         int iRet = 0;
         try
         {
-            if(m_iRowsCurNext-- > 0)
+            if(m_iRowsCurNextBin -- > 0)
             {
                 if(m_iFiledCounts <= 0)//只获取一次
                 {
-                    m_tRecvDataParse.GetData(&m_iFiledCounts,m_iCurPos,sizeof(char));
+                    m_iFiledCounts = 0;
+                    m_tRecvDataParse.GetData(&m_iFiledCountsBin,m_iCurPos,sizeof(char));
                     m_iCurPos += sizeof(char);
+                    m_iFiledCounts = m_iFiledCountsBin;
                 }
                 int iOldFieldCounts = m_vField.size();
                 TADD_DETAIL("iOldFieldCounts=[%d],m_iFiledCounts=[%d].",iOldFieldCounts,m_iFiledCounts);
@@ -1966,7 +1974,7 @@
                 std::vector<TMdbClientField *>::iterator itorOld = m_vField.begin();
                 TMdbClientField * pTempField = NULL;
                 //unsigned short int iNameLen = 0;
-                int iValueLen = 0;
+                short int iValueLen = 0;
                 //char cDataType = 0;
                 for(i=0; i < m_iFiledCounts; ++i)
                 {
@@ -1984,7 +1992,7 @@
                         m_tRecvDataParse.GetData(pTempField->m_sName,m_iCurPos,iValueLen);
                         m_iCurPos += iValueLen;
                     }
-                    m_tRecvDataParse.GetData(&iValueLen,m_iCurPos,sizeof(short int));
+                    m_tRecvDataParse.GetData(&iValueLen,(size_t)m_iCurPos,sizeof(short int));
                     m_iCurPos += sizeof(short int);
                     //pTempField->m_sName   = m_pCspSetSQLAns->GetStringValue((*itorNew)->pChildItem,AVP_COLUMN_NAME);
                     pTempField->m_bIsNULL   = (0 == iValueLen);
@@ -2042,15 +2050,16 @@
         {
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
-            int iCount = ParamCount();
+            char iCount = ParamCount();
             m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         
         int iLen = strlen(sParamValue)+1;
-        int iPackageLen = sizeof(short int) + sizeof(char) + iLen;
-        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
-        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
+        char index = (char)iParamIndex;
+        short int iPackageLen = sizeof(short int) + sizeof(char) + iLen;
+        m_tSendDataParse.SetData((short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&index,sizeof(char));
         m_tSendDataParse.SetData((char*)sParamValue,iLen);
         m_iSetParamCount++;
     
@@ -2088,14 +2097,16 @@
         {
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
-            int iCount = ParamCount();
+            char iCount = (char)ParamCount();
             m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         //iPackageLen + iParamIndex + iParamValue
-        int iPackageLen = sizeof(short int) + sizeof(char) + sizeof(llParamValue);
-        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
-        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
+        
+        char index = (char)iParamIndex;
+        short int iPackageLen = sizeof(short int) + sizeof(char) + sizeof(llParamValue);
+        m_tSendDataParse.SetData((short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&index,sizeof(char));
         m_tSendDataParse.SetData(&llParamValue,sizeof(llParamValue));
         m_iSetParamCount++;
     }
@@ -2122,14 +2133,16 @@
         {
             m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_SEND_PARAM,m_pMdb->m_lSessionId,m_pMdb->GetSendSequence());
             m_tSendDataParse.SetData(&m_iSQLLabel,sizeof(int)); //sql label
-            int iCount = ParamCount();
+            char iCount = ParamCount();
             m_tSendDataParse.SetData((char*)&iCount,sizeof(char));//count            
             m_tSendDataParse.ResetParamFlag(true);
         }
         //iPackageLen + iParamIndex + iParamValue
-        int iPackageLen = sizeof(short int) + sizeof(char);
-        m_tSendDataParse.SetData((unsigned short int*)&iPackageLen,sizeof(unsigned short int));
-        m_tSendDataParse.SetData((char*)&iParamIndex,sizeof(char));
+        
+        char index = (char)iParamIndex;
+        short int iPackageLen = sizeof(short int) + sizeof(char);
+        m_tSendDataParse.SetData((short int*)&iPackageLen,sizeof(unsigned short int));
+        m_tSendDataParse.SetData((char*)&index,sizeof(char));
         m_iSetParamCount++;
     }
     
@@ -2153,7 +2166,7 @@
             if(m_pHead->iCmdCode == CSP_APP_GET_SEQUENCE)
             {
                 m_tRecvDataParse.InitDataSrc((char*)m_sRecvPackage);
-                m_tRecvDataParse.GetData(&llSeqValue,SIZE_MSG_BIN_HEAD,sizeof(int));
+                m_tRecvDataParse.GetData(&llSeqValue,SIZE_MSG_BIN_HEAD,sizeof(llSeqValue));
                 m_pMdb->CheckAnsCode(m_tRecvDataParse,m_pHead->iAnsCodePos);
             }
         }
@@ -3038,7 +3051,7 @@
         {
             if((int)tAvpHead.iCmdCode == iCspAppType || tAvpHead.iCmdCode == CSP_APP_ERROR)
             {
-                int iMsgLen = tAvpHead.iLen;
+                int iMsgLen = (int)tAvpHead.iLen;
                 iRet = m_pSocket->read(&sRecvMsg[SIZE_MSG_AVP_HEAD],iMsgLen-SIZE_MSG_AVP_HEAD);
                 if(iRet < 0)
                 {
@@ -3097,7 +3110,7 @@
         //{
             if((int)tAvpHead.iCmdCode == iCspAppType || tAvpHead.iCmdCode == CSP_APP_ERROR)
             {
-                int iMsgLen = tAvpHead.iLen;
+                int iMsgLen = (int)tAvpHead.iLen;
                 sRecvMsg[SIZE_MSG_BIN_HEAD] = cHead;
                 if(iMsgLen > iRecvLen)
                 {
@@ -3154,8 +3167,8 @@
     void TMdbClientDatabase::MultCmdBin(const char *sCmd)
     {
         //const char *sCmd = "Commit";
-        m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_ACTION,m_lSessionId,GetSendSequence());
-        m_tSendDataParse.SetData((char*)sCmd,strlen(sCmd)+1);
+        m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_ACTION,(unsigned int)m_lSessionId,(unsigned int)GetSendSequence());
+        m_tSendDataParse.SetData((char*)sCmd,(int)(strlen(sCmd)+1));
         m_tSendDataParse.SetSize();
         int iRet = m_pSocket->write(m_sSendPackage,m_tSendDataParse.GetSize());//stocket往里写内容
         if(iRet < 0)
@@ -3238,7 +3251,7 @@
     int TMdbClientDatabase::GetQmdbInfoBin(const char * sCmd,std::string & sAnswer)
     {
         //const char *sCmd = "Commit";
-        m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_QMDB_INFO,m_lSessionId,GetSendSequence());
+        m_tSendDataParse.SerializeHead((char*)m_sSendPackage,CSP_APP_QMDB_INFO,(unsigned int)m_lSessionId,(unsigned int)GetSendSequence());
         m_tSendDataParse.SetData((char*)sCmd,(int)(strlen(sCmd)+1));
         m_tSendDataParse.SetSize();
         int iRet = m_pSocket->write(m_sSendPackage,m_tSendDataParse.GetSize());//stocket往里写内容

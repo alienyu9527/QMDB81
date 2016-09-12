@@ -94,7 +94,8 @@
         int SetRowDataTimeStamp(char* pAddr, int iOffset,long long iTimeStamp = 0);
         int UpdateRowDataTimeStamp(char* const & pAddr, int iOffset, long long iTimeStamp = 0);
 		void SetDataFlagInsert(char* pAddr);
-		int SetDataFlagDelete(char* pAddr);
+		int SetDataFlagDelete(char* pAddr);	
+		void  InitDataMutex(char* pAddr);
 		bool CheckIsStop(){return m_pIsStop&&(1==*m_pIsStop);}
 		
 	private:

@@ -1214,9 +1214,9 @@ int TMdbRedisAgentServer::AppSendSQLBin(client *ptClient)
         TADD_NORMAL("QuerySqlLabel=[%d],SetSQL(%s),IsDynamic=[%s],SqlFlag=[%d]",iSqlLabel,pSQL,(ptClient->m_iParamCount != 0)?"TRUE":"FALSE",iSqlFlag);
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->sendbuf,CSP_APP_SEND_SQL,ptClient->m_tRecvDataParse.iSessionId,ptClient->m_tRecvDataParse.isequence);
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
-        ptClient->m_bFirstNext = true;
-        ptClient->m_iFieldCount = pQuery->FieldCount();
-        ptClient->m_iSqlType = pQuery->GetSQLType();
+        pClientQuery->m_bFirstNext = true;
+        //ptClient->m_iFieldCount = pQuery->FieldCount();
+        //ptClient->m_iSqlType = pQuery->GetSQLType();
         if(ptClient->m_iParamCount != 0)
         {
             //动态SQL
@@ -1227,11 +1227,11 @@ int TMdbRedisAgentServer::AppSendSQLBin(client *ptClient)
         else
         {
             //静态SQL
-            if(TK_SELECT == ptClient->m_iSqlType)
+            if(TK_SELECT == pQuery->GetSQLType())
             {
                 pQuery->Open();
                 TADD_FLOW("QuerySqlLabel=[%d],Open(),StaticSQL.",iSqlLabel);
-                CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+                CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             }
             else
             {
@@ -1325,10 +1325,11 @@ int TMdbRedisAgentServer::AppSendParamBin(client *ptClient)
         ptClient->m_tSendDataParse.SerializeHead((char*)ptClient->sendbuf,CSP_APP_SEND_SQL,ptClient->m_tRecvDataParse.iSessionId,ptClient->m_tRecvDataParse.isequence);
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
         //ptClient->m_bFirstNext = true;
-        if(ptClient->m_iSqlType == TK_SELECT)
+        //ptClient->m_iFieldCount = pQuery->FieldCount();
+        if(pQuery->GetSQLType() == TK_SELECT)
         {
             pQuery->Open();
-            CHECK_RET(FillNextResult(ptClient,pQuery,ptClient->m_bFirstNext),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
         }
         else
         {//
@@ -1459,12 +1460,13 @@ int TMdbRedisAgentServer::AppSendParamArrayBin(client *ptClient)
     return iRet;
 }
 
-int TMdbRedisAgentServer::FillNextResult(client *ptClient,TMdbQuery * pQuery,bool bFirstNext)throw(TMdbException,TMdbCSPException)
+int TMdbRedisAgentServer::FillNextResult(client *ptClient,TMdbQuery * pQuery,bool &bFirstNext)throw(TMdbException,TMdbCSPException)
 {
     int iRet = 0;
     int iCount = 0;
     int iSetTmp = 0;
     int iValueLen = 0;
+    int iFieldCount = pQuery->FieldCount();
     char cDataType = 0;
     bool bHaveNext = true;
     bool bFirstNextTmp = bFirstNext;
@@ -1484,8 +1486,8 @@ int TMdbRedisAgentServer::FillNextResult(client *ptClient,TMdbQuery * pQuery,boo
             int j = 0;
             if(bFirstNextTmp)
             {
-                iSetTmp = ptClient->m_iFieldCount;
-                ptClient->m_tSendDataParse.SetData(&iSetTmp,sizeof(char));//字段个数
+                //iSetTmp = pQuery->FieldCount();
+                ptClient->m_tSendDataParse.SetData(&iFieldCount,sizeof(char));//字段个数
                 //bSetFieldCount = true;
             }
             #if 0
@@ -1496,7 +1498,7 @@ int TMdbRedisAgentServer::FillNextResult(client *ptClient,TMdbQuery * pQuery,boo
             pQuery->FillFieldForCSBin(ptClient->m_tSendDataParse,bFirst);
             #endif
             //#if 0
-            for(j = 0; j<ptClient->m_iFieldCount; j++)
+            for(j = 0; j<iFieldCount; j++)
             {
                 cDataType = pQuery->Field(j).GetDataType();
                 if(bFirstNextTmp)
@@ -1528,7 +1530,7 @@ int TMdbRedisAgentServer::FillNextResult(client *ptClient,TMdbQuery * pQuery,boo
             }
             //#endif
             bFirstNextTmp = false;
-            ptClient->m_bFirstNext = false;
+            bFirstNext = false;
             //break;
             if(ptClient->m_tSendDataParse.GetSize() > MAX_CSP_LEN - 4096)
             {//达到最大值
@@ -1578,7 +1580,7 @@ int TMdbRedisAgentServer::AppNextSQLResultBin(client *ptClient)
         ptClient->m_tSendDataParse.SetData(&iSqlLabel,sizeof(int));
         if(pQuery->GetSQLType() == TK_SELECT)
         {
-            CHECK_RET(FillNextResult(ptClient,pQuery),"FillNextResult error");
+            CHECK_RET(FillNextResult(ptClient,pQuery,pClientQuery->m_bFirstNext),"FillNextResult error");
             SendAnswer(ptClient,0,NULL);
         }
         else
@@ -1728,7 +1730,7 @@ int TMdbRedisAgentServer::SendAnswer(client *ptClient,int iAnsCode,const char * 
     int iRet = 0;
     try
     {
-        ptClient->m_tSendDataParse.SetData(&iAnsCode,sizeof(short int),true);
+        ptClient->m_tSendDataParse.SetDataAnsCode((short int*)&iAnsCode,sizeof(short int));
         if(sMsg)
         {
             ptClient->m_tSendDataParse.SetData((char*)sMsg,strlen(sMsg)+1);

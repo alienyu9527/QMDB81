@@ -125,7 +125,7 @@ int TCacheLog::Log(const char * sInfo)
 {
     int iRet = 0;
     CHECK_OBJ(m_pCache); 
-    int iStrLen = strlen(sInfo);
+    int iStrLen = (int)strlen(sInfo);
     m_iLogCount ++;//计数
     if(iStrLen > m_iCacheSize - m_iCurCachePos)
     {//需要将缓存中的立刻刷出

@@ -16,6 +16,7 @@
 #include "Control/mdbLinkCtrl.h"
 //using namespace ZSmart::BillingSDK;
 
+#define TABLE_MUTEX  1
 
 //namespace QuickMDB{
 
@@ -309,6 +310,9 @@ int TMdbIndexCtrl::ReAttachSingleIndex(int iIndexPos)
 		case INDEX_M_HASH:
 			CHECK_RET(ReAttachSingleMHashIndex(iIndexPos),"ReAttachSingleMHashIndex failed.");
 			break;
+		case INDEX_TRIE:
+			//CHECK_RET(ReAttachSingleMHashIndex(iIndexPos),"ReAttachSingleMHashIndex failed.");
+			break;
 		default:
 			TADD_ERROR(-1,"ReAttachSingleIndex invalid AlgoType %d.",iAlgoType);
 			break;
@@ -459,7 +463,7 @@ int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
 
 		//begin  拷贝索引部分信息
 		strncpy(pLink->m_AllTableIndexInfo[iPos].sTableName, m_pAttachTable->sTableName, MAX_NAME_LEN);
-		printf("Link [%d][%ld] add Table [%s]\n",pLink->iPID,pLink->iTID,m_pAttachTable->sTableName);
+		//TADD_NORMAL("Link [%d][%ld] add Table [%s]\n",pLink->iPID,pLink->iTID,m_pAttachTable->sTableName);
 		for(int j=0; j<MAX_INDEX_COUNTS; j++)
 		{
 			if(m_arrTableIndex[j].bInit)
@@ -506,11 +510,11 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 			{
 				m_tHashIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_HashIndexInfo);
 			}
-			else if(pLink->m_AllTableIndexInfo[i].arrLinkIndex[j].iAlgoType == INDEX_M_HASH)
+			else if(tLinkIndexInfo.iAlgoType == INDEX_M_HASH)
 			{
 				//m_tMHashIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_MHashIndexInfo);
 			}
-			else if(pLink->m_AllTableIndexInfo[i].arrLinkIndex[j].iAlgoType == INDEX_TRIE)
+			else if(tLinkIndexInfo.iAlgoType == INDEX_TRIE)
 			{
 				//m_tTrieIndex.ReturnAllIndexNodeToTable(tLinkIndexInfo, m_arrTableIndex[j].m_TrieIndexInfo);
 			}
@@ -604,7 +608,7 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 							m_arrTableIndex[i].m_HashIndexInfo.pReConfNode = NULL;
 							m_arrTableIndex[i].m_HashIndexInfo.pConflictIndexNode = (TMdbIndexNode*)(pConflictIndexAddr + m_arrTableIndex[i].m_HashIndexInfo.pConflictIndex->iPosAdd);
 	                    }
-                        m_arrTableIndex[i].m_HashIndexInfo.pMutexNode = (TMutex*)(pMutexAddr+ m_arrTableIndex[i].m_HashIndexInfo.pMutex->iPosAdd);
+                        m_arrTableIndex[i].m_HashIndexInfo.pMutexNode = (TMiniMutex*)(pMutexAddr+ m_arrTableIndex[i].m_HashIndexInfo.pMutex->iPosAdd);
 						
                         ++iFindIndexs;
                         break;
@@ -995,7 +999,11 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 		    }
 			else
 			{
-            	iRet = m_tHashIndex.InsertIndexNode(iIndexPos, tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+				#ifdef  TABLE_MUTEX
+            		iRet = m_tHashIndex.InsertIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+				#else
+					iRet = m_tHashIndex.InsertIndexNode2(iIndexPos, tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+				#endif
 			}
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1054,7 +1062,11 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 		    }
 			else
 			{
-    	        iRet = m_tHashIndex.DeleteIndexNode(iIndexPos, tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
+				#ifdef  TABLE_MUTEX
+				iRet = m_tHashIndex.DeleteIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+				#else
+				iRet = m_tHashIndex.DeleteIndexNode2(iIndexPos, tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
+				#endif
 			}
 		}
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1133,7 +1145,11 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 			}
 			else
 			{
-				iRet = m_tHashIndex.UpdateIndexNode(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+				#ifdef TABLE_MUTEX
+					iRet = m_tHashIndex.UpdateIndexNode(tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+				#else
+					iRet = m_tHashIndex.UpdateIndexNode2(iIndexPos, tOldRowIndex, tNewRowIndex, stTableIndex.m_HashIndexInfo,tRowId);
+				#endif
 			}
             
         }

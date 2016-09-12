@@ -267,7 +267,7 @@
         }
         int iValueSize = iPos - 3;
         memset(m_sTemp, 0, sizeof(m_sTemp));
-        strncpy(m_sTemp, pValuePair+iBeginPos, iValueSize );
+        strncpy(m_sTemp, pValuePair+iBeginPos, static_cast<size_t>(iValueSize) );
         stColumn.m_sColmValue = m_sTemp;
         
         iValuePairLen    = iPos + 2;//这个valuepair 的长度
@@ -319,7 +319,7 @@
                 }
                 iLen = iStartPos - iPos;
 
-                memcpy(sNull,&pData[iPos],iLen);
+                memcpy(sNull,&pData[iPos],static_cast<size_t>(iLen));
                 sNull[iLen] = 0;
                 break;
             }
@@ -463,7 +463,7 @@
             }            
         }
         //SAFESTRCPY(tHeadInfo.m_sTableName, iPos-iBeginPos, psData+iBeginPos);    
-        strncpy(tHeadInfo.m_sTableName,psData+iBeginPos, iPos-iBeginPos);
+        strncpy(tHeadInfo.m_sTableName,psData+iBeginPos, static_cast<size_t>(iPos-iBeginPos));
 
         tHeadInfo.Print();
 
@@ -490,7 +490,7 @@
 
         // 解析表名列名串
         //SAFESTRCPY(m_sDataBuff, tRecd.m_tHeadInfo.m_iColmLen, psData+iPos);
-        strncpy(m_sDataBuff, psData+iPos, tRecd.m_tHeadInfo.m_iColmLen);
+        strncpy(m_sDataBuff, psData+iPos, static_cast<size_t>(tRecd.m_tHeadInfo.m_iColmLen));
         iPos += tRecd.m_tHeadInfo.m_iColmLen;
         int iColmNameCnt = 0;
         CHECK_RET(GetColmName(m_sDataBuff, tRecd,iColmNameCnt),"Decode column name failed.");
@@ -527,7 +527,7 @@
             {
                 memset(sValue, 0, sizeof(sValue));
                 //SAFESTRCPY(sValue, iColumLen, psData+iValuePos);
-                strncpy(sValue,psData+iValuePos, iColumLen);
+                strncpy(sValue,psData+iValuePos, static_cast<size_t>(iColumLen));
                 itor->m_sColmValue = sValue;
                 iValuePos += iColumLen;
             }
@@ -551,7 +551,7 @@
                 {
                     memset(sValue, 0, sizeof(sValue));
                     //SAFESTRCPY(sValue, iColumLen, psData+iValuePos);
-                    strncpy(sValue, psData+iValuePos, iColumLen);
+                    strncpy(sValue, psData+iValuePos, static_cast<size_t>(iColumLen));
                     itorW->m_sColmValue = sValue;
                     iValuePos += iColumLen;
                 }
@@ -571,7 +571,7 @@
         bool bTabName = false;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(psData, '|');
-        int iFieldCnt = tSplit.GetFieldCount();
+        int iFieldCnt = static_cast<int>(tSplit.GetFieldCount());
         if(iFieldCnt == 1)
         {
             m_bWhere = false;
@@ -749,7 +749,7 @@
 
         int iNameLen  = 0;
         sprintf(m_sNameBuff, "%s",m_tRecd.m_tHeadInfo.m_sTableName);
-        iNameLen += strlen(m_sNameBuff);
+        iNameLen += static_cast<int>(strlen(m_sNameBuff));
 
         int iColumLenPos = 0;
         int iColumValuePos = 0;
@@ -759,7 +759,7 @@
         for(; itor != m_tRecd.m_vColms.end(); ++itor )
         {
             sprintf(m_sNameBuff+iNameLen,",%s", itor->m_sColmName.c_str());
-            iNameLen += (itor->m_sColmName.size() + 1);
+            iNameLen += (static_cast<int>(itor->m_sColmName.size()) + 1);
 
             if(itor->m_bNull)
             {
@@ -768,7 +768,7 @@
             }
             else
             {
-                iValueLen = itor->m_sColmValue.size();
+                iValueLen = static_cast<int>(itor->m_sColmValue.size());
 
                 sprintf(m_sColmLenBuff + iColumLenPos, "%04d", iValueLen);
                 iColumLenPos += 4;
@@ -788,7 +788,7 @@
             for(; itorW != m_tRecd.m_vWColms.end(); itorW++ )
             {
                 sprintf(m_sNameBuff+iNameLen,",%s", itorW->m_sColmName.c_str());
-                iNameLen += (itorW->m_sColmName.size() + 1);
+                iNameLen += (static_cast<int>(itorW->m_sColmName.size()) + 1);
 
                 if(itorW->m_bNull)
                 {
@@ -797,7 +797,7 @@
                 }
                 else
                 {
-                    iValueLen = itorW->m_sColmValue.size();
+                    iValueLen = static_cast<int>(itorW->m_sColmValue.size());
 
                     sprintf(m_sColmLenBuff + iColumLenPos, "%04d", iValueLen);
                     iColumLenPos += 4;
@@ -814,7 +814,7 @@
         iPos += 4;
 
         //SAFESTRCPY(pDataBuff +iPos, iNameLen, m_sNameBuff);
-        strncpy(pDataBuff +iPos, m_sNameBuff, iNameLen);
+        strncpy(pDataBuff +iPos, m_sNameBuff, static_cast<size_t>(iNameLen));
         iPos += iNameLen;
 
         // Column count[4 bytes]
@@ -823,12 +823,12 @@
 
         // 列值长度
         //SAFESTRCPY(pDataBuff +iPos, iColumLenPos, m_sColmLenBuff);
-        strncpy(pDataBuff +iPos, m_sColmLenBuff, iColumLenPos);
+        strncpy(pDataBuff +iPos, m_sColmLenBuff, static_cast<size_t>(iColumLenPos));
         iPos += iColumLenPos;
 
         // 列值
         //SAFESTRCPY(pDataBuff +iPos, iColumValuePos, m_sColmValueBuff);
-        strncpy(pDataBuff +iPos, m_sColmValueBuff, iColumValuePos);
+        strncpy(pDataBuff +iPos, m_sColmValueBuff, static_cast<size_t>(iColumValuePos));
         iPos += iColumValuePos;
 
         // ##
@@ -839,10 +839,10 @@
 
         iRecdLen = iPos;
 
-        pDataBuff[2] = (iRecdLen)/1000 + '0';
-        pDataBuff[3] = ((iRecdLen)%1000)/100 + '0';
-        pDataBuff[4] = ((iRecdLen)%100)/10 + '0';
-        pDataBuff[5] = ((iRecdLen)%10) + '0';
+        pDataBuff[2] = static_cast<char>((iRecdLen)/1000 + '0');
+        pDataBuff[3] = static_cast<char>(((iRecdLen)%1000)/100 + '0');
+        pDataBuff[4] = static_cast<char>(((iRecdLen)%100)/10 + '0');
+        pDataBuff[5] = static_cast<char>(((iRecdLen)%10) + '0');
 
         TADD_FLOW("[%s]",pDataBuff );
         

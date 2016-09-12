@@ -129,10 +129,10 @@ class TMdbSingleTableIndexInfo
 class TRBRowUnit 
 {	
 	public:
-		TRBRowUnit(){}
+		TRBRowUnit();
 		~TRBRowUnit(){}
 		void Show();
-		int Commit(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int Commit(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
 		int RollBack(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		
 	public:
@@ -141,11 +141,19 @@ class TRBRowUnit
 	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
 	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
 
+		//数据地址
+		char*    pRealDataAddr;
+		char*    pVirtualDataAddr;
+		//数据页地址
+		char*  	 pRealPageAddr; 
+		char*  	 pVirtualPageAddr; 
+		
+
 	private:		
 		const char* GetSQLName();		
-		int CommitInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
-		int CommitUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
-		int CommitDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
+		int CommitInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
+		int CommitUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
+		int CommitDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
 		int RollBackInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		int RollBackUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		int RollBackDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
@@ -162,7 +170,7 @@ public:
     void Show(bool bIfMore=false);
     bool IsValid(){return (iPID > 0 && 0 != sStartTime[0]);};//是否是合法的
     bool IsCurrentThreadLink();//是否是当前线程的链接
-    void Commit(TMdbShmDSN * pShmDSN);
+    void Commit(TMdbShmDSN * pShmDSN, TMdbFlushTrans* pFlushTrans);
 	void RollBack(TMdbShmDSN * pShmDSN);
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();

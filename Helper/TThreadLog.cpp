@@ -831,7 +831,7 @@ using namespace std;
            default:
                 break;
         }
-        int iStart = strlen(sTemp);
+        int iStart = (int)strlen(sTemp);
         int iTotalLen = 90;
         int i = 0;
         for(i = iStart;i < iTotalLen;++i)

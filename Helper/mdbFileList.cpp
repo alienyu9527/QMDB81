@@ -133,7 +133,7 @@ int TMdbFileList::GetFileList(int iCounts, int iPos, const char* pszHeadFlag, co
     while((dirp=readdir(dp)) != NULL)
     {
         TADD_DETAIL("iPos=%d, d_name=[%s], pszHeadFlag=[%s], pszTail=[%s].", iPos, dirp->d_name, pszHeadFlag, pszTail);
-        int iLen = strlen(dirp->d_name);
+        size_t iLen = strlen(dirp->d_name);
         if(strncmp(dirp->d_name, pszHeadFlag, strlen(pszHeadFlag)) == 0)
         { 
         	bool bFlag = true;
@@ -152,9 +152,9 @@ int TMdbFileList::GetFileList(int iCounts, int iPos, const char* pszHeadFlag, co
         		{
 	        		sprintf(m_FileName[m_iFileCounts], "%s",dirp->d_name);
 	        		TADD_DETAIL("TMdbFileList::GetFileList() : d_name=[%s] is OK.", dirp->d_name);
-				++m_iFileCounts;
-		      }	
-		      TADD_DETAIL("TMdbFileList::GetFileList() : iLen=[%d].", iLen);
+					++m_iFileCounts;
+		      	}	
+
         	}
         	else
         	{
@@ -280,7 +280,7 @@ int TMdbFileList::GetFileList(const char* pszHeadFlag, const char* pszTail)
     while((dirp=readdir(dp)) != NULL)
     {
         TADD_DETAIL("d_name=[%s], pszHeadFlag=[%s], pszTail=[%s].", dirp->d_name, pszHeadFlag, pszTail);
-        int iLen = strlen(dirp->d_name);
+        size_t iLen = strlen(dirp->d_name);
         if(strncmp(dirp->d_name, pszHeadFlag, strlen(pszHeadFlag)) == 0)
         { 
         	bool bFlag = true;

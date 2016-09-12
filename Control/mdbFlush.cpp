@@ -669,6 +669,7 @@
     * 作者		:  jin.shaohua
     *******************************************************************************/
     TMdbFlushTrans::TMdbFlushTrans(): 
+   		m_pShmDsn(NULL),
         m_pQueue(NULL),
         m_pDsn(NULL),
         m_pShardBackQueue(NULL),
@@ -681,6 +682,8 @@
         
     {
 		m_llRoutingID = DEFALUT_ROUT_ID;
+		m_bNeedFlush = false;
+		m_bIsCurRowNeedCapture  =false;
     }
     /******************************************************************************
     * 函数名称	:  ~TMdbFlush
@@ -711,14 +714,23 @@
         int iRet = 0;
         m_iFlushType = 0;
 		m_iSqlType = iSqlType;
-        m_pTable = pTable;
+		
+		m_pShmDsn = pShmDSN;
+        m_pDsn = m_pShmDsn->GetInfo();
+        CHECK_OBJ(m_pDsn);		
 		m_pDataAddr = pDataAddr;
-        TMdbShmDSN * pShmDsn = pShmDSN;
-        m_pDsn = pShmDsn->GetInfo();
-        CHECK_OBJ(m_pDsn);
-        CHECK_RET(m_tRowCtrl.Init(m_pDsn->sName,pTable->sTableName),"m_tRowCtrl.Init");
-
-		m_pConfig = TMdbConfigMgr::GetMdbConfig(m_pDsn->sName);
+		
+		//如果表不一致，需要重新初始化部分类
+		if(pTable != m_pTable)
+		{
+			m_pTable = pTable;	
+			CHECK_RET(m_tRowCtrl.Init(m_pDsn->sName,pTable->sTableName),"m_tRowCtrl.Init");	
+		}	
+        
+		if(NULL == m_pConfig)
+		{
+			m_pConfig = TMdbConfigMgr::GetMdbConfig(m_pDsn->sName);
+		}
 		
         //设置同步属性
         if(m_pDsn->m_bIsOraRep && (REP_TO_DB == m_pTable->iRepAttr ))
@@ -726,18 +738,23 @@
             FlushTypeSetProperty(m_iFlushType,FLUSH_ORA);
         }
 
-        if(m_pTable->m_bShardBack && m_pConfig->GetDSN()->m_bIsShardBackup)
+        if(m_pTable->m_bShardBack &&  pShmDSN->GetInfo()->m_bIsShardBackup)
         {
             FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
         }
-        TMdbTableSpace* pTS = pShmDsn->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
+        TMdbTableSpace* pTS = m_pShmDsn->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
         CHECK_OBJ(pTS);
         if(pTS->m_bFileStorage)
         {
             FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
         }
 
-        m_pQueue = (TMdbMemQueue*)pShmDsn->GetSyncAreaShm();
+		m_bNeedFlush = bNeedToFlush();
+		m_bIsCurRowNeedCapture = IsCurRowNeedCapture();
+		
+		if(!IsNeedMakeBuf()){return iRet;}
+
+        m_pQueue = (TMdbMemQueue*)m_pShmDsn->GetSyncAreaShm();
         CHECK_OBJ(m_pQueue);
         CHECK_RET(m_QueueCtrl.Init(m_pQueue, m_pDsn),"Init failed");
         TADD_FUNC("Finish.m_iFlushType=[%d].",m_iFlushType);
@@ -1140,14 +1157,10 @@
     }
 
     
-    int TMdbFlushTrans::MakeBuf(MDB_INT64 iLsn,long long iTimeStamp)
+    int TMdbFlushTrans::MakeBuf(MDB_INT64 iLsn)
     {
 		TADD_FUNC("Start.");
         int iRet = 0;
-        if( !bNeedToFlush() && !IsCurRowNeedCapture())
-		{
-			return iRet;
-		}
 		
         if(NULL == m_psDataBuff)
         {
@@ -1163,6 +1176,8 @@
         {
             m_psDataBuff[0]='\0';
         }
+		
+		long long iTimeStamp = TMdbDateTime::StringToTime(m_pShmDsn->GetInfo()->sCurTime);
 		  
         CHECK_RET(FillRepData(m_psDataBuff,iLsn,iTimeStamp,m_iBufLen),"FillData failed.");
 		return iRet;
@@ -1172,6 +1187,11 @@
 	{
 		m_psDataBuff[6]=cVersion;
 	}
+
+	bool TMdbFlushTrans::IsNeedMakeBuf()
+	{
+		return m_bNeedFlush||m_bIsCurRowNeedCapture ;
+	}
 	
 	
     int TMdbFlushTrans::InsertBufIntoQueue()
@@ -1179,7 +1199,7 @@
         TADD_FUNC("Start.");
         int iRet = 0;	
 
-		if(!bNeedToFlush())
+		if(!m_bNeedFlush)
 		{
 			return iRet;
 		}
@@ -1195,7 +1215,7 @@
         TADD_FUNC("Start.");
         int iRet = 0;	
 		
-		if(!IsCurRowNeedCapture())
+		if(!m_bIsCurRowNeedCapture)
         {
             return iRet;
         }

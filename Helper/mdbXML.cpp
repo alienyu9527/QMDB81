@@ -36,12 +36,12 @@ void MDBXMLBase::PutString( const string& str, string* outString )
 
 	while( i<(int)str.length() )
 	{
-		unsigned char c = (unsigned char) str[i];
+		unsigned char c = (unsigned char) str[(long unsigned int)i];
 
 		if (    c == '&' 
 		     && i < ( (int)str.length() - 2 )
-			 && str[i+1] == '#'
-			 && str[i+2] == 'x' )
+			 && str[(long unsigned int)(i+1)] == '#'
+			 && str[(long unsigned int)(i+2)] == 'x' )
 		{
 			// Hexadecimal character reference.
 			// Pass through unchanged.
@@ -57,7 +57,7 @@ void MDBXMLBase::PutString( const string& str, string* outString )
 			{
 				outString->append( str.c_str() + i, 1 );
 				++i;
-				if ( str[i] == ';' )
+				if ( str[(long unsigned int)i] == ';' )
 					break;
 			}
 		}
@@ -100,7 +100,7 @@ void MDBXMLBase::PutString( const string& str, string* outString )
 
 			//*ME:	warning C4267: convert 'size_t' to 'int'
 			//*ME:	Int-Cast to make compiler happy ...
-			outString->append( buf, (int)strlen( buf ) );
+			outString->append( buf, strlen( buf ) );
 			++i;
 		}
 		else
@@ -1026,7 +1026,7 @@ bool MDBXMLDocument::LoadFile( FILE* file, MDBXMLEncoding encoding )
 	// If we have a file, assume it is all one big XML file, and read it in.
 	// The document parser may decide the document ends sooner than the entire file, however.
 	string data;
-	data.reserve( length );
+	data.reserve( (long unsigned int)length );
 
 	// Subtle bug here. TinyXml did use fgets. But from the XML spec:
 	// 2.11 End-of-Line Handling
@@ -1052,7 +1052,7 @@ bool MDBXMLDocument::LoadFile( FILE* file, MDBXMLEncoding encoding )
 	char* buf = new char[ length+1 ];
 	buf[0] = 0;
 
-	if ( fread( buf, length, 1, file ) != 1 ) {
+	if ( fread( buf, (size_t)length, 1, file ) != 1 ) {
 		delete [] buf;
 		SetError( MDBXML_ERROR_OPENING_FILE, 0, 0, MDBXML_ENCODING_UNKNOWN );
 		return false;
@@ -1067,7 +1067,7 @@ bool MDBXMLDocument::LoadFile( FILE* file, MDBXMLEncoding encoding )
 		if ( *p == 0xa ) {
 			// Newline character. No special rules for this. Append all the characters
 			// since the last string, and include the newline.
-			data.append( lastPos, (p-lastPos+1) );	// append, include the newline
+			data.append( lastPos, (long unsigned int)(p-lastPos+1) );	// append, include the newline
 			++p;									// move past the newline
 			lastPos = p;							// and point to the new buffer (may be 0)
 			assert( p <= (buf+length) );
@@ -1076,7 +1076,7 @@ bool MDBXMLDocument::LoadFile( FILE* file, MDBXMLEncoding encoding )
 			// Carriage return. Append what we have so far, then
 			// handle moving forward in the buffer.
 			if ( (p-lastPos) > 0 ) {
-				data.append( lastPos, p-lastPos );	// do not add the CR
+				data.append( lastPos, (long unsigned int)(p-lastPos) );	// do not add the CR
 			}
 			data += (char)0xa;						// a proper newline
 
@@ -1099,7 +1099,7 @@ bool MDBXMLDocument::LoadFile( FILE* file, MDBXMLEncoding encoding )
 	}
 	// Handle any left over characters.
 	if ( p-lastPos ) {
-		data.append( lastPos, p-lastPos );
+		data.append( lastPos,(long unsigned int)(p-lastPos) );
 	}		
 	delete [] buf;
 	buf = 0;
