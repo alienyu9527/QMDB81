@@ -228,11 +228,11 @@ if(TMdbNtcStrFunc::StrNoCaseCmp(NAME,COMP) == 0)\
         int  iPeerPort;              //对端端口
         int  iActivePort;            //容灾活动端口
         int  iStandbyPort;             //容灾standby端口
-		char sAgentPortStr[64]; 	 //代理端口列表字符串
+		char sAgentPortStr[MAX_AGENT_PORT_STR_LEN]; 	 //代理端口列表字符串
 		int  iAgentPort[MAX_AGENT_PORT_COUNTS]; 			//代理端口列表
 		
-		char sNtcPortStr[64];		 //使用ntc的端口列表字符串
-		char sNoNtcPortStr[64];      //不使用ntc端口列表字符串
+		char sNtcPortStr[MAX_AGENT_PORT_STR_LEN];		 //使用ntc的端口列表字符串
+		char sNoNtcPortStr[MAX_AGENT_PORT_STR_LEN];      //不使用ntc端口列表字符串
 		int  iNtcPort[MAX_AGENT_PORT_COUNTS];               //使用ntc的端口列表
 		int  iNoNtcPort[MAX_AGENT_PORT_COUNTS];             //不使用ntc的端口列表
 		

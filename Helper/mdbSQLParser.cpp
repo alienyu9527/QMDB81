@@ -2044,7 +2044,7 @@ int TMdbSqlParser::AddColumnAttribute(const char * sAttrName, Token *pToken)
         TADD_DETAIL("sAttrName = %s,sAttr=%s",sAttrName,sAttr);
         if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"data-len") == 0)
         {
-            tColumn.iColumnLen = TMdbNtcStrFunc::StrToInt(sAttr);
+            tColumn.iColumnLen = (int)(TMdbNtcStrFunc::StrToInt(sAttr));
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"data-type") == 0)
         {	
@@ -2638,7 +2638,7 @@ int TMdbSqlParser::AddTablespaceAttribute(Token * pPageSize,Token * pAskPage,Tok
         {
             sPageSize =  QMDB_MALLOC->NameFromToken(pPageSize);
             CHECK_OBJ_FILL_BREAK(sPageSize);
-            m_pDDLSqlStruct->pTablespace->iPageSize = TMdbNtcStrFunc::StrToInt(sPageSize)*1024;
+            m_pDDLSqlStruct->pTablespace->iPageSize = (size_t)(TMdbNtcStrFunc::StrToInt(sPageSize)*1024);
         }
 
         if(NULL == pAskPage)
@@ -2649,7 +2649,7 @@ int TMdbSqlParser::AddTablespaceAttribute(Token * pPageSize,Token * pAskPage,Tok
         {
             sAskPage  =  QMDB_MALLOC->NameFromToken(pAskPage);
             CHECK_OBJ_FILL_BREAK(sAskPage);
-            m_pDDLSqlStruct->pTablespace->iRequestCounts = TMdbNtcStrFunc::StrToInt(sAskPage);
+            m_pDDLSqlStruct->pTablespace->iRequestCounts = (int)(TMdbNtcStrFunc::StrToInt(sAskPage));
         }
 
         if(NULL == pStorage)
@@ -2685,7 +2685,7 @@ int TMdbSqlParser::ModifyTablespaceAttribute(Token * pPageSize,Token * pAskPage,
         {
             sPageSize =  QMDB_MALLOC->NameFromToken(pPageSize);
             CHECK_OBJ_FILL_BREAK(sPageSize);
-            m_pDDLSqlStruct->pTablespace->iPageSize = TMdbNtcStrFunc::StrToInt(sPageSize)*1024;
+            m_pDDLSqlStruct->pTablespace->iPageSize = (size_t)(TMdbNtcStrFunc::StrToInt(sPageSize)*1024);
             SAFESTRCPY(m_pDDLSqlStruct->m_tAttr[0].sAttrName,\
                 sizeof(m_pDDLSqlStruct->m_tAttr[0].sAttrName),"PAGESIZE");
         }
@@ -2694,7 +2694,7 @@ int TMdbSqlParser::ModifyTablespaceAttribute(Token * pPageSize,Token * pAskPage,
         {
             sAskPage  =  QMDB_MALLOC->NameFromToken(pAskPage);
             CHECK_OBJ_FILL_BREAK(sAskPage);
-            m_pDDLSqlStruct->pTablespace->iRequestCounts = TMdbNtcStrFunc::StrToInt(sAskPage);
+            m_pDDLSqlStruct->pTablespace->iRequestCounts = (int)(TMdbNtcStrFunc::StrToInt(sAskPage));
             SAFESTRCPY(m_pDDLSqlStruct->m_tAttr[1].sAttrName,\
                 sizeof(m_pDDLSqlStruct->m_tAttr[1].sAttrName),"ASKPAGE");
         }
@@ -4107,8 +4107,8 @@ int TMdbSqlParser::SetNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,ch
 	}
 	else
 	{
-		char sNtcPortStr[64] = {0};
-		SAFESTRCPY(sNtcPortStr, 64, pDsn->sNtcPortStr);
+		char sNtcPortStr[MAX_AGENT_PORT_STR_LEN] = {0};
+		SAFESTRCPY(sNtcPortStr, MAX_AGENT_PORT_STR_LEN, pDsn->sNtcPortStr);
 		TMdbNtcSplit tSplit;
 		tSplit.SplitString(sNtcPortStr, ',');
 		if(tSplit.GetFieldCount() <= 0)
@@ -4152,8 +4152,8 @@ int TMdbSqlParser::SetNoNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,
 	}
 	else
 	{
-		char sNoNtcPortStr[64] = {0};
-		SAFESTRCPY(sNoNtcPortStr, 64, pDsn->sNoNtcPortStr);
+		char sNoNtcPortStr[MAX_AGENT_PORT_STR_LEN] = {0};
+		SAFESTRCPY(sNoNtcPortStr, MAX_AGENT_PORT_STR_LEN, pDsn->sNoNtcPortStr);
 		TMdbNtcSplit tSplit;
 		tSplit.SplitString(sNoNtcPortStr, ',');
 		if(tSplit.GetFieldCount() <= 0)
@@ -4295,8 +4295,8 @@ int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *s
 		}
 		else
 		{
-		    char sAgentPort[64] = {0};
-			SAFESTRCPY(sAgentPort, 64, pDsn->sAgentPortStr);
+		    char sAgentPort[MAX_AGENT_PORT_STR_LEN] = {0};
+			SAFESTRCPY(sAgentPort, MAX_AGENT_PORT_STR_LEN, pDsn->sAgentPortStr);
 			TMdbNtcSplit tSplit;
 			tSplit.SplitString(sAgentPort, ',');
 			if(tSplit.GetFieldCount() <= 0)

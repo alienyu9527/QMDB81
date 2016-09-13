@@ -436,6 +436,11 @@ int TMdbRichSQL::Start(const bool bIsOffline)
         //循环读取
         SAFE_FREE(sLine);
         sLine = readline("SQL>>");
+		if(NULL == sLine) 
+		{
+			printf("readline end. Quit");
+			return iRet;
+		}
         TrimLeftOrRightSpecialChar(sLine);
         if (sLine && *sLine)
         {
@@ -461,6 +466,11 @@ int TMdbRichSQL::Start(const bool bIsOffline)
                 SAFE_FREE(sLine);
                 sprintf(sPrompt,"  %d ",iLineCount);
                 sLine = readline(sPrompt);
+				if(NULL == sLine) 
+				{
+					printf("readline end. Quit");
+					return iRet;
+				}
                 TrimLeftOrRightSpecialChar(sLine);
                 sCmdStr[strlen(sCmdStr) + 1] = '\0';//末尾添加一个空格
                 sCmdStr[strlen(sCmdStr)] = ' ';

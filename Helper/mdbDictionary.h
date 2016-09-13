@@ -697,6 +697,7 @@ public:
     unsigned long iTID; 			//远程链接的线程ID
     int iSQLPos;                    //远程链接上sql位置
     int iProtocol;                  //协议
+    int iPort;
     char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
 };
 

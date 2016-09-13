@@ -579,7 +579,7 @@ int TMdbNoNtcAgentServer::Init(const char* pszDSN, int iAgentPort)
     m_pDsn = m_pShmDSN->GetInfo();
     CHECK_RET(m_tProcCtrl.Init(pszDSN),"m_tProcCtrl.Init(%s) failed.",pszDSN);
     CHECK_RET(m_tLinkCtrl.Attach(pszDSN),"m_tLinkCtrl.Init(%s) failed.",pszDSN);
-    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(),"m_tLinkCtrl.ClearRemoteLink(%s) failed.",pszDSN);
+    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(iAgentPort),"m_tLinkCtrl.ClearRemoteLink(%d) failed.",iAgentPort);
 	CHECK_RET(m_tLinkCtrl.ClearCntNumForPort(iAgentPort),"m_tLinkCtrl.ClearCntNumForPort(%d) failed.",iAgentPort);
     CHECK_RET(m_tAgentFile.Init()," m_tAgentFile.Init failed.");
     tMutex.Create();
@@ -3694,7 +3694,6 @@ int TMdbAgentServer::Init(const char* pszDSN)
     m_pDsn = m_pShmDSN->GetInfo();
     CHECK_RET(m_tProcCtrl.Init(pszDSN),"m_tProcCtrl.Init(%s) failed.",pszDSN);
     CHECK_RET(m_tLinkCtrl.Attach(pszDSN),"m_tLinkCtrl.Init(%s) failed.",pszDSN);
-    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(),"m_tLinkCtrl.ClearRemoteLink(%s) failed.",pszDSN);
     m_tAgentFile.Init();
     if(m_pConfig) ParseCSIPCfg();//½âÎöip
     tMutex.Create();
@@ -3714,6 +3713,7 @@ int TMdbAgentServer::PreSocket(int iAgentPort)
 {
     TADD_FUNC("Start.");
     int iRet = 0;
+    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(iAgentPort),"m_tLinkCtrl.ClearRemoteLink(%d) failed.",iAgentPort);
     TADD_DETAIL("iAgentPort=%d.", iAgentPort);
     if(false == AddListen(NULL, iAgentPort))
     {

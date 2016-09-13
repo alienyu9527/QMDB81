@@ -582,7 +582,7 @@ int TMdbLinkCtrl::UnRegLocalLink(TMdbLocalLink *& pLocalLink)
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
-int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort)
+int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort,bool bMasterPort)
 {
     TADD_FUNC("Start");
     int iRet = 0;
@@ -615,9 +615,10 @@ int TMdbLinkCtrl::RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort)
         pRemoteLink->iPID = (tCSLink.m_iClientPID);  //客户端PID
         pRemoteLink->iTID = (tCSLink.m_iClientTID);  //客户端线程ID
         pRemoteLink->iProtocol = tCSLink.m_iUseOcp;
+        pRemoteLink->iPort = iAgentPort;
         tCSLink.m_pRemoteLink =pRemoteLink;
 
-		if(iAgentPort != -1)
+		if(iAgentPort != -1 && !bMasterPort)
 			AddConNumForPort(iAgentPort);
 
     }while(0);
@@ -740,7 +741,7 @@ int TMdbLinkCtrl::ClearInvalidLink()
 * 返回值	:  0 - 成功!0 -失败
 * 作者		:  jin.shaohua
 *******************************************************************************/
-int TMdbLinkCtrl::ClearRemoteLink()
+int TMdbLinkCtrl::ClearRemoteLink(int iPort)
 {
     TADD_FUNC("Start");
     int iRet = 0;
@@ -750,10 +751,10 @@ int TMdbLinkCtrl::ClearRemoteLink()
     //先搜寻空闲的
     for(;itor != m_pShmDsn->m_RemoteLinkList.end();++itor)
     {
-        if(strlen(itor->sIP) != 0)
+        if(strlen(itor->sIP) != 0 &&(iPort == 0 || iPort == itor->iPort))
         {
-            TADD_NORMAL("Clean up the remote link,HostIP = [%s],Handle = [%d]",\
-                itor->sIP,itor->iHandle);
+            TADD_NORMAL("Clean up the remote link,HostIP = [%s],Handle = [%d],Port = [%d]",\
+                itor->sIP,itor->iHandle,itor->iPort);
             itor->Clear();
         }
     }
@@ -827,6 +828,8 @@ int TMdbLinkCtrl::ClearAllLink()
     {
         if(itorPort->iAgentPort != -1)
         {
+            TADD_NORMAL("Clean up the remote link,port = [%d],connum = [%d]",\
+                itorPort->iAgentPort,itorPort->iConNum);
             itorPort->Clear();
         }
     }
@@ -845,7 +848,7 @@ int   TMdbLinkCtrl::ClearCntNumForPort(int iAgentPort)
     CHECK_OBJ(m_pShmDsn);
    	CHECK_RET(m_pShmDsn->LockDSN(),"lock failed.");
 	//int i;
-	TADD_NORMAL("ClearCntNumForPort() : Start_mjx.");
+	//TADD_NORMAL("ClearCntNumForPort() : Start_mjx.");
 	TADD_NORMAL("iAgentPort %d",iAgentPort);
 	/*
 	for(i=0; i<MAX_AGENT_PORT_COUNTS; i++)
@@ -924,6 +927,45 @@ int   TMdbLinkCtrl::GetCsAgentPort(int iClientPort)
 	
 	
 
+}
+
+int   TMdbLinkCtrl::GetCsAgentPortBaseOnMasterPort(int iClientPort)
+{
+	
+    int iRet = 0;
+	int iRetPort = 0;
+    TADD_FUNC(" Start.");
+    CHECK_OBJ(m_pShmDsn);
+   	CHECK_RET(m_pShmDsn->LockDSN(),"lock failed.");
+	//最大连接数的端口号，最小连接数的端口号 ，二者相差不超过5即可
+	int iMin = 65536;
+	int iMinPort = -1;
+	TShmList<TMdbPortLink>::iterator itorPort = m_pShmDsn->m_PortLinkList.begin();
+    for(;itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+	{
+		if(itorPort->iAgentPort > 0 && itorPort->iConNum < iMin)
+		{
+			iMin = itorPort->iConNum;
+			iMinPort = itorPort->iAgentPort;
+		}
+		//TADD_NORMAL(" no ntc port numm %d, con num %d",itorPort->iAgentPort,itorPort->iConNum);
+	}
+    iRetPort = (iMinPort > 0) ? iMinPort : iClientPort;
+	//TADD_NORMAL("iRet=%d,iClientPort=%d",iRetPort,iClientPort);
+    for(itorPort = m_pShmDsn->m_PortLinkList.begin();itorPort != m_pShmDsn->m_PortLinkList.end();++itorPort)
+	{
+		if(itorPort->iAgentPort == iRetPort)
+		{
+			itorPort->iConNum++;
+			break;
+		}
+	}
+	CHECK_RET(m_pShmDsn->UnLockDSN(),"unlock failed.");
+    //解锁
+    TADD_FUNC("Finish.");	
+	iRet = iRetPort;
+	//TADD_NORMAL(" return :GetCsAgentPort:iRet%d,iClientPort%d",iRetPort,iClientPort);
+    return iRet;
 }
 
 int	  TMdbLinkCtrl::AddConNumForPort(int iAgentPort)

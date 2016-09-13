@@ -162,7 +162,8 @@ typedef key_t		SMKey;
 
 
 //agent最大端口数
-#define MAX_AGENT_PORT_COUNTS 5
+#define MAX_AGENT_PORT_COUNTS 50
+#define MAX_AGENT_PORT_STR_LEN 512
 #define CONNECT_DIFF 5
 
 //cs使用不同的协议标示

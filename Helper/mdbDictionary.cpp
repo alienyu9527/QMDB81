@@ -938,6 +938,7 @@
         iSQLPos   = -1;
         memset(sProcessName,0,sizeof(sProcessName));
         iProtocol = -1;
+        iPort = -1;
     }    
 
     void TMdbRemoteLink::Show(bool bIfMore)
@@ -947,8 +948,8 @@
         memset(sHead,0,500);
         if(bfirst == false)
         {
-            sprintf(sHead,"%-15s %-14s %-14s %-5s %-8s %-6s %-6s %-7s %-7s %-7s %-11s %-22s %-8s %-11s\n",\
-            "IP","StartTime","FreshTime","State","LogLevel","Access","Handle","User","Pass","DSN","PID","TID","PRIORITY","SQLPos");
+            sprintf(sHead,"%-15s %-14s %-14s %-5s %-8s %-6s %-6s %-7s %-7s %-7s %-11s %-22s %-8s %-11s %-8s %-8s\n",\
+            "IP","StartTime","FreshTime","State","LogLevel","Access","Handle","User","Pass","DSN","PID","TID","PRIORITY","SQLPos","Protocol","Port");
             printf("\n");
             printf("[ Remote-Link-Info ]:\n");
             printf("%s",sHead);
@@ -956,8 +957,8 @@
         }
         if(sIP[0] != 0)
         {
-            printf("%-15s %-14s %-14s %-5c %-8d %-6c %-6d %-7s %-7s %-7s %-11d %-22lu %-8d %-8d\n",\
-            sIP,sStartTime,sFreshTime,cState,iLogLevel,cAccess,iHandle,sUser,sPass,sDSN,iPID,iTID,iLowPriority,iSQLPos);
+            printf("%-15s %-14s %-14s %-5c %-8d %-6c %-6d %-7s %-7s %-7s %-11d %-22lu %-8d %-8d %-8d %-8d\n",\
+            sIP,sStartTime,sFreshTime,cState,iLogLevel,cAccess,iHandle,sUser,sPass,sDSN,iPID,iTID,iLowPriority,iSQLPos,iProtocol,iPort);
         }
         
     }

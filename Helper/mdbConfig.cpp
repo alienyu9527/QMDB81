@@ -408,8 +408,8 @@
 		}
 		else
 		{
-			char sAgentPort[64] = {0};
-			SAFESTRCPY(sAgentPort, 64, m_tDsn.sAgentPortStr);
+			char sAgentPort[MAX_AGENT_PORT_STR_LEN] = {0};
+			SAFESTRCPY(sAgentPort, MAX_AGENT_PORT_STR_LEN, m_tDsn.sAgentPortStr);
 			TMdbNtcSplit tSplit;
 			tSplit.SplitString(sAgentPort, ',');
 			if(tSplit.GetFieldCount() <= 0)
@@ -452,8 +452,8 @@
 		}
 		else
 		{
-		    char sAgentPort[64] = {0};
-			SAFESTRCPY(sAgentPort, 64, sPortStr);
+		    char sAgentPort[MAX_AGENT_PORT_STR_LEN] = {0};
+			SAFESTRCPY(sAgentPort, MAX_AGENT_PORT_STR_LEN, sPortStr);
 			TMdbNtcSplit tSplit;
 			tSplit.SplitString(sAgentPort, ',');
 			if(tSplit.GetFieldCount() <= 0)

@@ -210,6 +210,7 @@ public:
     void Disconnect(client *ptClient){m_tLinkCtrl.UnRegRemoteLink(ptClient->m_tTMdbCSLink,-1);};
     int DoHeartBeat();
     int DoMain();
+    void ClearRemoteLink(){m_tLinkCtrl.ClearRemoteLink(iPort);}
 public:
     static void* Agent(void* p);
     int Login(client *ptClient) throw (TMdbException);//登陆, 并进行权限验证

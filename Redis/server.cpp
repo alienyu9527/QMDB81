@@ -278,7 +278,7 @@ int TMdbRedisAgentServer::Init(const char* pszDSN, int iAgentPort)
     m_pDsn = m_pShmDSN->GetInfo();
     CHECK_RET(m_tProcCtrl.Init(pszDSN),"m_tProcCtrl.Init(%s) failed.",pszDSN);
     CHECK_RET(m_tLinkCtrl.Attach(pszDSN),"m_tLinkCtrl.Init(%s) failed.",pszDSN);
-    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(),"m_tLinkCtrl.ClearRemoteLink(%s) failed.",pszDSN);
+    CHECK_RET(m_tLinkCtrl.ClearRemoteLink(iAgentPort),"m_tLinkCtrl.ClearRemoteLink(%d) failed.",iAgentPort);
 	CHECK_RET(m_tLinkCtrl.ClearCntNumForPort(iAgentPort),"m_tLinkCtrl.ClearCntNumForPort(%d) failed.",iAgentPort);
     TADD_FUNC("TMdbRedisAgentServer::Init(%s) : Finish.", pszDSN);
     
@@ -290,13 +290,17 @@ int TMdbRedisAgentServer::Init(const char* pszDSN, int iAgentPort)
     }
     return iRet;
 }
-
+//redis模式 使用配置的第一个端口作为分发端口
+//分发时就确定连接数，后续需要解决分发端口号，连接失败的问题
+//在注册时再确定，如果系统初始启动时会有大量连接
+//此时连接均衡会不准确
 int TMdbRedisAgentServer::GetConnectAgentPort(TMdbCspParser * pParser)
 {
 	int iRtnPort = 0;
+	if(iPort != m_pConfig->GetDSN()->iAgentPort[0]) return 0;
 	if(pParser->GetINT32Value(pParser->m_pRootAvpItem,AVP_CON_NUM) == 0)
 	{
-		int iValue = m_tLinkCtrl.GetCsAgentPort(iPort);
+		int iValue = m_tLinkCtrl.GetCsAgentPortBaseOnMasterPort(iPort);
 		if(iValue > 0 && iValue != iPort)
 			iRtnPort = iValue;
 		else
@@ -523,7 +527,7 @@ int TMdbRedisAgentServer::Authentication(client *ptClient)
 	            CHECK_RET_SEND_ANS(ERR_CSP_LOGON_FAILED,ptClient,"logon failed [%s/%s@%s] is error.",
 	                                        ptClient->m_tTMdbCSLink.m_sUser,ptClient->m_tTMdbCSLink.m_sPass,ptClient->m_tTMdbCSLink.m_sDSN);
 	        }
-	        CHECK_RET_SEND_ANS(m_tLinkCtrl.RegRemoteLink(ptClient->m_tTMdbCSLink,iPort),ptClient,"RegRemoteLink failed.");
+	        CHECK_RET_SEND_ANS(m_tLinkCtrl.RegRemoteLink(ptClient->m_tTMdbCSLink,iPort,true),ptClient,"RegRemoteLink failed.");
 		}
     }
     catch(TMdbException& e)
@@ -1808,9 +1812,10 @@ int TMdbRedisAgentServer::DoHeartBeat()
         }
         //应用进程心跳时间
         m_tProcCtrl.UpdateProcHeart(0);
-        TMdbDateTime::Sleep(iHeartBeat);
+        //TMdbDateTime::Sleep(iHeartBeat);
+        TMdbDateTime::MSleep(iHeartBeat*1000);
     }
-    TADD_NORMAL_TO_CLI(FMT_CLI_OK,"Process[mdbAgent] Exit.");
+    TADD_NORMAL_TO_CLI(FMT_CLI_OK,"Process[mdbAgent %d] Exit.",iPort);
     return 0;
 }
 int TMdbRedisAgentServer::DoMain()
@@ -1856,6 +1861,7 @@ int mdbRedisServermain(const char* pszDSN, int iAgentPort)
     aeSetBeforeSleepProc(server.el,handleClientsWithPendingWrites);
     gMdbAgent.DoMain();
     gMdbAgent.DoHeartBeat();
+    gMdbAgent.ClearRemoteLink();
     //aeMain(server.el);
     return 0;    
 }

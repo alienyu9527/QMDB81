@@ -79,7 +79,7 @@
             #ifdef _WIN32
             ::Sleep(iSeconds*1000);
             #else
-            ::sleep(iSeconds);
+            ::sleep((unsigned int)iSeconds);
             #endif
         }
         

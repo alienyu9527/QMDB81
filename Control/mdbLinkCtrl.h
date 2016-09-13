@@ -222,14 +222,15 @@ public:
 	int Attach(const char * sDsn);//链接共享内存
 	int RegLocalLink(TMdbLocalLink *& pLocalLink);//注册本地链接
 	int UnRegLocalLink(TMdbLocalLink *& pLocalLink);//注销本地链接管理
-	int RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注册远程链接
+	int RegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1,bool bMasterPort=false);//注册远程链接
 	int UnRegRemoteLink(TMdbCSLink &tCSLink,int iAgentPort =-1);//注销远程链接
 	int RegRepLink(TMdbRepLink &tRepLink);//注册rep链接
 	int UnRegRepLink(int iSocket,char cState);//注册rep链接
 	int ClearInvalidLink();//清除无效链接
-	int ClearRemoteLink();//清理远程链接
+	int ClearRemoteLink(int iPort = 0);//清理远程链接
 	int ClearAllLink();//清除所有链接
 	int   GetCsAgentPort(int iClientPort);//根据客户端发过来的端口号，结合其他端口号判断，取一个合适的
+	int   GetCsAgentPortBaseOnMasterPort(int iClientPort);//根据客户端发过来的端口号，结合其他端口号判断，取一个合适的
 	int	  AddConNumForPort(int iAgentPort);//连接成功后，连接数增加
 	int	  MinusConNumForPort(int iAgentPort);//连接断开后，连接数减1
 	int   ClearCntNumForPort(int iAgentPort);//agent初始化时，连接数清0
