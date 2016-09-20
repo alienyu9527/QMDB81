@@ -339,6 +339,11 @@ int anetWrite(int fd, char *buf, int count)
     }
     return totlen;
 }
+int gIdleFd = -1;
+static void openIdleFd()
+{
+    gIdleFd = open("/dev/null", O_RDONLY);
+}
 
 static int anetListen(char *err, int s, struct sockaddr *sa, socklen_t len, int backlog) {
     if (bind(s,sa,len) == -1) {
@@ -352,6 +357,7 @@ static int anetListen(char *err, int s, struct sockaddr *sa, socklen_t len, int 
         close(s);
         return ANET_ERR;
     }
+    openIdleFd();
     return ANET_OK;
 }
 
@@ -429,11 +435,41 @@ static int anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *l
     return fd;
 }
 
+static int anetAcceptPlus(char *err, int s, struct sockaddr *sa, socklen_t *len)
+{
+    int fd;
+    while(1) 
+    {
+        fd = accept(s,sa,len);
+        if (fd == -1) 
+        {
+            if (errno == EINTR)
+                continue;
+            else if(errno == EMFILE && gIdleFd != -1)
+            {
+                anetSetError(err, "accept: %s", strerror(errno));            
+                close(gIdleFd);
+                gIdleFd = accept(s,sa,len);
+                if(gIdleFd != -1) close(gIdleFd);
+                openIdleFd();
+                return ANET_ERR;
+            }
+            else 
+            {
+                anetSetError(err, "accept: %s", strerror(errno));
+                return ANET_ERR;
+            }
+        }
+        break;
+    }
+    return fd;
+}
+
 int anetTcpAccept(char *err, int s, char *ip, size_t ip_len, int *port) {
     int fd;
     struct sockaddr_storage sa;
     socklen_t salen = sizeof(sa);
-    if ((fd = anetGenericAccept(err,s,(struct sockaddr*)&sa,&salen)) == -1)
+    if ((fd = anetAcceptPlus(err,s,(struct sockaddr*)&sa,&salen)) == -1)
         return ANET_ERR;
 
     if (sa.ss_family == AF_INET) {

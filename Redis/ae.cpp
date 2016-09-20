@@ -65,6 +65,7 @@ aeEventLoop *aeCreateEventLoop(int setsize) {
     eventLoop->stop = 0;
     eventLoop->maxfd = -1;
     eventLoop->beforesleep = NULL;
+    eventLoop->closeSock = NULL;
     if (aeApiCreate(eventLoop) == -1) goto err;
     /* Events with mask == AE_NONE are not set. So let's initialize the
      * vector with it. */
@@ -251,14 +252,17 @@ int aeWait(int fd, int mask, long long milliseconds) {
             eventLoop->beforesleep();
         aeProcessEvents(eventLoop, AE_ALL_EVENTS);
     }
+    if(eventLoop->closeSock != NULL) eventLoop->closeSock();
     aeDeleteEventLoop(eventLoop);
     return 0;
 }
-
 //const char *aeGetApiName(void) {
 //    return aeApiName();
 //}
-
+void aeSetCloseSockFunc(aeEventLoop *eventLoop, CLOSE_SOCK_FUN *closefunc)
+{
+    eventLoop->closeSock = closefunc;
+}
 void aeSetBeforeSleepProc(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep) {
     eventLoop->beforesleep = beforesleep;
 }

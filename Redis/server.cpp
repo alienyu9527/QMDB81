@@ -206,6 +206,7 @@ void initServer(int iListenPort) {
     server.stat_numconnections = 0;
     server.stat_rejected_conn = 0;
     server.port = iListenPort;
+    //server.idlefd = -1;
     /* Open the TCP listening socket for the user commands. */
     if (server.port != 0 &&
         listenToPort(server.port,server.ipfd,&server.ipfd_count) == C_ERR)
@@ -235,6 +236,14 @@ void initServer(int iListenPort) {
     }
 
 
+}
+
+int closeSocket()
+{
+    int j=0;
+    for (j = 0; j < server.ipfd_count; j++) close(server.ipfd[j]);
+    if(gIdleFd != -1) close(gIdleFd);
+    return 0;
 }
 
 client::client()
@@ -1859,6 +1868,7 @@ int mdbRedisServermain(const char* pszDSN, int iAgentPort)
     initServerConfig();
     initServer(iAgentPort);
     aeSetBeforeSleepProc(server.el,handleClientsWithPendingWrites);
+    aeSetCloseSockFunc(server.el,closeSocket);
     gMdbAgent.DoMain();
     gMdbAgent.DoHeartBeat();
     gMdbAgent.ClearRemoteLink();

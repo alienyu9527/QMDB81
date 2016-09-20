@@ -60,7 +60,7 @@ typedef void aeFileProc(struct aeEventLoop *eventLoop, int fd, void *clientData,
 typedef void aeEventFinalizerProc(struct aeEventLoop *eventLoop, void *clientData);
 //typedef void aeBeforeSleepProc(struct aeEventLoop *eventLoop);
 typedef int aeBeforeSleepProc();
-
+typedef int CLOSE_SOCK_FUN();
 
 /* File event structure */
 typedef struct aeFileEvent {
@@ -89,6 +89,7 @@ typedef struct aeEventLoop {
     int stop;
     void *apidata; /* This is used for polling API specific data */
     aeBeforeSleepProc *beforesleep;
+    CLOSE_SOCK_FUN *closeSock;
 } aeEventLoop;
 
 /* Prototypes */
@@ -105,6 +106,7 @@ void *aeMain(void *peventLoop);
 //void aeMain(aeEventLoop *eventLoop);
 
 char *aeGetApiName(void);
+void aeSetCloseSockFunc(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep);
 void aeSetBeforeSleepProc(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep);
 int aeGetSetSize(aeEventLoop *eventLoop);
 int aeResizeSetSize(aeEventLoop *eventLoop, int setsize);
