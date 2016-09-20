@@ -2751,7 +2751,7 @@ int TMdbSqlParser::BuildDataSource(Token * pDataSource)
         TMdbNtcSplit mdbSplit1,mdbSplit2;
         TMdbNtcStrFunc::Trim(sDataSource,'\n');
         mdbSplit1.SplitString(sDataSource, '/');
-        int iListCount = mdbSplit1.GetFieldCount();
+        unsigned int iListCount = mdbSplit1.GetFieldCount();
         if(2 != iListCount)
         {
             CHECK_RET_FILL_BREAK(ERR_SQL_INVALID,ERR_SQL_INVALID,"Oracle connection[%s] format error.",sDataSource);
@@ -2912,18 +2912,18 @@ int TMdbSqlParser::AddTableAttribute(Token *pAttrName, Token *pAttrValue)
         }
 		else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"table_id") == 0)
 		{
-			 pNewTable->m_iTableId= TMdbNtcStrFunc::StrToInt(sAttrValue);
+			 pNewTable->m_iTableId= (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
             SAFESTRCPY(m_pDDLSqlStruct->sTableAttr,sizeof(m_pDDLSqlStruct->sTableAttr),"table-id");
 
 		}
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"record_counts") == 0)
         {
-            pNewTable->iRecordCounts = TMdbNtcStrFunc::StrToInt(sAttrValue);
+            pNewTable->iRecordCounts = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
             SAFESTRCPY(m_pDDLSqlStruct->sTableAttr,sizeof(m_pDDLSqlStruct->sTableAttr),"record-counts");
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"expand_record") == 0)
         {
-            pNewTable->iExpandRecords = TMdbNtcStrFunc::StrToInt(sAttrValue);
+            pNewTable->iExpandRecords = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
             SAFESTRCPY(m_pDDLSqlStruct->sTableAttr,sizeof(m_pDDLSqlStruct->sTableAttr),"expand-record");
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"shard_backup") == 0)
@@ -2968,7 +2968,7 @@ int TMdbSqlParser::AddTableAttribute(Token *pAttrName, Token *pAttrValue)
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"loadtype") == 0)
         {
-            pNewTable->iLoadType = TMdbNtcStrFunc::StrToInt(sAttrValue);
+            pNewTable->iLoadType = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
             SAFESTRCPY(m_pDDLSqlStruct->sTableAttr,sizeof(m_pDDLSqlStruct->sTableAttr),"LoadType");
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"filter_sql") == 0)
@@ -3128,7 +3128,7 @@ int TMdbSqlParser::BuildCreateIndex(int iIFNE,Token * pIndexName,Token *pTableNa
             {
                 sLayerLimit =  QMDB_MALLOC->NameFromToken(pLayerLimit);
                 CHECK_OBJ_FILL_BREAK(sLayerLimit);
-                iMaxLayer = TMdbNtcStrFunc::StrToInt(sLayerLimit);
+                iMaxLayer = (int)(TMdbNtcStrFunc::StrToInt(sLayerLimit));
                 if(iMaxLayer< 1 || iMaxLayer > MAX_INDEX_LAYER_LIMIT)
                 {
                     CHECK_RET_FILL_BREAK(ERR_TAB_ADD_INDEX_FAILED,ERR_TAB_ADD_INDEX_FAILED,\
@@ -3203,7 +3203,7 @@ int TMdbSqlParser::BuildCreateIndex(int iIFNE,Token * pIndexName,Token *pTableNa
         {
             sLayerLimit =  QMDB_MALLOC->NameFromToken(pLayerLimit);
             CHECK_OBJ_FILL_BREAK(sLayerLimit);
-            tNewIndex.iMaxLayer = TMdbNtcStrFunc::StrToInt(sLayerLimit);
+            tNewIndex.iMaxLayer = (int)(TMdbNtcStrFunc::StrToInt(sLayerLimit));
             if(tNewIndex.iMaxLayer< 1 || tNewIndex.iMaxLayer > MAX_INDEX_LAYER_LIMIT)
             {
                 CHECK_RET_FILL_BREAK(ERR_TAB_ADD_INDEX_FAILED,ERR_TAB_ADD_INDEX_FAILED,\
@@ -3793,7 +3793,7 @@ int TMdbSqlParser::ModifyColumnAttribute(const char * sAttrName, Token *pToken)
                     "Modifying the length of the column[%d] is less than the original length[%d]",\
                     TMdbNtcStrFunc::StrToInt(sAttr),tColumn.iColumnLen-1);
             }
-            tColumn.iColumnLen = TMdbNtcStrFunc::StrToInt(sAttr);
+            tColumn.iColumnLen = (int)(TMdbNtcStrFunc::StrToInt(sAttr));
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"data-type") == 0)
         {
@@ -4124,12 +4124,12 @@ int TMdbSqlParser::SetNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,ch
 		else
 		{
 			char sTempPort[16] = {0};
-			for(int i = 0; i<tSplit.GetFieldCount(); i++)
+			for(unsigned int i = 0; i<tSplit.GetFieldCount(); i++)
 			{
 				memset(sTempPort, 0, sizeof(sTempPort));
 				SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
 				TMdbNtcStrFunc::Trim(sTempPort, ' ');
-				pDsn->iNtcPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+				pDsn->iNtcPort[i] = (int)(TMdbNtcStrFunc::StrToInt(sTempPort));//代理端口
 				if(pDsn->iNtcPort[i] <= 0)
 				{
 					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid use ntc agent port value!");
@@ -4169,12 +4169,12 @@ int TMdbSqlParser::SetNoNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,
 		else
 		{
 			char sTempPort[16] = {0};
-			for(int i = 0; i<tSplit.GetFieldCount(); i++)
+			for(unsigned int i = 0; i<tSplit.GetFieldCount(); i++)
 			{
 				memset(sTempPort, 0, sizeof(sTempPort));
 				SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
 				TMdbNtcStrFunc::Trim(sTempPort, ' ');
-				pDsn->iNoNtcPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+				pDsn->iNoNtcPort[i] = (int)(TMdbNtcStrFunc::StrToInt(sTempPort));//代理端口
 				if(pDsn->iNoNtcPort[i] <= 0)
 				{
 					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid not use ntc agent port value!");
@@ -4202,7 +4202,9 @@ int TMdbSqlParser::SetNtcPortsAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *
 
 	}
 	if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_use_ntc") == 0)
+	{
 		CONVERT_Y_N(sAttrValue,pDsn->m_bUseNTC);
+	}
 
 	return iRet;
 }

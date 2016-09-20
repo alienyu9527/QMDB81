@@ -26,8 +26,8 @@ class TMdbRollback;
 class TMdbLocalLink;
 class TMdbConfig;
 class TMdbLinkCtrl;
+class TMdbRBCtrl;
 class TMdbMultiProtector;
-class TMdbFlushTrans;
 class TMdbClientEngine;
 class TMdbDDLExecuteEngine;
 class TMdbNosqlQuery;
@@ -423,7 +423,8 @@ private:
     TMdbLinkCtrl * m_pLinkCtrl;//链接管理
     TMdbMultiProtector * m_pMultiProtector;//并发保护
     
-	TMdbFlushTrans* m_pMdbFlushTrans;
+	TMdbRBCtrl* m_pRBCtrl;
+
 };
 
 

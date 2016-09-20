@@ -174,7 +174,7 @@ bool TMdbSignalProactor::Stop()
 MDB_ZF_IMPLEMENT_OBJECT(TMdbPeerProactor, TMdbNtcThread);
 TMdbPeerProactor::TMdbPeerProactor()
 {
-    intr_fd[0] = intr_fd[1] = MDB_NTC_INVALID_SOCKET;
+    m_idleFd = intr_fd[0] = intr_fd[1] = MDB_NTC_INVALID_SOCKET;
     m_pNtcEngine = NULL;
 }
 
@@ -187,6 +187,10 @@ TMdbPeerProactor::~TMdbPeerProactor()
     if(intr_fd[1] != MDB_NTC_INVALID_SOCKET)
     {
         TMdbNtcSocket::Close(intr_fd[1]);
+    }
+    if(m_idleFd != MDB_NTC_INVALID_SOCKET)
+    {
+        close((int)m_idleFd);
     }
 }
 
@@ -201,6 +205,7 @@ bool TMdbPeerProactor::Init(TMdbNtcEngine* pNtcEngine)
         TADD_DETAIL("%s",mdb_ntc_errstr.c_str());
         return false;
     }
+    m_idleFd = (QuickMDB_SOCKET)open("/dev/null", O_RDONLY);
     TADD_DETAIL("mdb_ntc_socket_pair intrfd[%d,%d]ok", intr_fd[0], intr_fd[1]);
     TMdbNtcSocket::SetBlockFlag(intr_fd[1], false);
     int iBufferSize = 1024*1024;//缓冲大小
@@ -359,14 +364,33 @@ bool TMdbPeerProactor::OnServerAccept(TMdbServerInfo* pServerInfo)
     {
         QuickMDB_SOCKET new_fd = (QuickMDB_SOCKET)accept((int)pServerInfo->GetSocketID(), NULL, NULL);//server fd已经被设置为非阻塞
         TADD_DETAIL("new_fd[%d] ", new_fd);
+        
         if (new_fd == MDB_NTC_INVALID_SOCKET)
         {
             int iErrorCode = TMdbNtcSocket::GetLastError();
-            if (iErrorCode != EAGAIN && iErrorCode != MDB_NTC_ZS_EWOULDBLOCK)
+            if (iErrorCode == EMFILE && m_idleFd != MDB_NTC_INVALID_SOCKET)
+            {//达到上限时，accpet异常处理
+                close((int)m_idleFd);
+                m_idleFd = (QuickMDB_SOCKET)accept((int)pServerInfo->GetSocketID(), NULL, NULL);
+                if(m_idleFd != MDB_NTC_INVALID_SOCKET)
+                {
+                    TMdbNtcSocket::Close(m_idleFd);
+                }
+                m_idleFd = (QuickMDB_SOCKET)open("/dev/null", O_RDONLY);
+                //pServerInfo->RemoveEventMonitor(MDB_NTC_PEER_EV_READ_FLAG);
+                mdb_ntc_errstr.Snprintf(1024, "accept failed!error:%u,%s", iErrorCode, TMdbNtcSocket::GetErrorInfo(iErrorCode).c_str());
+                TADD_ERROR(ERR_NET_ACCEPT,"%s",mdb_ntc_errstr.c_str());
+                TMdbErrorEvent* pErrorEvent = new TMdbErrorEvent;
+                pErrorEvent->sErrorInfo = mdb_ntc_errstr;
+                m_pEventDispatcher->Dispatch(pErrorEvent);
+                bMonitorRead = false;
+                
+            }
+            else if (iErrorCode != EAGAIN && iErrorCode != MDB_NTC_ZS_EWOULDBLOCK)
             {
                 pServerInfo->RemoveEventMonitor(MDB_NTC_PEER_EV_READ_FLAG);
                 mdb_ntc_errstr.Snprintf(1024, "accept failed!error:%u,%s", iErrorCode, TMdbNtcSocket::GetErrorInfo(iErrorCode).c_str());
-                TADD_DETAIL("%s",mdb_ntc_errstr.c_str());
+                TADD_ERROR(ERR_NET_ACCEPT,"%s",mdb_ntc_errstr.c_str());
                 TMdbErrorEvent* pErrorEvent = new TMdbErrorEvent;
                 pErrorEvent->sErrorInfo = mdb_ntc_errstr;
                 m_pEventDispatcher->Dispatch(pErrorEvent);

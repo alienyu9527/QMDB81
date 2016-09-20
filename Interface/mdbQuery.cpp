@@ -2516,7 +2516,7 @@ TMdbDatabase::TMdbDatabase()
     m_pLinkCtrl = NULL;
     m_pLocalLink = NULL;
     m_pMultiProtector = NULL;
-	m_pMdbFlushTrans = NULL;
+	m_pRBCtrl = NULL;
 }
 
 
@@ -2525,7 +2525,7 @@ TMdbDatabase::~TMdbDatabase()
     Disconnect();
     SAFE_DELETE(m_pLinkCtrl);
     SAFE_DELETE(m_pMultiProtector);
-	SAFE_DELETE(m_pMdbFlushTrans);
+	SAFE_DELETE(m_pRBCtrl);
 }
 
 /******************************************************************************
@@ -2778,16 +2778,19 @@ void TMdbDatabase::TransBegin()
 *******************************************************************************/                          																								//¿ªÆôÊÂÎñ
 void TMdbDatabase::Commit()
 {
-	if(NULL == m_pMdbFlushTrans)
+	if(NULL == m_pRBCtrl)
 	{
-		m_pMdbFlushTrans  = new(std::nothrow) TMdbFlushTrans();
-		if(m_pMdbFlushTrans == NULL)
+		m_pRBCtrl  = new(std::nothrow) TMdbRBCtrl();
+		if(m_pRBCtrl == NULL)
 		{
-			TADD_ERROR(-1,"new m_pMdbFlushTrans failed.");
+			TADD_ERROR(-1,"new m_pRBCtrl failed.");
 			return;
 		}
 	}
-	m_pLocalLink->Commit(m_pShmDSN, m_pMdbFlushTrans);
+	m_pRBCtrl->Init(m_pShmDSN, m_pLocalLink);
+	
+	m_pRBCtrl->Commit();
+	
     m_iTransactionState = TRANS_IN;
     return;
 }
@@ -2809,7 +2812,18 @@ void TMdbDatabase::CommitEx()
 *******************************************************************************/
 void TMdbDatabase::Rollback()
 {
-	m_pLocalLink->RollBack(m_pShmDSN);	
+	if(NULL == m_pRBCtrl)
+	{
+		m_pRBCtrl  = new(std::nothrow) TMdbRBCtrl();
+		if(m_pRBCtrl == NULL)
+		{
+			TADD_ERROR(-1,"new m_pRBCtrl failed.");
+			return;
+		}
+	}
+	m_pRBCtrl->Init(m_pShmDSN, m_pLocalLink);
+	
+	m_pRBCtrl->RollBack();
     return;
 }
 /******************************************************************************

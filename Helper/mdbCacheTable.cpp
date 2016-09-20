@@ -601,7 +601,8 @@
 			}
 			else
 			{
-				QuickSort(0,m_iRowCached-1);
+				if(m_iRowCached >= 1)
+					QuickSort(0,m_iRowCached-1);
 			
 			}
 			

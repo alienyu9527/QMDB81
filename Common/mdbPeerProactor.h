@@ -279,6 +279,7 @@ protected:
     bool AsyncRemoveEventMonitor(QuickMDB_SOCKET fd, MDB_UINT16 events);
 protected:
     QuickMDB_SOCKET intr_fd[2];///< socket pair用于中断select等循环
+    QuickMDB_SOCKET m_idleFd;//预留
     TMdbNtcThreadLock spinlock;
     TMdbNtcEngine* m_pNtcEngine;
 };
