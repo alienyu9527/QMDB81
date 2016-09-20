@@ -164,7 +164,8 @@
         TMdbShmDSN * m_pMdbShmDsn;//MDB共享管理区
         TMdbDSN   * m_pMdbDsn;
 		TMdbRowCtrl*  m_pRowCtrl;//记录控制
-        TMdbLocalLink *m_pLink;        MDB_INT64 m_lSelectIndexValue;//正在查询的索引冲突链
+        TMdbLocalLink *m_pLink;        
+		MDB_INT64 m_lSelectIndexValue;//正在查询的索引冲突链
         
     };
 //}

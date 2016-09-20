@@ -341,14 +341,11 @@
 			while(0);
 
 			TRBRowUnit tRBRowUnit;
-			tRBRowUnit.pTable = m_pTable;
+			SAFESTRCPY(tRBRowUnit.sTableName,MAX_NAME_LEN,m_pTable->sTableName);
 			tRBRowUnit.SQLType = TK_UPDATE;
 			tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
 			tRBRowUnit.iVirtualRowID = RowID.m_iRowID;
-			tRBRowUnit.pRealDataAddr = pOldDataAddr;
-			tRBRowUnit.pVirtualDataAddr = m_pDataAddr;
-			tRBRowUnit.pRealPageAddr = pOldPageAddr;
-			tRBRowUnit.pVirtualPageAddr = m_pPageAddr;
+
 			
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 
@@ -456,14 +453,12 @@
 		if(IsUseTrans())
 		{
 			TRBRowUnit tRBRowUnit;
-			tRBRowUnit.pTable = m_pTable;
+			
+			SAFESTRCPY(tRBRowUnit.sTableName,MAX_NAME_LEN,m_pTable->sTableName);			
 			tRBRowUnit.SQLType = TK_INSERT;
 			tRBRowUnit.iRealRowID = 0;
 			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
-			tRBRowUnit.pRealDataAddr = NULL;
-			tRBRowUnit.pVirtualDataAddr = m_pDataAddr ;
-			tRBRowUnit.pRealPageAddr = NULL;
-			tRBRowUnit.pVirtualPageAddr = m_pPageAddr;
+			
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 		}
 		else
@@ -490,7 +485,7 @@
 		CHECK_OBJ(pTable);
 		m_pTable = pTable;
 		do
-		{
+		{			
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.SetLinkInfo error.");
@@ -558,14 +553,11 @@
 				CHECK_RET(SetDataFlagDelete(m_pDataAddr),"SetDataFlagDelete failed.");
 				
 				TRBRowUnit tRBRowUnit;
-				tRBRowUnit.pTable = m_pTable;
+				
+				SAFESTRCPY(tRBRowUnit.sTableName,MAX_NAME_LEN,m_pTable->sTableName);
 				tRBRowUnit.SQLType = m_pMdbSqlParser->m_stSqlStruct.iSqlType;
 				tRBRowUnit.iRealRowID = m_tCurRowIDData.m_iRowID;
 				tRBRowUnit.iVirtualRowID = 0;
-				tRBRowUnit.pRealDataAddr  =  m_pDataAddr;
-				tRBRowUnit.pVirtualDataAddr  = NULL;
-				tRBRowUnit.pRealPageAddr = m_pPageAddr;
-				tRBRowUnit.pVirtualPageAddr = NULL;
 				CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 			}
 			else

@@ -180,7 +180,7 @@
             tRowIndex.iConflictIndexPos = -1;
         }
 
-	    
+        CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
 	    if(false == tRowIndex.IsCurNodeInConflict())
 	    {//基础链上
 	        TMdbIndexNode * pBaseNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
@@ -242,7 +242,7 @@
 	            PrintIndexInfo(tHashIndex,1,false);
 	        }
 	    }
-
+        CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
 	    
 	    TADD_FUNC("Finish.");
 	    return iRet;
@@ -427,7 +427,7 @@
 	{
 	    int iRet = 0;
 	    TADD_FUNC("tRowIndex[%d|%d],rowID[%d|%d]",tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
-	    
+        CHECK_RET(m_pAttachTable->tTableMutex.Lock(m_pAttachTable->bWriteLock,&m_pMdbDsn->tCurTime),"Lock failed.");
 	    TMdbIndexNode * pBaseNode = &(tHashIndex.pBaseIndexNode[tRowIndex.iBaseIndexPos]);
 	    tRowIndex.iPreIndexPos       = -1;
 	    if(pBaseNode->tData.IsEmpty())
@@ -471,6 +471,7 @@
 	            iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
 	        }
 	    }
+        CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
 
 		//插入完索引，需要在记录里面打上标记
 		if(tRowIndex.IsCurNodeInConflict())
@@ -894,7 +895,7 @@
 		SAFE_DELETE(m_pRowCtrl);
 		m_pRowCtrl = new (std::nothrow) TMdbRowCtrl;
 		CHECK_OBJ(m_pRowCtrl);
-		CHECK_RET(m_pRowCtrl->Init(m_pMdbDsn->sName,pTable->sTableName),"m_pRowCtrl.AttachTable failed.");//记录管理
+		CHECK_RET(m_pRowCtrl->Init(m_pMdbDsn->sName,pTable),"m_pRowCtrl.AttachTable failed.");//记录管理
         return iRet;
     }
 

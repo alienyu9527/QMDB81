@@ -74,6 +74,7 @@ struct ST_LINK_INDEX_INFO
 				printf("[Conflict FreeNodeCounts:%d]",iHashCFreeNodeCounts);
 				break;
 			}
+			/*
 			case INDEX_M_HASH:
 			{
 				printf("[MHash]");
@@ -93,7 +94,7 @@ struct ST_LINK_INDEX_INFO
 				printf("[Branch FreeHeadPos:%d]",iTrieBFreeHeadPos);
 				printf("[Branch FreeNodeCounts:%d]",iTrieBFreeNodeCounts);
 				break;
-			}
+			}*/
 			default:
 				break;
 		}
@@ -132,32 +133,51 @@ class TRBRowUnit
 		TRBRowUnit();
 		~TRBRowUnit(){}
 		void Show();
-		int Commit(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
-		int RollBack(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
 		
 	public:
-	 	TMdbTable*  pTable;
+	 	char  sTableName[MAX_NAME_LEN];
 		char	SQLType;		//Insert or  delete or update
 	 	unsigned int 	iRealRowID;		//代表共享内存中原始数据记录位置
-	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，commit之前为独享数据
-
-		//数据地址
-		char*    pRealDataAddr;
-		char*    pVirtualDataAddr;
-		//数据页地址
-		char*  	 pRealPageAddr; 
-		char*  	 pVirtualPageAddr; 
-		
+	 	unsigned int  	iVirtualRowID;  	//代表新增的数据行记录位置，影子内存， commit之前为独享数据
 
 	private:		
 		const char* GetSQLName();		
-		int CommitInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
-		int CommitUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
-		int CommitDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink,TMdbFlushTrans* pFlushTrans);
-		int RollBackInsert(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
-		int RollBackUpdate(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
-		int RollBackDelete(TMdbShmDSN * pShmDSN,TMdbLocalLink * pLocalLink);
-		int UnLockRow(char* pDataAddr, TMdbShmDSN * pShmDSN);
+		
+};
+
+//回滚管理器
+class TMdbRBCtrl
+{
+	public:
+		TMdbRBCtrl();
+		~TMdbRBCtrl();
+	
+		int Init(TMdbShmDSN* pShmDSN, TMdbLocalLink* pLocalLink);		
+		int Commit();
+		int RollBack();
+
+
+	private:	
+		int Commit(TRBRowUnit* pRBRowUnit);
+		int RollBack(TRBRowUnit* pRBRowUnit);
+		
+		int CommitInsert(TRBRowUnit* pRBRowUnit);
+		int CommitUpdate(TRBRowUnit* pRBRowUnit);
+		int CommitDelete(TRBRowUnit* pRBRowUnit);
+		
+		int RollBackInsert(TRBRowUnit* pRBRowUnit);
+		int RollBackUpdate(TRBRowUnit* pRBRowUnit);
+		int RollBackDelete(TRBRowUnit* pRBRowUnit);
+		
+		int UnLockRow(char* pDataAddr);	
+
+		TMdbShmDSN* 	m_pShmDSN;
+		TMdbLocalLink*  m_pLocalLink;
+		
+		TMdbFlushTrans  	m_tFlushTrans;
+		TMdbTableWalker 	m_tTableWalker;
+		TMdbExecuteEngine 	m_tEngine;
+		
 };
 
 
@@ -170,8 +190,7 @@ public:
     void Show(bool bIfMore=false);
     bool IsValid(){return (iPID > 0 && 0 != sStartTime[0]);};//是否是合法的
     bool IsCurrentThreadLink();//是否是当前线程的链接
-    void Commit(TMdbShmDSN * pShmDSN, TMdbFlushTrans* pFlushTrans);
-	void RollBack(TMdbShmDSN * pShmDSN);
+
 	int AddNewRBRowUnit(TRBRowUnit* pRBRowUnit);
 	void ShowRBUnits();
 	void ShowIndexInfo();	

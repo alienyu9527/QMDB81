@@ -85,13 +85,14 @@ int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int 
 	CHECK_OBJ(pShmDSN);
 	CHECK_OBJ(pMdbTable);
 	TADD_FUNC("Start.DSN=[%s],Table=[%s].",pShmDSN->GetInfo()->sName,pMdbTable->sTableName);
+	
+	m_iSqlType = iSqlType;		
 	m_pMdbTable = pMdbTable;//MDB表
 	m_pShmDSN = pShmDSN;
 	m_pMdbDSN = pShmDSN->GetInfo();//获取数据库DSN信息
 	CHECK_OBJ(m_pMdbDSN);
 	m_pTableSpace = m_pShmDSN->GetTableSpaceAddrByName(pMdbTable->m_sTableSpace);
-	CHECK_OBJ(m_pTableSpace);
-	m_iSqlType = iSqlType;
+	CHECK_OBJ(m_pTableSpace);	
     m_tTSCtrl.Init(pShmDSN->GetInfo()->sName,pMdbTable->m_sTableSpace);
 	TADD_FUNC("Finish.AttachTable [%s] ",pMdbTable->sTableName);
 	return iRet;
