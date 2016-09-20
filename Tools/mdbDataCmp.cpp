@@ -198,7 +198,7 @@
                             tSplit.SplitString(pAttr->Value(), ",");//逗号分隔表名
                             char sTmp[MAX_NAME_LEN];
                             sTmp[0] = '\0';
-                            for (int i = 0; i < tSplit.GetFieldCount(); i++)
+                            for (unsigned int i = 0; i < tSplit.GetFieldCount(); i++)
                             {
                                 SAFESTRCPY(sTmp, MAX_NAME_LEN,tSplit[i]);
                                 TMdbNtcStrFunc::Trim(sTmp);
@@ -402,18 +402,18 @@
     int TMdbDiffFile::UpdateDiffRcdSame()
     {
         int iRet = 0;
-        CHECK_RET(fseek(m_pFile, 0-strlen(m_pTmpBuf)+2, SEEK_CUR),"fseek failed, error = %d", errno);
+        CHECK_RET(fseek(m_pFile, 0-(long int)(strlen(m_pTmpBuf))+2, SEEK_CUR),"fseek failed, error = %d", errno);
         iRet = fputc('Y', m_pFile);
-        CHECK_RET(fseek(m_pFile, strlen(m_pTmpBuf) -3, SEEK_CUR), "fseek failed, error = %d", errno);
+        CHECK_RET(fseek(m_pFile, (long int)(strlen(m_pTmpBuf)) -3, SEEK_CUR), "fseek failed, error = %d", errno);
         return iRet == 'Y' ? 0 : -1;
     }
 
     int TMdbDiffFile::UpdateDiffType(int iDiffType)
     {
         int iRet = 0;
-        CHECK_RET(fseek(m_pFile, 0-strlen(m_pTmpBuf), SEEK_CUR), "fseek failed, error = %d", errno);
+        CHECK_RET(fseek(m_pFile, 0-(long int)(strlen(m_pTmpBuf)), SEEK_CUR), "fseek failed, error = %d", errno);
         iRet = fputc(iDiffType, m_pFile);
-        CHECK_RET(fseek(m_pFile, strlen(m_pTmpBuf) -1, SEEK_CUR), "fseek failed, error = %d", errno);
+        CHECK_RET(fseek(m_pFile, (long int)(strlen(m_pTmpBuf)) -1, SEEK_CUR), "fseek failed, error = %d", errno);
         return iRet == iDiffType ? 0 : -1;
 
     }
@@ -450,7 +450,7 @@
         }
         m_iPkLen = iPkLen;
         m_lCurMaxPos = 0;
-        size_t iOffset = 0;
+        long  iOffset = 0;
 
         memset(m_sPosBuf,0,MDB_DATA_CHECK_MAX_POS_LEN);
         m_sPosBuf[0]='-';
@@ -462,13 +462,13 @@
 			TADD_ERROR(ERR_OS_NO_MEMROY,"can't create new m_pPkBuf");
 			return ERR_OS_NO_MEMROY;
 		}
-        memset(m_pPkBuf, 0, m_iPkLen+1);
+        memset(m_pPkBuf, 0, (size_t)(m_iPkLen+1));
         m_pPkBuf[iPkLen] ='\n';
 
         //初始化所有主键hash值的下一个记录位置为-1
         for (; m_lCurMaxPos < m_iRcdNum; m_lCurMaxPos++)
         {
-            iOffset = m_lCurMaxPos * (MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1);
+            iOffset = (long)(m_lCurMaxPos * (MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1));
 
             CHECK_RET(fseek(m_pFile, iOffset, SEEK_SET), "fseek failed, error = %d", errno);
 
@@ -477,7 +477,7 @@
                 CHECK_RET(-1, "Write pk to file error, errno = %d", errno);
             }
 
-            if (fwrite(m_pPkBuf, iPkLen+1, 1, m_pFile) !=1)//记录位置
+            if (fwrite(m_pPkBuf, (size_t)(iPkLen+1), 1, m_pFile) !=1)//记录位置
             {
                 CHECK_RET(-1, "Write pk to file error, errno = %d", errno);
             }
@@ -490,7 +490,7 @@
     int TMdbHashFile::GetHashValue(std::string strValue)
     {
         int llValue = 0;
-        llValue = TMdbNtcStrFunc::StrToHash(strValue.c_str());
+        llValue = (int)(TMdbNtcStrFunc::StrToHash(strValue.c_str()));
         llValue = llValue%m_iRcdNum;
         
         llValue = llValue<0? -llValue:llValue;
@@ -501,12 +501,12 @@
     {
         int iRet = 0;
         long long  llValue = GetHashValue(strPK);
-        size_t iOffSet = -1;
+        long iOffSet = -1;
 
         //查找下一个可以写的位置
         while(1)
         {
-            iOffSet =  llValue*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1);
+            iOffSet =  (long)(llValue*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1));
             CHECK_RET(fseek(m_pFile, iOffSet, SEEK_SET), "fseek failed, error = %d", errno);
 
             if (fread(m_sPosBuf, MDB_DATA_CHECK_MAX_POS_LEN, 1, m_pFile) == 1)//获取位置信息
@@ -532,14 +532,14 @@
         fprintf(m_pFile, "%s", strPK.c_str());
 
         //在下一个主键位置填写-1
-        iOffSet = static_cast<size_t>(m_lCurMaxPos*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1));
+        iOffSet = static_cast<long>(m_lCurMaxPos*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen+1));
         CHECK_RET(fseek(m_pFile, iOffSet, SEEK_SET), "fseek failed, error = %d", errno);
         if (fwrite(m_sPosBuf, MDB_DATA_CHECK_MAX_POS_LEN, 1, m_pFile) !=1)//记录主键值
         {
             CHECK_RET(-1, "Write pos to file error, errno = %d", errno);
         }
 
-        if (fwrite(m_pPkBuf, m_iPkLen+1, 1, m_pFile) !=1)//记录位置
+        if (fwrite(m_pPkBuf, (size_t)(m_iPkLen+1), 1, m_pFile) !=1)//记录位置
         {
             CHECK_RET(-1, "Write pk to file error, errno = %d", errno);
         }
@@ -553,7 +553,7 @@
         bool bRet = false;
         //int iRet = 0;
         long long  llValue = GetHashValue(strPK);
-        size_t iOffSet = -1;
+        long  iOffSet = -1;
         char* sValue = new(std::nothrow) char[m_iPkLen];
 		if(sValue == NULL)
 		{
@@ -561,11 +561,11 @@
 			return false;
 
 		}
-        memset(sValue, 0, m_iPkLen);
+        memset(sValue, 0, (size_t)(m_iPkLen));
 
         while(1)
         {
-            iOffSet =  llValue*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen +1);
+            iOffSet =  (long)(llValue*(MDB_DATA_CHECK_MAX_POS_LEN + m_iPkLen +1));
             if (fseek(m_pFile, iOffSet, SEEK_SET)!=0)
             {
                 TADD_ERROR(ERROR_UNKNOWN,"fseek failed, error = %d", errno);
@@ -581,7 +581,7 @@
                 }
                 else
                 {
-                    if (fread(sValue, m_iPkLen, 1, m_pFile) == 1)
+                    if (fread(sValue, (size_t)m_iPkLen, 1, m_pFile) == 1)
                     {
                         sValue[m_iPkLen-1] = '\0';
                         if (strPK.compare(sValue)==0)//找到相同的主键

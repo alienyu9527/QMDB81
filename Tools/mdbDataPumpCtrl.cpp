@@ -154,10 +154,10 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        int iLen = strlen(sData);
+        int iLen = (size_t)(strlen(sData));
         if(m_iBufPos + iLen < MAX_SEND_BUF)
         {
-            strncpy(&m_sBuf[m_iBufPos], sData, iLen);
+            strncpy(&m_sBuf[m_iBufPos], sData, (size_t)iLen);
             m_iBufPos+=iLen;
         }
         else
@@ -168,7 +168,7 @@
                 return ERR_OS_WRITE_FILE;
             }
             m_iFileSize+=m_iBufPos;
-            strncpy(m_sBuf, sData, iLen);
+            strncpy(m_sBuf, sData, (size_t)iLen);
             m_iBufPos = iLen;
         }
         TADD_FUNC("Finish.");

@@ -300,6 +300,7 @@ void Help(int argc, char* argv[])
         "      -t show table information.    \n"
         "      -s show table space information. \n"
         "      -l show links information. \n"
+        "      -P show index use of specified Link Pid . \n"
         "      -p show MDB process information.\n"
         "      -m show memory information. \n"
         "      -q show memory sequence information.\n"

@@ -145,7 +145,7 @@
 					
 					if(iPid && iPid == pLocalLink->iPID)
 					{
-						pLocalLink->ShowRBUnits();					
+						//pLocalLink->ShowRBUnits();					
 						pLocalLink->ShowIndexInfo();
 					}
                 }
