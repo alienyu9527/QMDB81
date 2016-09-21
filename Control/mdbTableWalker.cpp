@@ -86,7 +86,10 @@ int TMdbTableWalker::AttachTable(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int 
 	CHECK_OBJ(pMdbTable);
 	TADD_FUNC("Start.DSN=[%s],Table=[%s].",pShmDSN->GetInfo()->sName,pMdbTable->sTableName);
 	
-	m_iSqlType = iSqlType;		
+	m_iSqlType = iSqlType;
+	
+	if(m_pMdbTable == pMdbTable) return iRet;
+	
 	m_pMdbTable = pMdbTable;//MDB表
 	m_pShmDSN = pShmDSN;
 	m_pMdbDSN = pShmDSN->GetInfo();//获取数据库DSN信息

@@ -47,6 +47,11 @@
         long long GetRowTimeStamp();
         int CheckRowDataStruct(int* Column);//校验结构长度信息
         int ReBuildTableFromPage(const char * sDSN,TMdbTable * pMdbTable);//从内存页重新构建表
+		
+		int FSCheckInvalidData();
+		int FSRemoveInvalidData();
+		
+		
 		int BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos);
 		void ClearLastExecute();
         int FillFieldForCSBin(NoOcpParse &tParseData,bool bFirst);

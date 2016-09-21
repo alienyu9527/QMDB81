@@ -754,9 +754,13 @@
 		
 		if(!IsNeedMakeBuf()){return iRet;}
 
-        m_pQueue = (TMdbMemQueue*)m_pShmDsn->GetSyncAreaShm();
-        CHECK_OBJ(m_pQueue);
-        CHECK_RET(m_QueueCtrl.Init(m_pQueue, m_pDsn),"Init failed");
+		if(NULL == m_pQueue)
+		{
+        	m_pQueue = (TMdbMemQueue*)m_pShmDsn->GetSyncAreaShm();
+        	CHECK_OBJ(m_pQueue);
+        	CHECK_RET(m_QueueCtrl.Init(m_pQueue, m_pDsn),"Init failed");
+		}
+		
         TADD_FUNC("Finish.m_iFlushType=[%d].",m_iFlushType);
         return iRet;
     }
@@ -1177,7 +1181,7 @@
             m_psDataBuff[0]='\0';
         }
 		
-		long long iTimeStamp = TMdbDateTime::StringToTime(m_pShmDsn->GetInfo()->sCurTime);
+		long long iTimeStamp = m_pShmDsn->GetInfo()->iTimeStamp;
 		  
         CHECK_RET(FillRepData(m_psDataBuff,iLsn,iTimeStamp,m_iBufLen),"FillData failed.");
 		return iRet;

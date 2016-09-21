@@ -2241,6 +2241,7 @@
         TMdbShmDSN * pShmDSN = TMdbShmMgr::GetShmDSN(sDSN);
         CHECK_OBJ(pShmDSN);
         m_pDsn = pShmDSN->GetInfo();
+		m_mdbPageCtrl.SetDSN(m_pDsn->sName);
         m_mdbIndexCtrl.AttachTable(pShmDSN,pMdbTable);
         CHECK_RET(m_MdbTableWalker.AttachTable(pShmDSN,m_pTable),"AttachTable failed.");
         CHECK_RET_FILL_CODE(m_tRowCtrl.Init(m_pDsn->sName,m_pTable->sTableName),ERR_OS_ATTACH_SHM,"m_tRowCtrl.AttachTable failed.");//记录管理
@@ -2252,6 +2253,13 @@
             m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
             m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
             m_iPagePos      = m_MdbTableWalker.GetPagePos();
+			
+			if( -1 == FSCheckInvalidData())
+			{
+				FSRemoveInvalidData();
+				continue;
+			}
+			
             TADD_DETAIL("page_id=[%d],offset=[%d],rowid=[%ud].",m_pTable->iFullPageID,m_iPagePos,m_tCurRowIDData.m_iRowID);
             CHECK_RET(ChangeInsertIndex(m_pDataAddr,m_tCurRowIDData),"ChangeInsertIndex failed.");//插入索引
             m_pTable->iCounts++;
@@ -2264,6 +2272,13 @@
             m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
             m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
             m_iPagePos      = m_MdbTableWalker.GetPagePos();
+
+			if( -1 == FSCheckInvalidData())
+			{
+				FSRemoveInvalidData();
+				continue;
+			}
+			
             TADD_DETAIL("page_id=[%d],offset=[%d],rowid=[%d].",m_tCurRowIDData.GetPageID(),m_tCurRowIDData.GetDataOffset(),m_tCurRowIDData.m_iRowID);
             CHECK_RET(ChangeInsertIndex(m_pDataAddr,m_tCurRowIDData),"ChangeInsertIndex failed.");//插入索引
             m_pTable->iCounts ++;
@@ -2271,6 +2286,45 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+
+	// return -1 代表数据非法   0  合法
+	int TMdbExecuteEngine::FSCheckInvalidData()
+	{	
+
+    	if(!m_pDataAddr)
+    	{
+			return -1;
+		}
+		TMdbPageNode* pNode = (TMdbPageNode*)m_pDataAddr - 1;
+
+		
+		if(0 == pNode->iSessionID)
+		{
+			return 0;	
+		}
+		else 
+		{
+			//影子数据  还没有commit
+			if(pNode->cFlag & DATA_VIRTUAL) return -1;
+
+			//
+		}
+		
+
+	}
+
+	
+	int TMdbExecuteEngine::FSRemoveInvalidData()
+	{
+		int iRet = 0;
+		TADD_NORMAL("Data From FS is UnCommited. Will Remove. page_id=[%d],offset=[%d],rowid=[%u]. ",((TMdbPage*)m_pPageAddr)->m_iPageID, m_iPagePos,m_tCurRowIDData.m_iRowID);
+        CHECK_RET(DeleteVarCharValue(m_pDataAddr),"DeleteVarCharValue error.");
+
+		CHECK_RET(m_mdbPageCtrl.Attach(m_pPageAddr, m_pTable->bReadLock, m_pTable->bWriteLock),"m_mdbPageCtrl.Attach faild");
+		CHECK_RET(m_mdbPageCtrl.DeleteData_NoMutex(m_tCurRowIDData.GetDataOffset()),"m_mdbPageCtrl.DeleteData");
+		return iRet;
+	}
 
 
 	int TMdbExecuteEngine::BuildSingleIndexFromPage(TMdbShmDSN * pShmDSN,TMdbTable * pMdbTable,int iIndexPos)
