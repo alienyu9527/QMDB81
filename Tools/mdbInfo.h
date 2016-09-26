@@ -128,6 +128,10 @@
         //TMdbRemoteLink *m_pMdbRemoteLink;
         bool m_bMore;
 
+		
+		TShmAlloc m_tMgrShmAlloc;//¹²ÏíÄÚ´æ·ÖÅäÆ÷
+		char *  m_pMgrAddr;
+
         
     };
 //}

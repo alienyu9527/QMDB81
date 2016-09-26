@@ -1519,7 +1519,6 @@ int TMdbRichSQL::RollBack()
         {
             case MODE_DIRECT:
                 m_tDB.Rollback();
-                printf("\nRollBack OK,Effect rows[%d].\n",m_tDB.RowsAffected());
                 break;
              case MODE_CLIENT:
                 m_tCSDB.Rollback();

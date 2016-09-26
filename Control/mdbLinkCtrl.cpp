@@ -234,6 +234,7 @@ TMdbRBCtrl::TMdbRBCtrl()
 {
 	m_pShmDSN = NULL;
 	m_pLocalLink = NULL;
+	m_iDataSize = 0;
 }
 
 TMdbRBCtrl::~TMdbRBCtrl()
@@ -253,6 +254,23 @@ int TMdbRBCtrl::Init(TMdbShmDSN * pShmDSN, TMdbLocalLink* pLocalLink)
 
 }
 
+void TMdbRBCtrl::ShowRBUnits()
+{
+	if(m_pLocalLink->m_RBList.empty()) 
+	{
+		printf("Current Link has no RB units.\n");
+		return ;
+	}
+	
+	//正向遍历
+	TShmList<TRBRowUnit>::iterator itorB = m_pLocalLink->m_RBList.begin();
+	while(!m_pLocalLink->m_RBList.empty())
+	{		
+		itorB->Show();
+	}
+}
+
+
 int TMdbRBCtrl::Commit()
 {
 	int iRet =0;
@@ -260,7 +278,7 @@ int TMdbRBCtrl::Commit()
 	{
 		return iRet;
 	}
-	
+
 	//正向遍历
 	TShmList<TRBRowUnit>::iterator itorB = m_pLocalLink->m_RBList.begin();
 	while(!m_pLocalLink->m_RBList.empty())
@@ -308,11 +326,12 @@ int TMdbRBCtrl::CommitInsert(TRBRowUnit* pRBRowUnit)
 
 	TMdbRowID VirtualRowID;
 	VirtualRowID.SetRowId(pRBRowUnit->iVirtualRowID);
-	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, pTable->iOneRecordSize, true);
+	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, m_iDataSize, true);
 	char* pVirtualPageAddr = m_tTableWalker.GetPageAddr();
 	
 	TMdbPageNode* pPageNode = (TMdbPageNode*)pVirtualDataAddr - 1;
-	pPageNode->iSessionID = 0;
+	pPageNode->iSessionID = 0;	
+	pPageNode->iExecuteID = 0;
 	pPageNode->cFlag = DATA_REAL;	
 	pTable->tTableMutex.Lock(pTable->bWriteLock, &(m_pShmDSN->GetInfo()->tCurTime));
 	++pTable->iCounts;
@@ -343,14 +362,15 @@ int TMdbRBCtrl::CommitUpdate(TRBRowUnit* pRBRowUnit)
 	VirtualRowID.SetRowId(pRBRowUnit->iVirtualRowID);
 	RealRowID.SetRowId(pRBRowUnit->iRealRowID);
 	
-	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&RealRowID, pTable->iOneRecordSize, true);
+	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&RealRowID, m_iDataSize, true);
 	char* pRealPageAddr = m_tTableWalker.GetPageAddr();
 	
-	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, pTable->iOneRecordSize, true);
+	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, m_iDataSize, true);
 	char* pVirtualPageAddr = m_tTableWalker.GetPageAddr();
 	
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pVirtualDataAddr-1;
 	pPageNode->iSessionID = 0;
+	pPageNode->iExecuteID = 0;
 	pPageNode->cFlag = DATA_REAL;
 
 	//生成同步数据
@@ -396,7 +416,7 @@ int TMdbRBCtrl::CommitDelete(TRBRowUnit* pRBRowUnit)
 
 	TMdbRowID rowID;
 	rowID.SetRowId(pRBRowUnit->iRealRowID);	
-	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&rowID, pTable->iOneRecordSize, true);
+	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&rowID, m_iDataSize, true);
 	
 	CHECK_OBJ(pRealDataAddr);
 	TMdbPageNode* pPageNode = (TMdbPageNode* )pRealDataAddr -1;
@@ -437,7 +457,8 @@ int TMdbRBCtrl::RollBack()
 {
 	int iRet = 0;
 	if(m_pLocalLink->m_RBList.empty()) return 0 ;
-		
+	
+	int iAffect = 0;	
 	//反向遍历
 	TShmList<TRBRowUnit>::iterator itor = m_pLocalLink->m_RBList.end();
 	while(!m_pLocalLink->m_RBList.empty())
@@ -450,8 +471,10 @@ int TMdbRBCtrl::RollBack()
 		}
 		
 		itor = m_pLocalLink->m_RBList.erase(itor);
+		iAffect++;
 	}
-
+	printf("Rollback Affected: %d.\n",iAffect);
+	
 	return iRet;
 }
 
@@ -488,7 +511,7 @@ int TMdbRBCtrl::RollBackInsert(TRBRowUnit* pRBRowUnit)
 	TMdbRowID rowID;
 	rowID.SetRowId(pRBRowUnit->iVirtualRowID);	
 	
-	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&rowID, pTable->iOneRecordSize, true);
+	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&rowID, m_iDataSize, true);
 	char* pVirtualPageAddr = m_tTableWalker.GetPageAddr();
 
 	//删除索引->删除varchar->删除内存
@@ -509,10 +532,10 @@ int TMdbRBCtrl::RollBackUpdate(TRBRowUnit* pRBRowUnit)
 	RealRowID.SetRowId(pRBRowUnit->iRealRowID);
 
 
-	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&RealRowID, pTable->iOneRecordSize, true);
+	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&RealRowID, m_iDataSize, true);
 	char* pRealPageAddr = m_tTableWalker.GetPageAddr();
 	
-	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, pTable->iOneRecordSize, true);
+	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, m_iDataSize, true);
 	char* pVirtualPageAddr = m_tTableWalker.GetPageAddr();	
 
 
@@ -536,16 +559,20 @@ int TMdbRBCtrl::RollBackDelete(TRBRowUnit* pRBRowUnit)
 	CHECK_OBJ(pTable);
 	CHECK_RET(m_tTableWalker.AttachTable(m_pShmDSN, pTable, pRBRowUnit->SQLType),"m_tTableWalker.AttachTable failed.");
 
-	TMdbRowID VirtualRowID;
-	VirtualRowID.SetRowId(pRBRowUnit->iVirtualRowID);
-	char* pVirtualDataAddr = m_tTableWalker.GetAddressRowID(&VirtualRowID, pTable->iOneRecordSize, true);
-	char* pVirtualPageAddr = m_tTableWalker.GetPageAddr();	
+	TMdbRowID RealRowID;
+	RealRowID.SetRowId(pRBRowUnit->iRealRowID);
+	char* pRealDataAddr = m_tTableWalker.GetAddressRowID(&RealRowID, m_iDataSize, true);
+	char* pRealPageAddr = m_tTableWalker.GetPageAddr();	
 	
-	CHECK_OBJ(pVirtualDataAddr);
-	TMdbPageNode* pPageNode = (TMdbPageNode* )pVirtualDataAddr -1;
+	if(NULL == pRealDataAddr)
+	{
+		pRBRowUnit->Show();
+		CHECK_OBJ(pRealDataAddr);
+	}
+	TMdbPageNode* pPageNode = (TMdbPageNode* )pRealDataAddr -1;
 	pPageNode->cFlag&=~DATA_DELETE;
 	
-	CHECK_RET(UnLockRow(pVirtualDataAddr),"UnLockRow Failed.");
+	CHECK_RET(UnLockRow(pRealDataAddr),"UnLockRow Failed.");
 	return iRet;
 
 }
@@ -624,6 +651,7 @@ int TMdbLinkCtrl::RegLocalLink(TMdbLocalLink *& pLocalLink)
 		CHECK_RET(iRet,"Attach RBList of LoaclLink Failed.");
 		//申请事务ID
         pLocalLink->iSessionID = m_pDsn->GetSessionID();
+		pLocalLink->iExecuteID = 0;
 		
         SAFESTRCPY(pLocalLink->sStartTime,MAX_TIME_LEN,m_pShmDsn->GetInfo()->sCurTime);
         SAFESTRCPY(pLocalLink->sFreshTime,MAX_TIME_LEN,m_pShmDsn->GetInfo()->sCurTime);

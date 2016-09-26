@@ -116,6 +116,7 @@
         CHECK_RET(m_pShmDSN->Attach(pszDSN, *m_pConfig),"Attach [%s] failed.",pszDSN);
         m_pDsn = m_pShmDSN->GetInfo();
         CHECK_OBJ(m_pDsn);
+		m_tMgrShmAlloc.AttachByKey(m_pShmDSN->GetMgrKey(),m_pMgrAddr);
         return iRet;
     }
 
@@ -144,8 +145,7 @@
                     pLocalLink->Show(m_bMore);
 					
 					if(iPid && iPid == pLocalLink->iPID)
-					{
-						//pLocalLink->ShowRBUnits();					
+					{				
 						pLocalLink->ShowIndexInfo();
 					}
                 }

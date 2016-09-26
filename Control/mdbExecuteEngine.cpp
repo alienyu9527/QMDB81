@@ -181,6 +181,8 @@
             m_llScanAllPos = -1;
         }
         m_pMdbSqlParser->ExecuteLimit();//计算limit范围
+		m_pLocalLink->iExecuteID++;
+		
         switch(m_pMdbSqlParser->m_stSqlStruct.iSqlType)
         {
             //按SQL类型执行
@@ -301,6 +303,7 @@
             CHECK_OBJ_FILL(m_pInsertBlock);
             TADD_FLOW("Create new Insert Block.size[%d].",m_pTable->iOneRecordSize);
         }
+
 		
 		bool bNext = false;
         while(1)
@@ -330,14 +333,19 @@
 			TMdbRowID RowID;
 			do
 	        {
+				CHECK_RET_FILL_BREAK(FillSqlParserValue(m_pMdbSqlParser->m_listInputCollist),"FillSqlParserValue error.");				
+                CHECK_RET_FILL_BREAK(m_pMdbSqlParser->ExecuteSQL(),"ExecuteSQL error.");
+				
 	            for(int i = 0; i<m_pMdbSqlParser->m_listOutputCollist.iItemNum; i++)
 	            {
 	                ST_MEM_VALUE * pstMemValue = m_pMdbSqlParser->m_listOutputCollist.pValueArray[i];
 	                CHECK_RET_FILL_BREAK(m_tRowCtrl.FillOneColumn(m_pInsertBlock,pstMemValue->pColumnToSet,pstMemValue,TK_UPDATE),"FillOneColumn error");
 	            } 
 				
+				
 				CHECK_RET_FILL_BREAK(InsertData(m_pInsertBlock,m_pTable->iOneRecordSize,RowID),"InsertData failed");//插入到内存中				
-	        }
+				m_mdbPageCtrl.UpdatePageLSN();//更新LSN
+			}
 			while(0);
 
 			TRBRowUnit tRBRowUnit;
@@ -457,8 +465,7 @@
 			SAFESTRCPY(tRBRowUnit.sTableName,MAX_NAME_LEN,m_pTable->sTableName);			
 			tRBRowUnit.SQLType = TK_INSERT;
 			tRBRowUnit.iRealRowID = 0;
-			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;
-			
+			tRBRowUnit.iVirtualRowID = rowID.m_iRowID;			
 			CHECK_RET_FILL(m_pLocalLink->AddNewRBRowUnit(&tRBRowUnit),"AddNewRBRowUnit failed.");
 		}
 		else
@@ -1198,7 +1205,11 @@
 
 		bool bVisible = true;
 		CHECK_RET(CheckVisible(bVisible),"CheckVisible failed");
-		if(bVisible==false) return iRet;
+		if(bVisible==false) 
+		{
+			bResult = false;
+			return iRet;
+		}
 		
         CHECK_RET(FillSqlParserValue(m_pMdbSqlParser->m_listInputWhere),"FillSqlParserValue where failed.");
         CHECK_RET(m_pMdbSqlParser->ExecuteWhere(bResult),"ExecuteWhere failed.");
@@ -1216,14 +1227,20 @@
 		}
 		TMdbPageNode* pNode = (TMdbPageNode*)m_pDataAddr - 1;
 
+		//共享的数据
 		if(0 == pNode->iSessionID)
 		{
 			bVisible = true;	
 		}
 		else if(pNode->iSessionID == m_pLocalLink->iSessionID)
 		{
+			TADD_NORMAL(" Node:%d | SQL:%d \n",pNode->iExecuteID, m_pLocalLink->iExecuteID);
 			//自己看不到自己删除的数据
 			if( pNode->cFlag & DATA_DELETE)
+			{
+				bVisible = false;
+			}  
+			else if(pNode->iExecuteID == m_pLocalLink->iExecuteID) //单次执行内，数据互相隔离
 			{
 				bVisible = false;
 			}
@@ -2431,11 +2448,13 @@
 		if(IsUseTrans())
 		{
 			pNode->iSessionID = m_pLocalLink->iSessionID;
+			pNode->iExecuteID = m_pLocalLink->iExecuteID;
 			pNode->cFlag = DATA_VIRTUAL;
 		}
 		else
 		{
 			pNode->iSessionID = 0;
+			pNode->iExecuteID = 0;
 			pNode->cFlag = DATA_REAL;
 		}
 	}

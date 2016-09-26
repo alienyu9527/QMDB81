@@ -69,6 +69,7 @@ public:
 		if(NULL == m_pShmHead){return NULL;}
 		if(m_pShmHead->m_iFreeOffSet + iSize > m_pShmHead->m_iTotalSize)
 		{//¿Õ¼ä²»¹»
+			printf("TShmAlloc::Allocate failed. %lu + %lu > %lu\n",m_pShmHead->m_iFreeOffSet, iSize, m_pShmHead->m_iTotalSize);
 			return NULL;
 		}
 		iOffSet = m_pShmHead->m_iFreeOffSet;
@@ -248,6 +249,7 @@ protected:
             m_FreeNode->SetNext(pFreeNode->GetNext(m_pStartAddr));
             pFreeNode->SetNext(NULL);
 	     pFreeNode->SetPrev(NULL);
+		 //printf("getFreeNode:%p\n",pFreeNode);
         }
         else
         {//not find
@@ -268,6 +270,8 @@ protected:
         nodeToPut->SetPrev(NULL);
 		nodeToPut->SetNext(m_FreeNode->GetNext(m_pStartAddr));
 		m_FreeNode->SetNext(nodeToPut);
+		
+		//printf("ReturnFreeNode:%p\n",nodeToPut);
     }
     link_type create_node(const T& x)
     {

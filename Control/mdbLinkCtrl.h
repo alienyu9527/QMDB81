@@ -155,6 +155,7 @@ class TMdbRBCtrl
 		int Init(TMdbShmDSN* pShmDSN, TMdbLocalLink* pLocalLink);		
 		int Commit();
 		int RollBack();
+		void ShowRBUnits();
 
 
 	private:	
@@ -177,6 +178,8 @@ class TMdbRBCtrl
 		TMdbFlushTrans  	m_tFlushTrans;
 		TMdbTableWalker 	m_tTableWalker;
 		TMdbExecuteEngine 	m_tEngine;
+
+		int m_iDataSize;
 		
 };
 
@@ -224,6 +227,8 @@ public:
     char sProcessName[MAX_NAME_LEN];   //哪个进程触发链接
 	
     unsigned int iSessionID; //事务id
+    unsigned int iExecuteID; //sql执行id
+	
     TShmList<TRBRowUnit>  m_RBList; //回滚链表
     int iAffect;
 	size_t  iRBAddrOffset;

@@ -136,6 +136,7 @@
 		int    iPreNode; //前一个节点
 		TMiniMutex tMutex;
 		unsigned int iSessionID;
+		unsigned int iExecuteID;  //同一个Session下面， 每次Execute都有一个独立的  ID,用于保证Update时不会重复更新影子内存
 		unsigned char cFlag;
 	};
 

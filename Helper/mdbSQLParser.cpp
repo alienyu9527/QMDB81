@@ -4135,7 +4135,6 @@ int TMdbSqlParser::SetNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,ch
 					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid use ntc agent port value!");
 					return ERR_NET_IP_INVALID;
 				}
-				TADD_DETAIL("m_tDsn.iNtcPort[%d] = [%d]", i, pDsn->iNtcPort[i]);
 			}
 		}
 	}
@@ -4180,7 +4179,6 @@ int TMdbSqlParser::SetNoNtcAgentPortAttribute(TMdbCfgDSN * pDsn,char *sAttrName,
 					TADD_ERROR(ERR_NET_IP_INVALID,"Invalid not use ntc agent port value!");
 					return ERR_NET_IP_INVALID;
 				}
-				TADD_DETAIL("m_tDsn.iNoNtcPort[%d] = [%d]", i, pDsn->iNoNtcPort[i]);
 			}
 		}
 	}
@@ -4263,7 +4261,7 @@ int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *s
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_Server_port") == 0)
     {
-        pDsn->iRepSvrPort= TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iRepSvrPort= (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_standby_Server_ip") == 0)
     {
@@ -4271,15 +4269,15 @@ int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *s
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_standby_Server_port") == 0)
     {
-        pDsn->iRepStandbySvrPort= TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iRepStandbySvrPort= (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_Local_port") == 0)
     {
-        pDsn->iRepLocalPort= TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iRepLocalPort= (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_file_invalid_time") == 0)
     {
-        pDsn->iInvalidRepFileTime = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iInvalidRepFileTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"agent_port") == 0)
     {
@@ -4314,18 +4312,18 @@ int TMdbSqlParser::SetDsnLinkAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *s
 			else
 			{
 				char sTempPort[16] = {0};
-				for(int i = 0; i<tSplit.GetFieldCount(); i++)
+				for(unsigned int i = 0; i<tSplit.GetFieldCount(); i++)
 				{
 					memset(sTempPort, 0, sizeof(sTempPort));
 					SAFESTRCPY(sTempPort, sizeof(sTempPort), tSplit[i]);
 					TMdbNtcStrFunc::Trim(sTempPort, ' ');
-					pDsn->iAgentPort[i] = TMdbNtcStrFunc::StrToInt(sTempPort);//代理端口
+					pDsn->iAgentPort[i] = (int)(TMdbNtcStrFunc::StrToInt(sTempPort));//代理端口
 					if(pDsn->iAgentPort[i] <= 0)
 					{
 						TADD_ERROR(ERR_NET_IP_INVALID, "Invalid agent port value!");
 						return ERR_NET_IP_INVALID;
 					}
-					TADD_DETAIL("m_tDsn.iAgentPort[%d] = [%d]", i, pDsn->iAgentPort[i]);
+					TADD_DETAIL("m_tDsn.iAgentPort[%u] = [%d]", i, pDsn->iAgentPort[i]);
 				}
 			}
 		}
@@ -4377,15 +4375,15 @@ int TMdbSqlParser::SetDsnRepAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *sA
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Rep_Type") == 0)
     {
-        pDsn->iRepType = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iRepType = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"rep_file_timeout") == 0)
     {
-        pDsn->m_iRepFileTimeout = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iRepFileTimeout = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"long_sql_time") == 0)
     {
-        pDsn->m_iLongSqlTime = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iLongSqlTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"is_shadow") == 0)
     {
@@ -4416,39 +4414,39 @@ int TMdbSqlParser::SetDsnOtherAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"log_level") == 0)
     {
-        pDsn->iLogLevel = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iLogLevel = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"log_time") == 0)
     {
-        pDsn->iLogTime = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iLogTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"log_count") == 0)
     {
-        pDsn->iLogCount = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iLogCount = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"kill_time") == 0)
     {
-        pDsn->iKillTime = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iKillTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Delay_Time") == 0)
     {
-        pDsn->iDelayTime = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iDelayTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Clean_Time") == 0)
     {
-        pDsn->iCleanTime = TMdbNtcStrFunc::StrToInt(sAttrValue);	
+        pDsn->iCleanTime = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));	
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"ora_rep_counts") == 0)
     {
-        pDsn->iOraRepCounts = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iOraRepCounts = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"buf_size") == 0)
     {
-        pDsn->iLogBuffSize = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iLogBuffSize = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"file_size") == 0)
     {
-        pDsn->iLogFileSize = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iLogFileSize = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"file_path") == 0)
     {
@@ -4456,27 +4454,27 @@ int TMdbSqlParser::SetDsnOtherAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"manager_size") == 0)
     {
-        pDsn->iManagerSize = TMdbNtcStrFunc::StrToInt(sAttrValue)*1024*1024;
+        pDsn->iManagerSize = (size_t)(TMdbNtcStrFunc::StrToInt(sAttrValue)*1024*1024);
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"data_size") == 0)
     {
-        pDsn->iDataSize =  TMdbNtcStrFunc::StrToInt(sAttrValue)*1024*1024;
+        pDsn->iDataSize =  (size_t)(TMdbNtcStrFunc::StrToInt(sAttrValue)*1024*1024);
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"client_timeout") == 0)
     {
-        pDsn->iClientTimeout = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->iClientTimeout = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"orarep_interval") == 0)
     {
-        pDsn->m_iOraRepInterval = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iOraRepInterval = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"orarep_delaytime") == 0)
     {
-        pDsn->m_iOraRepDelaySec = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iOraRepDelaySec = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"Is_Seq_Cache") == 0)
     {
-        pDsn->m_iSeqCacheSize = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iSeqCacheSize = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"routing_list") == 0)
     {
@@ -4492,15 +4490,15 @@ int TMdbSqlParser::SetDsnOtherAttribute(TMdbCfgDSN * pDsn,char *sAttrName,char *
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"CsPumpMaxCount") == 0)
     {
-        pDsn->m_iCSPumpMaxCount = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iCSPumpMaxCount = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"CsPumpInitCount") == 0)
     {
-        pDsn->m_iCSPumpInitCount = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iCSPumpInitCount = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"CsPeerCountPerPump") == 0)
     {
-        pDsn->m_iCSPeerCountPerPump = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pDsn->m_iCSPeerCountPerPump = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"valid_ip") == 0)
     {
@@ -4550,11 +4548,11 @@ int TMdbSqlParser::SetCfgProAttribute(TMdbCfgProAttr *pProAttr,char *sAttrName,c
     CHECK_OBJ_FILL(sAttrValue);
     if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"HeartBeatWarning") == 0)
     {
-        pProAttr->iHeartBeatWarning = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pProAttr->iHeartBeatWarning = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"HeartBeatFatal") == 0)
     {
-        pProAttr->iHeartBeatFatal = TMdbNtcStrFunc::StrToInt(sAttrValue);
+        pProAttr->iHeartBeatFatal = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
     }
     TADD_FUNC("Finish.");
     return iRet;
@@ -4844,7 +4842,7 @@ int TMdbSqlParser::CollectRouterID(_ST_EXPR * & pstExpr)
             TADD_FUNC("Find column[%d] is [%s]",i,m_pMdbConfig->GetDSN()->sRoutingName);
             Token token;
             token.z = m_pMdbConfig->GetDSN()->sRoutingName;
-            token.n = strlen(m_pMdbConfig->GetDSN()->sRoutingName);
+            token.n = (unsigned int)(strlen(m_pMdbConfig->GetDSN()->sRoutingName));
             TMdbExpr tMdbExpr;
             pstExpr =  tMdbExpr.BuildPExpr(TK_ID,NULL,NULL,&token);
             break;
@@ -5012,7 +5010,7 @@ int TMdbSqlParser::AddJobValue(Token *pAttrName,Token *pAttrValue)
         }
         else if(TMdbNtcStrFunc::StrNoCaseCmp(sAttrName,"interval") == 0)
         {
-            m_pDDLSqlStruct->pMdbJob->m_iInterval = TMdbNtcStrFunc::StrToInt(sAttrValue);
+            m_pDDLSqlStruct->pMdbJob->m_iInterval = (int)(TMdbNtcStrFunc::StrToInt(sAttrValue));
             if(m_pDDLSqlStruct->pMdbJob->m_iInterval <= 0)
             {
                 TADD_ERROR(ERROR_UNKNOWN,"The value[%d] of interval is less than zero.",\
@@ -5258,10 +5256,10 @@ int TMdbSqlParser::TranslateBlobColumnValue(ST_EXPR * pExpr,TMdbColumn * pColumn
         case TK_STRING:
             {
                 //转换
-                std::string encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pExpr->pExprValue->sValue),strlen(pExpr->pExprValue->sValue));
+                std::string encoded = Base::base64_encode(reinterpret_cast<const unsigned char*>(pExpr->pExprValue->sValue),(unsigned int)(strlen(pExpr->pExprValue->sValue)));
                 QMDB_MALLOC->ReleaseStr(pExpr->pExprValue->sValue);
                 pExpr->pExprValue->sValue = QMDB_MALLOC->CopyFromStr(encoded.c_str());
-                pExpr->pExprValue->iSize  = strlen(pExpr->pExprValue->sValue) +1;
+                pExpr->pExprValue->iSize  = (int)(strlen(pExpr->pExprValue->sValue) +1);
                 MemValueSetProperty(pExpr->pExprValue,MEM_Str|MEM_Dyn);
             }
             break;
