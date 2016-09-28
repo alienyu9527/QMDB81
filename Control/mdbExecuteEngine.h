@@ -33,7 +33,8 @@
         TMdbExecuteEngine();
         ~TMdbExecuteEngine();
         int Init(TMdbSqlParser * pMdbSqlParser, MDB_INT32 iFlag, TMdbLocalLink* pLocalLink);//初始化工作
-        int Execute();//执行
+		int Init(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,TMdbLocalLink* pLocalLink);
+		int Execute();//执行
         int Next(bool & bResult);//获取下一条
         int FillCollist();//填充列值
         int GetRowsAffected()
@@ -118,6 +119,7 @@
         long long m_llScanAllPos;//记录全量遍历的上次位置
         TMdbTable * m_pTable;//操作的某个表
         TMdbDSN   * m_pDsn;
+		TMdbShmDSN* m_pMdbShmDsn;
 
 
         TMdbPageCtrl   m_mdbPageCtrl;              //页控制信息

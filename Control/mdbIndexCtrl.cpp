@@ -16,7 +16,7 @@
 #include "Control/mdbLinkCtrl.h"
 //using namespace ZSmart::BillingSDK;
 
-#define TABLE_MUTEX  1
+//#define TABLE_MUTEX  1
 
 //namespace QuickMDB{
 

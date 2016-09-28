@@ -248,7 +248,6 @@ int TMdbRBCtrl::Init(TMdbShmDSN * pShmDSN, TMdbLocalLink* pLocalLink)
 
 	m_pShmDSN = pShmDSN;
 	m_pLocalLink = pLocalLink;
-	m_tEngine.SetLink(pLocalLink);
 	
 	return iRet;
 
@@ -391,7 +390,8 @@ int TMdbRBCtrl::CommitUpdate(TRBRowUnit* pRBRowUnit)
 			
 	TMdbRowID RowID;
 	RowID.SetRowId(pRBRowUnit->iRealRowID);
-	
+
+	CHECK_RET(m_tEngine.Init(m_pShmDSN, pTable, m_pLocalLink),"m_tEngine Init Failed.");
 	CHECK_RET(m_tEngine.ExecuteDelete(pRealPageAddr, pRealDataAddr,RowID,m_pShmDSN,pTable),"ExecuteDelete failed.");
 
 	//回收掉的数据节点打上标志
@@ -437,7 +437,8 @@ int TMdbRBCtrl::CommitDelete(TRBRowUnit* pRBRowUnit)
 	
 	TMdbRowID RowID;
 	RowID.SetRowId(pRBRowUnit->iRealRowID);
-	
+
+	CHECK_RET(m_tEngine.Init(m_pShmDSN, pTable, m_pLocalLink),"m_tEngine Init Failed.");
 	CHECK_RET(m_tEngine.ExecuteDelete(pRealPageAddr, pRealDataAddr, RowID, m_pShmDSN, pTable),"ExecuteDelete failed.");
 
 	//回收掉的数据节点打上标志

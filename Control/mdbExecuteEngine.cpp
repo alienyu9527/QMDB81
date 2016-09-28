@@ -55,6 +55,7 @@
         m_llScanAllPos(-1),
         m_pTable(NULL),
         m_pDsn(NULL),
+        m_pMdbShmDsn(NULL),
         m_iRowsAffected(0),
         m_pInsertBlock(NULL),
         m_pVarCharBlock(NULL),
@@ -125,6 +126,35 @@
         CHECK_RET_FILL_CODE(m_tRowCtrl.Init(m_pDsn->sName,m_pTable->sTableName),ERR_OS_ATTACH_SHM,"m_tRowCtrl.AttachTable failed.");//记录管理
         CHECK_RET_FILL_CODE(m_tCacheTable.Create(pMdbSqlParser),iRet,"Cache Table Create failed.");//创建临时表
         TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	int TMdbExecuteEngine::Init(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,TMdbLocalLink* pLocalLink)
+    {
+        int iRet = 0;
+		CHECK_OBJ(pTable);
+		CHECK_OBJ(pMdbShmDsn);
+		CHECK_OBJ(pLocalLink);
+		
+		if(m_pMdbShmDsn != pMdbShmDsn)
+		{
+			m_pMdbShmDsn = pMdbShmDsn;
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
+			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetInfo()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
+			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetInfo()->sName);
+		}
+		if(m_pTable != pTable)
+		{
+			m_pTable = pTable;
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
+			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetInfo()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
+		}
+		if(m_pLocalLink!=pLocalLink)
+		{
+			m_pLocalLink = pLocalLink;
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.SetLinkInfo error.");
+		}
+
         return iRet;
     }
 
@@ -318,8 +348,8 @@
                 CHECK_RET_FILL(ERR_SQL_STOP_EXEC,"Catch the SIGINT signal.");
             }
 
-			//先删除
-			CHECK_RET(SetDataFlagDelete(m_pDataAddr),"SetDataFlagDelete failed.");
+			//删除
+			if(0 != SetDataFlagDelete(m_pDataAddr) ) break;
 			//后插入
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
 			//复制VarChar和blob
@@ -489,16 +519,8 @@
     {		
         TADD_FUNC("Start.");
 		int iRet = 0;
-		CHECK_OBJ(pTable);
-		m_pTable = pTable;
 		do
-		{			
-			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
-			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachTable(pMdbShmDsn,pTable),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable error.");
-			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.SetLinkInfo error.");
-			CHECK_RET_FILL_CODE(m_tRowCtrl.Init(pMdbShmDsn->GetInfo()->sName,pTable),ERR_OS_ATTACH_SHM,"m_tRowCtrl.Init error.");
-			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetInfo()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
-			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetInfo()->sName);
+		{
 			for(int i=0; i<m_pTable->iIndexCounts; ++i)
 	        {
 	            CHECK_RET_FILL_BREAK(m_mdbIndexCtrl.DeleteIndexNode(i,pDataAddr,m_tRowCtrl,rowID),"DeleteIndexNode[%d] failed.",i);
@@ -539,7 +561,6 @@
         TADD_FUNC("Start.");
         int iRet = 0;
         m_iRowsAffected = 0;
-        //m_pTable->tTableMutex.Lock(m_pTable->bWriteLock, &m_pDsn->tCurTime);//加表锁
         int i = 0;
         bool bNext = false;
         while(1)
@@ -557,7 +578,7 @@
 			//在使用事务的情况下，只设置标志位，不删除数据
 			if(IsUseTrans())
             {				
-				CHECK_RET(SetDataFlagDelete(m_pDataAddr),"SetDataFlagDelete failed.");
+				if(0 != SetDataFlagDelete(m_pDataAddr) ) break;
 				
 				TRBRowUnit tRBRowUnit;
 				
@@ -2495,7 +2516,7 @@
 
 						if(pNode->cFlag  & DATA_RECYCLE)
 						{
-							CHECK_RET(-1,"Data already be removed,table:%s,rowid:%d",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);				
+							return -1;
 						}
 						
 						CHECK_RET(pNode->tMutex.Lock(true),"Lock Row failed,[Table:%s][Row:%d].",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);
@@ -2505,7 +2526,7 @@
 				
 				if(pNode->cFlag  & DATA_RECYCLE)
 				{
-					CHECK_RET(-1,"Data already be removed,table:%s,rowid:%d",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);				
+					return -1;
 				}
 
 				//printf("Table %s,Lock Row %d OK\n",m_pTable->sTableName,m_tCurRowIDData.m_iRowID);

@@ -163,7 +163,7 @@ ccons ::= DEFAULT PLUS  INTEGER(X).
 	char value[256] ={0};
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue);
 	str.z = value;
-	str.n =strlen(value);
+	str.n =(unsigned int)(strlen(value));
 	pParse->AddColumnAttribute("default-value",&str);
 
 }
@@ -177,7 +177,7 @@ ccons ::= DEFAULT MINUS INTEGER(X).
 	char value[256] = {0}; 
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue); 
 	str.z = value; 
-	str.n =strlen(value); 
+	str.n =(unsigned int)(strlen(value)); 
 	pParse->AddColumnAttribute("default-value",&str);
 
 }
@@ -190,7 +190,7 @@ ccons ::= DEFAULT LP expr(X) RP.
 	char value[256] = {0};
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue);
 	str.z = value;
-	str.n =strlen(value);
+	str.n =(unsigned int)(strlen(value));
 	pParse->AddColumnAttribute("default-value",&str);
 
 }
@@ -788,7 +788,7 @@ cons ::= DEFAULT PLUS  INTEGER(X).
 	char value[256] ={0};
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue);
 	str.z = value;
-	str.n =strlen(value);
+	str.n =(unsigned int)(strlen(value));
 	pParse->ModifyColumnAttribute("default-value",&str);
 
 }
@@ -802,7 +802,7 @@ cons ::= DEFAULT MINUS INTEGER(X).
 	char value[256] = {0}; 
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue); 
 	str.z = value; 
-	str.n =strlen(value); 
+	str.n = (unsigned int)(strlen(value)); 
 	pParse->ModifyColumnAttribute("default-value",&str);
 
 }
@@ -815,7 +815,7 @@ cons ::= DEFAULT LP expr(X) RP.
 	char value[256] = {0};
 	snprintf(value,sizeof(value),"%lld",pstExpr->pExprValue->lValue);
 	str.z = value;
-	str.n =strlen(value);
+	str.n =(unsigned int)(strlen(value));
 	pParse->ModifyColumnAttribute("default-value",&str);
 
 }
