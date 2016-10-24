@@ -78,7 +78,7 @@
 		int MdbMaxIntArray(int* iArray, size_t n)
 		{
 		    int iMax = iArray[0];
-			for(int i=1;i<n;i++)
+			for(unsigned int i=1;i<n;i++)
 			{
 				if(iArray[i]>iMax) iMax=iArray[i];
 			}

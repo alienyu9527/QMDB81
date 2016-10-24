@@ -80,6 +80,11 @@
 #define TC_ColumnAdd 1
 #define TC_ColumnDrop 2
 #define TC_ColLenIncrease 3
+#define TC_ColCharToVar 4
+#define TC_ColVarToChar 5
+#define TC_ColDateYToN 6
+#define TC_ColDateYToL 7
+#define TC_ColDateLToN 8
 
 //最大备机数量
 #define MAX_ALL_REP_HOST_COUNT 100
@@ -244,7 +249,8 @@
 		int iFreePageId; //空闲链
 		int iFullPageId; //满链
 		TMdbTSNode tNode;     //头节点
-		TMutex tMutex;   //空闲页的共享锁
+		TMutex tFreeMutex;   //空闲页的共享锁
+		TMutex tFullMutex;   //满页的共享锁
 	};
 	/**
 	 * @brief mdb的列定义

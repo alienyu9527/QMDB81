@@ -821,6 +821,7 @@
 		m_vVarCharChangeFile.clear();
         TMdbDSN* pDSN = m_pShmDSN->GetInfo();
         m_iMaxLsn = pDSN->GetCurrentLSN();
+		TADD_NORMAL("Init m_iMaxLsn=%ld",m_iMaxLsn);
         return iRet;
     }
 
@@ -2283,7 +2284,6 @@
                         {
                             CHECK_RET(-1,"m_iPageID[%d] is invalid",pFilePage->m_iPageID);
                         }
-                        
                         pAddr = m_tVarCharCtrl.GetAddrByPageID(pVarChar,pFilePage->m_iPageID,isNoPage);
                         if(isNoPage == true)
                         {

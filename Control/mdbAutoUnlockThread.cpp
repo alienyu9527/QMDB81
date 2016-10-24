@@ -144,9 +144,13 @@
         for(; itorVar != m_pShmDSN->m_VarCharList.end(); ++itorVar)
         {
             TMdbVarchar* pVarchar = &(*itorVar);
-            if(0 != CheckAndRelease(pVarchar->tMutex,tCurTime,5000,true,"VarcharMutex"))
+            if(0 != CheckAndRelease(pVarchar->tFreeMutex,tCurTime,5000,true,"VarcharFreeMutex"))
             {
-                 TADD_ERROR(ERROR_UNKNOWN, "TMdbVarchar[%d] tMutex is block.", pVarchar->iVarcharID);
+                 TADD_ERROR(ERROR_UNKNOWN, "TMdbVarchar[%d] tFreeMutex is block.", pVarchar->iVarcharID);
+            }
+			if(0 != CheckAndRelease(pVarchar->tFullMutex,tCurTime,5000,true,"VarcharFullMutex"))
+            {
+                 TADD_ERROR(ERROR_UNKNOWN, "TMdbVarchar[%d] tFullMutex is block.", pVarchar->iVarcharID);
             }
         }
         

@@ -107,13 +107,13 @@ int string_ex::nocasecmp(const string_ex& rhs) const
 	const char* q = rhs.c_str();
 	for (; *p != '\0' && *q != '\0'; ++p, ++q)
 	{
-		char c1 = ('A' <= *p && *p <= 'Z') ? (*p + 'a' -'A') : *p;
-		char c2 = ('A' <= *q && *q <= 'Z') ? (*q + 'a' -'A') : *q;
+		char c1 = ('A' <= *p && *p <= 'Z') ? (char)( (*p + 'a' -'A')) : *p;
+		char c2 = ('A' <= *q && *q <= 'Z') ? (char)((*q + 'a' -'A')) : *q;
 		if (c1 == c2)
 			continue;
 		return c1 - c2;
 	}
-	return length() - rhs.length();
+	return (int)(length() - rhs.length());
 }
 
 string_ex string_ex::left(size_t len) const
@@ -149,7 +149,7 @@ string_ex& string_ex::upper()
 	size_t i;
 	for (i = 0; i < length(); ++i)
 	{
-		at(i) = ('a' <= at(i) && at(i) <= 'z') ? (at(i) + 'A' -'a') : at(i);
+		at(i) = ('a' <= at(i) && at(i) <= 'z') ? (char)((at(i) + 'A' -'a')) : at(i);
 	}
 	return *this;
 }
@@ -159,7 +159,7 @@ string_ex& string_ex::lower()
 	size_t i;
 	for (i = 0; i < length(); ++i)
 	{
-		at(i) = ('A' <= at(i) && at(i) <= 'Z') ? (at(i) + 'a' -'A') : at(i);
+		at(i) = ('A' <= at(i) && at(i) <= 'Z') ? (char)((at(i) + 'a' -'A')) : at(i);
 	}
 	return *this;
 }
@@ -190,7 +190,7 @@ string_ex& string_ex::ltrim(const char* space_chars /*= " \t\v\r\n\f\a\b"*/)
 	{
 		return *this;
 	}
-	erase(0, p - c_str());
+	erase(0, (long unsigned int)(p - c_str()));
 	return *this;
 }
 
@@ -203,7 +203,7 @@ string_ex& string_ex::rtrim(const char* space_chars /*= " \t\v\r\n\f\a\b"*/)
 			break;
 	}
 	++p;
-	erase(p - c_str(), c_str() + length() - p);
+	erase((long unsigned int)(p - c_str()), (long unsigned int)(c_str() + length() - p));
 	return *this;
 }
 
@@ -226,7 +226,7 @@ string_ex& string_ex::format(const char* fmt, ...)
 	for (;;)
 	{
 		buf = new char[nbuf];
-		int ret = vsnprintf(buf, nbuf, fmt, ap);
+		int ret = vsnprintf(buf, (size_t)(nbuf), fmt, ap);
 		if (0 <= ret && ret < nbuf)
 			break;
 		delete[] buf;
@@ -247,7 +247,7 @@ string_ex& string_ex::formatv(const char* fmt, va_list ap)
 	for (;;)
 	{
 		buf = new char[nbuf];
-		int ret = vsnprintf(buf, nbuf, fmt, ap);
+		int ret = vsnprintf(buf, (size_t)(nbuf), fmt, ap);
 		if (0 <= ret && ret < nbuf)
 			break;
 		delete[] buf;

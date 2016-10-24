@@ -84,6 +84,7 @@ struct ST_SHOW_PARAM
     bool bPrintNotLoadFromDB;//表不从数据库加载的附加配置信息
     char sLinkPid[256];
 	int  iPid;
+	bool bPrintVarchar;
 	
     ST_SHOW_PARAM()
     {
@@ -110,6 +111,7 @@ struct ST_SHOW_PARAM
         bPrintLock = false;
         bPrintRouting = false;
         bPrintNotLoadFromDB = false;
+		bPrintVarchar =false;
     }
 };
 
@@ -138,6 +140,7 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
     clp.set_check_condition("-f", 0);//显示路由备份信息
     clp.set_check_condition("-o", 0);//表不从数据库加载的附加配置信息
     clp.set_check_condition("-P", 0, 1);//指定链接的pid
+    clp.set_check_condition("-v", 0);//指定链接的pid
     
     if(!clp.check())
     {
@@ -244,6 +247,12 @@ int CheckParam(int argc, char* argv[],ST_SHOW_PARAM & stShowParam)
             stShowParam.bPrintNotLoadFromDB = true;
             continue;
         }
+		if(opt == "-v")
+        {
+            stShowParam.bPrintVarchar = true;
+            continue;
+        }
+	
         
         bIsHelp = (opt == "-h" || opt == "-H");
         if(bIsHelp)
@@ -372,6 +381,10 @@ int main(int argc, char* argv[])
     {
         info.PrintNotLoadFromDBInfo();
     }
+	if(stShowParam.bPrintVarchar)
+	{
+        info.PrintVarcharPageList();
+	}
     
     printf("\n---------------------------*****SHOW-INFOMATION END*****---------------------------\n");
     return iRet;

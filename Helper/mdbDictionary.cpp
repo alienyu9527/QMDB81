@@ -1839,7 +1839,7 @@
 
     void TMdbLCR::Clear()
     {
-        m_iRoutID = DEFALUT_ROUT_ID;
+        m_iRoutID = DEFAULT_ROUTE_ID;
         m_iSqlType = -1;
         m_iLen = 0;
         m_iTimeStamp = 0;

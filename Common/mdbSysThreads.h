@@ -85,7 +85,7 @@
              * @return 无
              * @retval
              */
-            TMdbNtcThread (int iStackSize = 1024 *1024);
+            TMdbNtcThread (int iStackSize =10 * 1024 *1024);
             ~TMdbNtcThread();
             /**
              * @brief 初始化函数，可以重载此函数

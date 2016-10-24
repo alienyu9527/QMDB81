@@ -80,7 +80,7 @@
         {//error
             TADD_WARNING("not find indexnode to delete....index[%d|%d],rowid[%d|%d]",
                          tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
-            PrintIndexInfo(tHashIndexInfo,1,false);
+            //PrintIndexInfo(tHashIndexInfo,1,false);
         }
 
         CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"Unlock failed.");
@@ -195,7 +195,7 @@
 	        {//error
 	            TADD_WARNING("not find indexnode to delete....pos[%d],index[%d|%d],rowid[%d|%d]",
 	                         iIndexPos,tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
-	            PrintIndexInfo(tHashIndex,1,false);
+	            //PrintIndexInfo(tHashIndex,1,false);
 	        }
 	    }
 	    else
@@ -239,7 +239,7 @@
 	        {//error
 	            TADD_WARNING("not find indexnode to delete....pos[%d],index[%d|%d],rowid[%d|%d]",
 	                         iIndexPos,tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset());
-	            PrintIndexInfo(tHashIndex,1,false);
+	            //PrintIndexInfo(tHashIndex,1,false);
 	        }
 	    }
         CHECK_RET(m_pAttachTable->tTableMutex.UnLock(m_pAttachTable->bWriteLock),"unlock failed.");
@@ -333,7 +333,7 @@
                 TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
                            tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),
                            m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
-                PrintIndexInfo(tHashIndex,0,false);
+                //PrintIndexInfo(tHashIndex,0,false);
                 iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
             }
         }
@@ -467,7 +467,7 @@
 	            //没有空闲冲突节点了。
 	            TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"No free conflict indexnode.....tRowIndex[%d|%d],rowid[%d|%d],record-counts[%d] of table[%s] is too small",
 	                       tRowIndex.iBaseIndexPos,tRowIndex.iConflictIndexPos,rowID.GetPageID(),rowID.GetDataOffset(),m_pAttachTable->iRecordCounts,m_pAttachTable->sTableName);
-                PrintIndexInfo(tHashIndex,0,false);
+                //PrintIndexInfo(tHashIndex,0,false);
 	            iRet = ERR_TAB_NO_CONFLICT_INDEX_NODE;
 	        }
 	    }

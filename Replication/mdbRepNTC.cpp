@@ -865,7 +865,7 @@
 	{
         TADD_FUNC("Start.");
 		int iRet = 0;
-		if (atoi(sRoutinglist) == DEFALUT_ROUT_ID)
+		if (atoi(sRoutinglist) == DEFAULT_ROUTE_ID)
         {
              snprintf(sMsgBuf, MAX_REP_SEND_BUF_LEN, "%s%s", LOAD_DATA_START_FLAG, sTableName);//∏Ò Ω£∫Load:TableName|routinglist
         }

@@ -430,7 +430,7 @@ int TMdbIndexCtrl::ReAttachSingleMHashIndex(int iIndexPos)
 
 
 //为链接填充索引信息
-int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
+int TMdbIndexCtrl::FillLinkInfo(TMdbLocalLink* pLink)
 {
 	int iRet = 0;
 	int iPos = -1;
@@ -493,7 +493,8 @@ int TMdbIndexCtrl::SetLinkInfo(TMdbLocalLink* pLink)
 int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * pMdbShmDsn)
 {
 	int iRet = 0;
-	for(int i=0; i< MAX_TABLE_COUNTS; i++)
+	int iCount = sizeof(pLink->m_AllTableIndexInfo)/sizeof(TMdbSingleTableIndexInfo);
+	for(int i=0; i< iCount; i++)
 	{
 		if(0 == pLink->m_AllTableIndexInfo[i].sTableName[0]) continue;
 		
@@ -999,11 +1000,11 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 		    }
 			else
 			{
-				#ifdef  TABLE_MUTEX
+				if(NULL == m_pLink)
             		iRet = m_tHashIndex.InsertIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
-				#else
+				else
 					iRet = m_tHashIndex.InsertIndexNode2(iIndexPos, tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
-				#endif
+				
 			}
         }
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)
@@ -1062,11 +1063,10 @@ int TMdbIndexCtrl::ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * 
 		    }
 			else
 			{
-				#ifdef  TABLE_MUTEX
-				iRet = m_tHashIndex.DeleteIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
-				#else
-				iRet = m_tHashIndex.DeleteIndexNode2(iIndexPos, tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
-				#endif
+				if(NULL == m_pLink)
+					iRet = m_tHashIndex.DeleteIndexNode(tRowIndex,stTableIndex.m_HashIndexInfo, rowID);
+				else
+					iRet = m_tHashIndex.DeleteIndexNode2(iIndexPos, tRowIndex, stTableIndex.m_HashIndexInfo,rowID);
 			}
 		}
         else if(stTableIndex.pIndexInfo->m_iAlgoType == INDEX_M_HASH)

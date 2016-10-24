@@ -260,8 +260,8 @@ int TMdbCtrl::Start()
     m_tProcCtrl.ClearProcInfo();
     std::vector<std::string > vProcToStart;
     CHECK_RET(GetProcToStart( vProcToStart),"GetProcToStart failed.");
-    int i = 0;
-    for(i = 0;i < (int)vProcToStart.size();++i)
+    long unsigned int i = 0;
+    for(i = 0;i < vProcToStart.size();++i)
     {
         CHECK_RET(m_tProcCtrl.Restart(vProcToStart[i].c_str()),"restart[%s] error.",vProcToStart[i].c_str());
     }
@@ -858,6 +858,11 @@ int TMdbCtrl::LoadSequence()
 	//如果文件不存在，从数据库加载sequence
 	if (NULL == m_pSeqFile)
 	{
+		#ifdef DB_NODB
+		TADD_ERROR(-1,"Sequence file %s not exsit",sFileName);
+		return -1;
+		#endif
+		
         TMdbDSN* pDsn = pMdbShmDSN->GetInfo();
         CHECK_OBJ(pDsn);
         TMdbDatabase *mdb = new(std::nothrow) TMdbDatabase();
@@ -908,7 +913,7 @@ int TMdbCtrl::LoadSequence()
         SAFE_CLOSE(m_pSeqFile);
         return -1;
     }
-    int iReadPageCount = fread(pBuff,sizeof(TMemSeq),MAX_SEQUENCE_COUNTS,m_pSeqFile);
+    int iReadPageCount = (int)(fread(pBuff,(int)(sizeof(TMemSeq)),MAX_SEQUENCE_COUNTS,m_pSeqFile));
     if(iReadPageCount <= 0)
     {
         TADD_NORMAL("No Sequence Need to Load,Cout=[%d],file=[%s]",iReadPageCount,sFileName);
@@ -952,8 +957,8 @@ bool TMdbCtrl::CheckVersion(TMdbDSN *pTMdbDSN)
 
     mdbPSplit.SplitString(MDB_VERSION, '.');
     mdbKSplit.SplitString(pTMdbDSN->sVersion, '.');
-    iKcount = mdbKSplit.GetFieldCount();
-    iPCount = mdbPSplit.GetFieldCount();
+    iKcount = (unsigned int)(mdbKSplit.GetFieldCount());
+    iPCount = (unsigned int)(mdbPSplit.GetFieldCount());
     //防止老的版本信息格式问题，如minidb_1.0.00
     if(iKcount != iPCount && iKcount < 3)
     {

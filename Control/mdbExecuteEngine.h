@@ -44,7 +44,8 @@
 		void SetLink(TMdbLocalLink* pLocalLink);
         void SetRollback(bool bCanRollback);
         int GetOneRowData(void *pStruct,int* Column);//获取一列数据信息
-		int GetOneRowData(TMdbColumnAddr* pTColumnAddr);
+		int GetOneRowData(TMdbColumnAddr* pTColumnAddr, bool bBlob = true);
+		int IsPKExist(char* pDataAddr);
         long long GetRowTimeStamp();
         int CheckRowDataStruct(int* Column);//校验结构长度信息
         int ReBuildTableFromPage(const char * sDSN,TMdbTable * pMdbTable);//从内存页重新构建表
@@ -63,7 +64,7 @@
         int ExecuteDelete();//执行删除
 		
 		int ExecuteUpdateTrans();
-		int CloneVarChar(char* pDestBlock,char* pSourceBlock);
+		int CloneVarChar(char* pDestBlock,char* pSourceBlock, ST_MEM_VALUE_LIST & stMemSkipList);
 			
         int FillSqlParserValue(ST_MEM_VALUE_LIST & stMemValueList);//向解析器填充值
         int CheckWhere(bool &bResult);//检测where条件是否满足
@@ -83,7 +84,8 @@
         //long long CalcOneIndexValue( char* pAddr, int iIndexPos, int& iError);
         //long long CalcIndexValue( char* pAddr, int iIndexPos, int& iError);
         int CalcMemValueHash(ST_INDEX_VALUE & stIndexValue,long long & llValue);
-        int DeleteVarCharValue( char*  const &pAddr);//删除变长数据
+		int CalcMemValueHash(ST_TABLE_INDEX_INFO * pstTablePKIndex,char* pDataAddr,long long & llValue,TMdbColumnAddr &tColumnAddr);
+		int DeleteVarCharValue( char*  const &pAddr);//删除变长数据
         int ClearMemValue(ST_MEM_VALUE_LIST & stMemValueList);//清理数据
         int ExecuteCacheSelect();//执行缓存查询
         bool CacheNext();//缓存next
@@ -94,6 +96,8 @@
 		int NextWhereByIndex(bool & bResult);
 		
         int IsPKExist();//检测主键是否已存在
+		bool IsPKValueSame(TMdbColumnAddr& tIColumnAddr, TMdbColumnAddr& tNColumnAddr);
+		
         bool IsDataPosBefore();//该记录是否被定位过
         inline int * GetRowIndexArray(char * pDataAddr);//获取rowindex数组
         int GetUpdateDiff();//获取增量更新值
@@ -145,6 +149,7 @@
         TMdbCacheTable m_tCacheTable;//缓存表
 		TMdbLocalLink* m_pLocalLink;
 		int* m_pIsStop;    //中途停止
+		TMdbColumnAddr m_tIColumnAddr,m_tNColumnAddr;
 	public:
         TMdbErrorHelper m_tError;
     };

@@ -16,7 +16,7 @@
 
     void TRepHeadInfo::Clear()
     {
-        m_iRoutID = DEFALUT_ROUT_ID;
+        m_iRoutID = DEFAULT_ROUTE_ID;
         m_iSqlType = -1;
         m_iLen = 0;
         m_iTimeStamp = 0;
@@ -211,7 +211,7 @@
             CHECK_RET(GetData(pDataStr + iPos,tRecd.m_vWColms,DataLen),"GetData error.");
         }
 
-        tRecd.m_tHeadInfo.m_iRoutID = DEFALUT_ROUT_ID;
+        tRecd.m_tHeadInfo.m_iRoutID = DEFAULT_ROUTE_ID;
         tRecd.m_tHeadInfo.m_iVersion = VERSION_DATA_12;
         TADD_FUNC("Finish.");
         return iRet;

@@ -84,7 +84,8 @@
 	        CHECK_RET(m_pShmDSN->AddNewVarChar(m_pVarChar),"AddNewVarchar");
 	        CHECK_OBJ(m_pVarChar);
 	        m_pVarChar->iVarcharID = i;
-	        m_pVarChar->tMutex.Create();
+	        m_pVarChar->tFreeMutex.Create();
+	        m_pVarChar->tFullMutex.Create();
 	        m_pVarChar->iPageSize = 32*1024;
 	    }
 	    long long m_iMgrKey = 0x5765454 + 1000000*(m_pDsn->llDsnValue);
@@ -287,7 +288,7 @@
 	                pPage = (TMdbPage*)GetAddrByPageID(pVarChar,iLastFreePageID);
 	                CHECK_OBJ(pPage);
                     TADD_DETAIL("iLastFreePageID=%d, m_iNextPageID=%d",iLastFreePageID,pPage->m_iNextPageID);
-	                if(pPage->m_iNextPageID <= 0)
+	                if(pPage->m_iNextPageID == pVarChar->iFreePageId) //已经找到末尾了
 	                {
 	                    pPage->m_iNextPageID = iPageSID;
 	                    iPrePageID = iLastFreePageID;
@@ -303,6 +304,7 @@
 	        TADD_DETAIL("(iSize=%lu) : iFreePageId=%d.", pVarChar->iPageSize, pVarChar->iFreePageId);
 	        //初始化每一个页
 	        TMdbPage *pPage = (TMdbPage*)pAddr;
+			TMdbPage *pFirstPage = pPage;
 	        for(int i=iPageSID; i<=iPageFID; ++i)
 	        {
 	            pPage->Init(i,pVarChar->iPageSize,pVarChar->iVarcharID);//初始化
@@ -313,7 +315,7 @@
 	                    pPage->m_iNextPageID = i+1;
 	                else
 	                {
-	                    pPage->m_iNextPageID = -1;
+	                    pPage->m_iNextPageID = iPageSID;
 	                }
 	            }
 	            else if(i != iPageFID)
@@ -324,12 +326,13 @@
 	            else
 	            {
 	                pPage->m_iPrePageID  = i-1;
-	                pPage->m_iNextPageID = -1;
+	                pPage->m_iNextPageID = iPageSID;
+					pFirstPage->m_iPrePageID = iPageFID;
 	            }
 	            TADD_DETAIL("(iSize=%lu) : PageAddr=%p, iPageID=%d, iNextPageID=%d.", pVarChar->iPageSize, pPage, pPage->m_iPageID, pPage->m_iNextPageID);
 	            pPage = (TMdbPage*)(pAddr + pVarChar->iPageSize * (i+1-iPageSID));
 	            ++pVarChar->iTotalPages;
-	    }
+	    	}
 	        TADD_DETAIL("(iSize=%lu) : iFreePageId=%d.", pVarChar->iPageSize, pVarChar->iFreePageId);
 	        TADD_FUNC("Finish.");
 	        return iRet;
@@ -477,11 +480,30 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
         }
         CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char *)pMdbPage, false, true),"Can't Attach to page");
         int iSize = GetValueSize(iWhichPos);
-        iRet = m_mdbPageCtrl.InsertData((unsigned char*)pValue, iSize, rowID,pMemDataAddr,false);
-        if(ERR_PAGE_NO_MEMORY == iRet)
+
+		CHECK_RET_BREAK(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");//加页锁
+        iRet = m_mdbPageCtrl.InsertData_NoMutex((unsigned char*)pValue, iSize, rowID,pMemDataAddr,false);
+		if(iRet == 0)
+        {
+			TMdbPageNode * pPageNode = (TMdbPageNode *)(pMemDataAddr - sizeof(TMdbPageNode));
+			pPageNode->cStorage = cStorage;
+			if(NeedStorage())
+			{
+			    TADD_DETAIL("whichpos=[%d],page_id=[%d]",iWhichPos,pMdbPage->m_iPageID);
+				SetPageDirtyFlag(pMdbPage->m_iPageID);
+			}
+			else
+			{
+				pPageNode->cStorage = 'N';
+			}
+			
+			iRowId = rowID.m_iRowID;
+        }
+		m_mdbPageCtrl.UnWLock();//解页锁
+
+		if(ERR_PAGE_NO_MEMORY == iRet)
         {
             //对于找到的自由页满了而无法插入数据，则找下一个自由页
-            TADD_DETAIL("Current page is Full.");
             CHECK_RET_BREAK(PageFreeToFull(pMdbPage),"PageFreeToFull Faild");
             continue;
         }
@@ -489,23 +511,10 @@ int TMdbVarCharCtrl::Insert(char * pValue, int& iWhichPos,unsigned int& iRowId,c
         {
             CHECK_RET(iRet,"Insert varchar Data failed.");
         }
-		
-		TMdbPageNode * pPageNode = (TMdbPageNode *)(pMemDataAddr - sizeof(TMdbPageNode));
-		pPageNode->cStorage = cStorage;
-		if(NeedStorage())
-		{
-			TADD_DETAIL("whichpos=[%d],page_id=[%d]",iWhichPos,pMdbPage->m_iPageID);
-			SetPageDirtyFlag(pMdbPage->m_iPageID);
-		}
-		else
-		{
-			pPageNode->cStorage = 'N';
-		}
-		
-        iRowId = rowID.m_iRowID;
+
         break;
     }
-    
+
     TADD_FUNC("Finish.");
     return iRet;
 }
@@ -527,52 +536,52 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	CHECK_RET(VarCharWhichStore(iLen,iWhichPos),"Get VarCharWhichStore[%d] Faild",iWhichPos);
 	TMdbRowID rowID;
 	while(true)
-	{
-		TMdbPage* pMdbPage = NULL;
-		char* pMemDataAddr = NULL;
-		CHECK_RET(m_pVarChar->tMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
-		CHECK_RET_BREAK(GetFreePage(pMdbPage),"GetFreePage Faild");
-		if(pMdbPage == NULL)
-		{
-			TADD_ERROR(-1,"pMdbPage is NULL");
-			iRet = -1;
-			break;
-		}
-		CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char *)pMdbPage, false, true),"Can't Attach to page");
+    {
+        TMdbPage* pMdbPage = NULL;
+        char* pMemDataAddr = NULL;
+        CHECK_RET_BREAK(GetFreePage(pMdbPage),"GetFreePage Faild");
+        if(pMdbPage == NULL)
+        {
+            TADD_ERROR(-1,"pMdbPage is NULL");
+            iRet = -1;
+            break;
+        }
+        CHECK_RET_BREAK(m_mdbPageCtrl.Attach((char *)pMdbPage, false, true),"Can't Attach to page");
         int iSize = GetValueSize(iWhichPos);
-		iRet = m_mdbPageCtrl.InsertData((unsigned char*)pValue, iLen, iSize, rowID,pMemDataAddr,false);
+
+		CHECK_RET_BREAK(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");//加页锁
+        iRet = m_mdbPageCtrl.InsertData_NoMutex((unsigned char*)pValue,iLen, iSize, rowID,pMemDataAddr,false);
+		if(iRet == 0)
+        {
+			TMdbPageNode * pPageNode = (TMdbPageNode *)(pMemDataAddr - sizeof(TMdbPageNode));
+			pPageNode->cStorage = cStorage;
+			if(NeedStorage())
+			{
+			    TADD_DETAIL("whichpos=[%d],page_id=[%d]",iWhichPos,pMdbPage->m_iPageID);
+				SetPageDirtyFlag(pMdbPage->m_iPageID);
+			}
+			else
+			{
+				pPageNode->cStorage = 'N';
+			}
+			
+			iRowId = rowID.m_iRowID;
+        }
+		m_mdbPageCtrl.UnWLock();//解页锁
+
 		if(ERR_PAGE_NO_MEMORY == iRet)
-		{
-			//对于找到的自由页满了而无法插入数据，则找下一个自由页
-			TADD_DETAIL("Current page is Full.");
-			CHECK_RET_BREAK(PageFreeToFull(pMdbPage),"PageFreeToFull Faild");
-			CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-			continue;
-		}
-		else if(iRet < 0)
-		{
-			CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-			CHECK_RET(iRet,"Insert varchar Data failed.");
-		}
-		TMdbPageNode * pPageNode = (TMdbPageNode *)(pMemDataAddr - sizeof(TMdbPageNode));
-		pPageNode->cStorage = cStorage;
-		if(NeedStorage())
-		{
-			TADD_DETAIL("whichpos=[%d],page_id=[%d]",iWhichPos,pMdbPage->m_iPageID);
-			SetPageDirtyFlag(pMdbPage->m_iPageID);
-		}
-		else
-		{
-			pPageNode->cStorage = 'N';
-		}
-		iRowId = rowID.m_iRowID;
-		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-		break;
-	}
-	if(iRet != 0)
-	{
-		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-	}
+        {
+            //对于找到的自由页满了而无法插入数据，则找下一个自由页
+            CHECK_RET_BREAK(PageFreeToFull(pMdbPage),"PageFreeToFull Faild");
+            continue;
+        }
+        else if(iRet < 0)
+        {
+            CHECK_RET(iRet,"Insert varchar Data failed.");
+        }
+
+        break;
+    }
 	TADD_FUNC("Finish.");
 	return iRet;
 }
@@ -828,8 +837,7 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	    int iRet = 0;
 	    CHECK_OBJ(m_pVarChar);
 	    pFreePage = NULL;
-		
-        CHECK_RET(m_pVarChar->tMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
+        CHECK_RET(m_pVarChar->tFreeMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
 	    do{
 	        if(m_pVarChar->iFreePageId <= 0)
 	        {//没有空闲页了需要申请
@@ -845,9 +853,11 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	        {
 	            CHECK_RET_BREAK(ERR_OS_NO_MEMROY,"GetAddrByPageID[%d] error.",m_pVarChar->iFreePageId);
 	        }
-	    }while(0);		
-		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-		
+			//轮询处理
+			m_pVarChar->iFreePageId = pFreePage->m_iNextPageID;
+		    SAFESTRCPY(pFreePage->m_sState,sizeof(pFreePage->m_sState), "free");
+	    }while(0);
+        CHECK_RET(m_pVarChar->tFreeMutex.UnLock(true),"tMutex.Lock() failed.");
 	    TADD_FUNC("Finish.");
 	    return iRet;
 	}
@@ -922,6 +932,73 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	    return iRet;
 	}
 
+	int TMdbVarCharCtrl::RemovePageFromCircle(TMdbPage * pPageToRemove,int & iHeadPageId)
+    {
+        TADD_FUNC("TEST.iHeadPageId=[%d],page:pre[%d] next[%d]",iHeadPageId,pPageToRemove->m_iPrePageID,pPageToRemove->m_iNextPageID);
+        int iRet  = 0;
+        CHECK_OBJ(pPageToRemove);
+
+
+        if(pPageToRemove->m_iNextPageID == pPageToRemove->m_iPageID) // 只剩一个节点
+        {
+            iHeadPageId = -1;
+        }
+        else
+        {
+            TMdbPage * pPrePage = (TMdbPage * )GetAddrByPageID(m_pVarChar,pPageToRemove->m_iPrePageID);
+            if(NULL == pPrePage)
+            {
+				printf("pPageToRemove:[ %d : %d : %d].\n",pPageToRemove->m_iPrePageID, pPageToRemove->m_iPageID, pPageToRemove->m_iNextPageID);
+				CHECK_OBJ(pPrePage);
+			}
+
+            TMdbPage * pNextPage = (TMdbPage * )GetAddrByPageID(m_pVarChar,pPageToRemove->m_iNextPageID);
+            CHECK_OBJ(pNextPage);
+
+            pPrePage->m_iNextPageID = pNextPage->m_iPageID;
+            pNextPage->m_iPrePageID = pPrePage->m_iPageID;
+            if(iHeadPageId == pPageToRemove->m_iPageID)
+            {
+                iHeadPageId = pNextPage->m_iPageID;
+            }
+        }
+        
+        //清理该page
+        pPageToRemove->m_iPrePageID  = -1;
+        pPageToRemove->m_iNextPageID = -1;
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	int TMdbVarCharCtrl::AddPageToCircle(TMdbPage * pPageToAdd,int & iHeadPageId)
+    {
+        TADD_FUNC("iHeadPageId=[%d],page:pre[%d] next[%d]",iHeadPageId,pPageToAdd->m_iPrePageID,pPageToAdd->m_iNextPageID);
+        int iRet = 0;
+        if(iHeadPageId > 0)
+        {
+            TMdbPage * pHeadPage    = (TMdbPage *)GetAddrByPageID(m_pVarChar,iHeadPageId);
+            CHECK_OBJ(pHeadPage);
+
+            TMdbPage* pTailPage = (TMdbPage *)GetAddrByPageID(m_pVarChar,pHeadPage->m_iPrePageID);
+            CHECK_OBJ(pTailPage);
+
+            pPageToAdd->m_iNextPageID = pHeadPage->m_iPageID;
+            pPageToAdd->m_iPrePageID = pHeadPage->m_iPrePageID;
+
+            pTailPage->m_iNextPageID = pPageToAdd->m_iPageID;
+            pHeadPage->m_iPrePageID = pPageToAdd->m_iPageID;
+            
+        }
+        else
+        {
+            iHeadPageId = pPageToAdd->m_iPageID;
+            pPageToAdd->m_iNextPageID = iHeadPageId;
+            pPageToAdd->m_iPrePageID   = iHeadPageId;
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+	
 	/******************************************************************************
 	* 函数名称	:  AddPageToTop
 	* 函数描述	:  增加一个page
@@ -959,19 +1036,37 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	    TADD_FUNC("Start.");
 	    int iRet = 0;
 	    CHECK_OBJ(m_pVarChar);
-		
-        CHECK_RET(m_pVarChar->tMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
+
+        CHECK_RET(m_pVarChar->tFreeMutex.Lock(true, &m_pDsn->tCurTime),"tFreeMutex.Lock() failed.");
 		do
 		{
-		    //从free链上移除
-		    CHECK_RET_BREAK(RemovePage(pCurPage,m_pVarChar->iFreePageId),"RemovePage failed.");
+			if(0 != strcmp(pCurPage->m_sState,"free"))
+			{
+				TADD_FLOW("Page may be moving in other thread, will not move again.");
+				CHECK_RET(m_pVarChar->tFreeMutex.UnLock(true),"tFreeMutex.UnLock() failed."); 
+				return iRet;
+			}
+			//从free环链上移除
+		    CHECK_RET_BREAK(RemovePageFromCircle(pCurPage,m_pVarChar->iFreePageId),"RemovePageFromCircle failed.");
+			SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "move");
+		}while(0);			
+		CHECK_RET(m_pVarChar->tFreeMutex.UnLock(true),"tFreeMutex.UnLock() failed.");			
+
+        CHECK_RET(m_pVarChar->tFullMutex.Lock(true, &m_pDsn->tCurTime),"tFullMutex.Lock() failed.");
+		do
+		{
+			if(0 != strcmp(pCurPage->m_sState,"move"))
+			{
+				TADD_FLOW("Page may be moved in other thread, will not move again.");
+				CHECK_RET(m_pVarChar->tFullMutex.UnLock(true),"tFullMutex.UnLock() failed."); 
+				return iRet;
+			}
 		    //添加到full链上
 		    CHECK_RET_BREAK(AddPageToTop(pCurPage,m_pVarChar->iFullPageId),"AddPageToTop failed.");
+			SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "full");
 		}while(0);
-		CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
-		
-	    //把状态设置为full
-	    SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "full");
+		CHECK_RET(m_pVarChar->tFullMutex.UnLock(true),"tFullMutex.UnLock() failed.");	
+
 	    TADD_FUNC("Finish.");
 	    return iRet;
 	}
@@ -981,19 +1076,34 @@ int TMdbVarCharCtrl::Insert(char * pValue, int iLen, int& iWhichPos,unsigned int
 	    TADD_FUNC("Start.");
 	    int iRet = 0;
 	    CHECK_OBJ(m_pVarChar);
-		
-	    CHECK_RET(m_pVarChar->tMutex.Lock(true, &m_pDsn->tCurTime),"tMutex.Lock() failed.");
+
+        CHECK_RET(m_pVarChar->tFullMutex.Lock(true, &m_pDsn->tCurTime),"tFullMutex.Lock() failed.");
 		do
 		{
-		    //从full链上移除
-		    CHECK_RET_BREAK(RemovePage(pCurPage,m_pVarChar->iFullPageId),"RemovePage failed.");
-		    //添加到free链上
-		    CHECK_RET_BREAK(AddPageToTop(pCurPage,m_pVarChar->iFreePageId),"AddPageToTop failed.");
+			if(0 != strcmp(pCurPage->m_sState,"full"))
+			{
+				TADD_FLOW("Page may be moving in other thread, will not move again.");
+				CHECK_RET(m_pVarChar->tFullMutex.UnLock(true),"tFullMutex.Lock() failed."); 
+				return iRet;
+			}
+	    	//从full链上移除
+	    	CHECK_RET(RemovePage(pCurPage,m_pVarChar->iFullPageId),"RemovePage failed.");
+			SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "move");
 		}while(0);
-	    CHECK_RET(m_pVarChar->tMutex.UnLock(true),"tMutex.Lock() failed.");
+		CHECK_RET(m_pVarChar->tFullMutex.UnLock(true),"tFullMutex.Lock() failed.");	
+
 		
-	    //把状态设置为free
-	    SAFESTRCPY(pCurPage->m_sState, sizeof(pCurPage->m_sState),"free");
+        CHECK_RET(m_pVarChar->tFreeMutex.Lock(true, &m_pDsn->tCurTime),"tFreeMutex.Lock() failed.");
+		do
+		{
+		    //添加到free链上
+		    CHECK_RET(AddPageToCircle(pCurPage,m_pVarChar->iFreePageId),"AddPageToCircle failed.");
+			//把状态设置为free
+			SAFESTRCPY(pCurPage->m_sState, sizeof(pCurPage->m_sState),"free");
+		}while(0);
+		CHECK_RET(m_pVarChar->tFreeMutex.UnLock(true),"tFreeMutex.Lock() failed.");	
+		
+
 	    TADD_FUNC("Finish.");
 	    return iRet;
 	}

@@ -652,6 +652,10 @@ int TMdbRichSQL::ExecOnLineCommand(ST_KEYWORD * pCmd,char * sCmdStr)
             TADD_WARNING("User Quit Operation!");
             break;
         }
+        memset(m_sExecStartTime,0,sizeof(m_sExecStartTime));
+        gettimeofday(&tTV, NULL);
+        TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+        snprintf(&m_sExecStartTime[14],sizeof(m_sExecStartTime)-strlen(m_sExecStartTime),"%03ld",(long int)(tTV.tv_usec/1000));
 		ExecuteSQLFile(pCmd,sCmdStr);
 		break;
     case CMD_EXEC_DDL:
@@ -793,6 +797,11 @@ int TMdbRichSQL::ExecuteSQL(ST_KEYWORD * pCmd,const char * sSQL)
                 TADD_WARNING("User Quit Operation!");
                 return iRet;
             }
+            struct timeval tTV;
+            memset(m_sExecStartTime,0,sizeof(m_sExecStartTime));
+            gettimeofday(&tTV, NULL);
+            TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+            snprintf(&m_sExecStartTime[14],sizeof(m_sExecStartTime)-strlen(m_sExecStartTime),"%03ld",(long int)(tTV.tv_usec/1000));
         
             m_pQuery->Execute();
             if(GetProperty("",PP_AUTO_COMMIT)->iValue != 0)
@@ -868,6 +877,11 @@ int TMdbRichSQL::OnLineExecuteDDLSQL(ST_KEYWORD * pCmd,const char * sSQL)
             TADD_WARNING("User Quit Operation!");
             return iRet;
         }
+        struct timeval tTV;
+        memset(m_sExecStartTime,0,sizeof(m_sExecStartTime));
+        gettimeofday(&tTV, NULL);
+        TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+        snprintf(&m_sExecStartTime[14],sizeof(m_sExecStartTime)-strlen(m_sExecStartTime),"%03ld",(long int)(tTV.tv_usec/1000));
         
         CHECK_RET(m_pDDLExecuteEngine->Execute(),"Execute failed.");
         IS_LOG(1)
@@ -1606,6 +1620,11 @@ int TMdbRichSQL::ExecuteClientSQL(ST_KEYWORD * pCmd,const char * sSQL)
                     TADD_WARNING("User Quit Operation!");
                     return iRet;
                 }
+                struct timeval tTV;
+                memset(m_sExecStartTime,0,sizeof(m_sExecStartTime));
+                gettimeofday(&tTV, NULL);
+                TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+                 snprintf(&m_sExecStartTime[14],sizeof(m_sExecStartTime)-strlen(m_sExecStartTime),"%03ld",(long int)(tTV.tv_usec/1000));
 
                 m_pCSQuery->Execute();
                 cout<<"\nRow effect: "<<m_pCSQuery->RowsAffected()<<" records."<<endl<<endl;

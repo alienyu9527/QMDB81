@@ -51,7 +51,7 @@ void Help()
                 "      -t tablename in qmdb.\n"
                 "      -p file path.\n"
                 "      -s SQL file used to export data from qmdb or oracle.\n"
-                "      -e filed fileter  default ','\n"
+                "      -e field fileter  default ','\n"
                 "      -F  datetime format YYYYMMDDHHMMSS or YYYY-MM-DD HH:MM:SS\n"
                 "      -q  string quote \' ,or \" ,( \'abc\'  \"abc\" )\n"
                 "      -H|-h Print Help.\n"

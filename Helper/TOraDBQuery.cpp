@@ -205,7 +205,7 @@ bool TOraQueueBase::Connect(bool bUnused) throw (TOraDBException)
         throw TOraDBException("Connect()", MDB_ERR_CONNECT_NO_LOGIN_INFO, __LINE__);
         }
 
-    errorNo = OCIServerAttach(hSvr, hDBErr, (text *)tns, strlen(tns), 0);
+    errorNo = OCIServerAttach(hSvr, hDBErr, (text *)tns, (sb4)(strlen(tns)), 0);
     if (errorNo != OCI_SUCCESS)
         {
         TADD_ERROR(ERROR_UNKNOWN,"[%s:%d] TOraDBDatabase::Connect()  try to connect Server.",__FILE__,__LINE__);
@@ -223,8 +223,8 @@ bool TOraQueueBase::Connect(bool bUnused) throw (TOraDBException)
     CheckError();
 
     /* set the username/password in user handle */
-    OCIAttrSet(hUser, OCI_HTYPE_SESSION, usr, strlen(usr),OCI_ATTR_USERNAME, hDBErr);
-    OCIAttrSet(hUser, OCI_HTYPE_SESSION, pwd, strlen(pwd),OCI_ATTR_PASSWORD, hDBErr);
+    OCIAttrSet(hUser, OCI_HTYPE_SESSION, usr, (ub4)(strlen(usr)),OCI_ATTR_USERNAME, hDBErr);
+    OCIAttrSet(hUser, OCI_HTYPE_SESSION, pwd, (ub4)(strlen(pwd)),OCI_ATTR_PASSWORD, hDBErr);
 
     // Set the Authentication handle in the service handle
     fErrorNo = OCIAttrSet(hDBSvc, OCI_HTYPE_SVCCTX, hUser, 0, OCI_ATTR_SESSION, hDBErr);
@@ -270,7 +270,7 @@ void TOraQueueBase::InitDequeue()
     memset(sLowToUpp,0,sizeof(sLowToUpp));
     //TMdbNtcStrFunc::ToUpper(usr,sLowToUpp);
     SAFESTRCPY(sLowToUpp, sizeof(sLowToUpp), TMdbNtcStrFunc::ToUpper(usr));
-    fErrorNo = OCITypeByName(hEnv, hDBErr, hDBSvc, (CONST text*)sLowToUpp,strlen(sLowToUpp),(CONST text *)"QUICKMDB_TYPE", strlen("QUICKMDB_TYPE"), (text *)0, 0, OCI_DURATION_SESSION, OCI_TYPEGET_ALL, &mesg_tdo);
+    fErrorNo = OCITypeByName(hEnv, hDBErr, hDBSvc, (CONST text*)sLowToUpp,(ub4)(strlen(sLowToUpp)),(CONST text *)"QUICKMDB_TYPE", strlen("QUICKMDB_TYPE"), (text *)0, 0, OCI_DURATION_SESSION, OCI_TYPEGET_ALL, &mesg_tdo);
     CheckError();
     fErrorNo = OCIDescriptorAlloc(hEnv, (dvoid **)&deqopt, OCI_DTYPE_AQDEQ_OPTIONS, 0,(dvoid **)0);
     CheckError();
@@ -495,7 +495,7 @@ bool TOraDBDatabase::Connect(bool bUnused) throw (TOraDBException)
         throw TOraDBException("Connect()", MDB_ERR_CONNECT_NO_LOGIN_INFO, __LINE__);
     }
 
-    errorNo = OCIServerAttach(hSvr, hDBErr, (text *)tns, strlen(tns), 0);
+    errorNo = OCIServerAttach(hSvr, hDBErr, (text *)tns, (sb4)(strlen(tns)), 0);
     if (errorNo != OCI_SUCCESS)
     {
         TADD_ERROR(ERROR_UNKNOWN,"[%s:%d] TOraDBDatabase::Connect()  try to connect Server.",__FILE__,__LINE__);
@@ -513,8 +513,8 @@ bool TOraDBDatabase::Connect(bool bUnused) throw (TOraDBException)
     CheckError();
 
     /* set the username/password in user handle */
-    OCIAttrSet(hUser, OCI_HTYPE_SESSION, usr, strlen(usr),OCI_ATTR_USERNAME, hDBErr);
-    OCIAttrSet(hUser, OCI_HTYPE_SESSION, pwd, strlen(pwd),OCI_ATTR_PASSWORD, hDBErr);
+    OCIAttrSet(hUser, OCI_HTYPE_SESSION, usr, (ub4)(strlen(usr)),OCI_ATTR_USERNAME, hDBErr);
+    OCIAttrSet(hUser, OCI_HTYPE_SESSION, pwd, (ub4)(strlen(pwd)),OCI_ATTR_PASSWORD, hDBErr);
 
     // Set the Authentication handle in the service handle
     fErrorNo = OCIAttrSet(hDBSvc, OCI_HTYPE_SVCCTX, hUser, 0, OCI_ATTR_SESSION, hDBErr);

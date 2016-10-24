@@ -278,7 +278,7 @@ int TSqlParserHelper::GetSeqNextValue(const char* pSeqName)
     }
     iRet = pMemSeq->iCur;
     pMemSeq->tMutex.UnLock(true);
-    return iRet;
+    return (int)iRet;
 }
 
 /******************************************************************************

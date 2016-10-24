@@ -392,7 +392,7 @@
         if(m_pMdbSqlParser->m_stSqlStruct.pstRouterID == NULL)
         {
             TADD_DETAIL("no routing id table!");
-            sprintf(sTemp +iPos , "%04d", DEFALUT_ROUT_ID);
+            sprintf(sTemp +iPos , "%04d", DEFAULT_ROUTE_ID);
         }
         else
         {
@@ -681,7 +681,7 @@
         m_psColmValueBuff(NULL)
         
     {
-		m_llRoutingID = DEFALUT_ROUT_ID;
+		m_llRoutingID = DEFAULT_ROUTE_ID;
 		m_bNeedFlush = false;
 		m_bIsCurRowNeedCapture  =false;
     }
@@ -712,7 +712,6 @@
     int TMdbFlushTrans::Init(TMdbShmDSN * pShmDSN,TMdbTable*  pTable, int iSqlType,char* pDataAddr)
     {
         int iRet = 0;
-        m_iFlushType = 0;
 		m_iSqlType = iSqlType;
 		
 		m_pShmDsn = pShmDSN;
@@ -724,7 +723,13 @@
 		if(pTable != m_pTable)
 		{
 			m_pTable = pTable;	
-			CHECK_RET(m_tRowCtrl.Init(m_pDsn->sName,pTable->sTableName),"m_tRowCtrl.Init");	
+			CHECK_RET(m_tRowCtrl.Init(m_pDsn->sName,pTable->sTableName),"m_tRowCtrl.Init");
+			TMdbTableSpace* pTS = m_pShmDsn->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
+	        CHECK_OBJ(pTS);
+	        if(pTS->m_bFileStorage)
+	        {
+	            FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
+	        }
 		}	
         
 		if(NULL == m_pConfig)
@@ -742,12 +747,8 @@
         {
             FlushTypeSetProperty(m_iFlushType,FLUSH_SHARD_BACKUP);
         }
-        TMdbTableSpace* pTS = m_pShmDsn->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
-        CHECK_OBJ(pTS);
-        if(pTS->m_bFileStorage)
-        {
-            FlushTypeSetProperty(m_iFlushType,FLUSH_REDO);
-        }
+
+        
 
 		m_bNeedFlush = bNeedToFlush();
 		m_bIsCurRowNeedCapture = IsCurRowNeedCapture();
@@ -812,7 +813,7 @@
 	bool  TMdbFlushTrans::IsCurRowNeedCapture()
 	{
 		m_llRoutingID = GetRoutingID();
-		if(DEFALUT_ROUT_ID == m_llRoutingID){return false;}
+		if(DEFAULT_ROUTE_ID == m_llRoutingID){return false;}
 	    if(TK_SELECT == m_iSqlType){return false;}//select 不捕获
 	    if(false == m_pDsn->m_bIsCaptureRouter){return false;}//不需要捕获
 	    int * arrRouterToCap = m_pDsn->m_arrRouterToCapture;
@@ -852,12 +853,12 @@
 
 	long long TMdbFlushTrans::GetRoutingID()
 	{	
-		if(m_llRoutingID != DEFALUT_ROUT_ID)
+		if(m_llRoutingID != DEFAULT_ROUTE_ID)
 		{
 			return m_llRoutingID;
 		}
 		
-		long long llValue = DEFALUT_ROUT_ID;
+		long long llValue = DEFAULT_ROUTE_ID;
 		char* sValue = NULL;
 		int iValueType = 0;
 		for(int i = 0;i < m_pTable->iColumnCounts;++i)

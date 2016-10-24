@@ -23,7 +23,7 @@
     TMdbHashAlgo::TMdbHashAlgo( const long nTableLength ) // 创建指定大小的哈希索引表，不带参数的构造函数创建默认大小的哈希索引表   
     {   
             prepareCryptTable();   
-            m_tablelength = nTableLength;   
+            m_tablelength = (long unsigned)(nTableLength);   
                
             //m_HashIndexTable = new MDBHASHTABLE[nTableLength];   
             for ( int i = 0; i < MAXTABLELEN; i++ )   
@@ -176,7 +176,7 @@
         //strcpy( m_HashIndexTable[nHashPos].caValue, lpszString );   
       
       
-        return nHashPos;   
+        return (long)(nHashPos);   
            
     }   
       

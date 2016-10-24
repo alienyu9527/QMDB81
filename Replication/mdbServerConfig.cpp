@@ -298,25 +298,38 @@
         snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), "|");//分隔符
         TMdbDisasterHost *pHost;
         bFirst = true;
+		bool bFirstRecHost = true;
         
         for (unsigned int j =0; j<arRepRuleID.size(); j++)//拼接容灾机的信息
         {
+        	bFirstRecHost = true;
             for (unsigned int i = 0; i<m_arRecoveryHost.size(); i++)
             {
                 pHost = &m_arRecoveryHost[i];
                 if (TMdbRoutingTools::IsIDInString(arRepRuleID[j], pHost->m_strRulelist.c_str()))
                 {
-                    if (bFirst)
+					if (bFirstRecHost)
                     {
+	                    if (!bFirst)
+	                    {
+	                        snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), ";");
+						}
+						else
+						{
+							bFirst = false;
+						}
                         snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), "%d:%d", arRepRuleID[j], pHost->m_iHostID);
-						bFirst = false;
+						bFirstRecHost = false;
 					}
                     else
                     {
-                        snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), ";%d:%d", arRepRuleID[j], pHost->m_iHostID);
+                        snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), ",%d", pHost->m_iHostID);
                     }  
                 }
-                arRepHostID.push_back(pHost->m_iHostID);
+				if (!TMdbRoutingTools::IsIDInArray(pHost->m_iHostID, arRepHostID))
+                {
+        			arRepHostID.push_back(pHost->m_iHostID);
+				}
             }
         }
         //printf("###%s", pDataBuf);
@@ -1169,6 +1182,7 @@
                     if (bFirstDisaster)
                     {
                         snprintf(pDataBuf+strlen(pDataBuf), iBufLen-strlen(pDataBuf), "%d:%d", arRepRuleID[j], pHost->m_iHostID);
+						bFirstDisaster = false;
                     }
                     else
                     {
@@ -1326,25 +1340,24 @@
         const tinyxml2::XMLAttribute* pAttr = NULL;
 
         for (tinyxml2::XMLElement* pERule=pRoot->FirstChildElement("disaster_recovery"); pERule; pERule=pERule->NextSiblingElement("disaster_recovery"))
-        {
-            TMdbDisasterHost *ptHost = new(std::nothrow) TMdbDisasterHost();
-			CHECK_OBJ(ptHost);
-            pESec = pERule->FirstChildElement("host");
-            if(pESec == NULL) break; // 容灾机可能没有
-
-            for(pAttr=pESec->FirstAttribute(); pAttr; pAttr=pAttr->Next())
-            {
-                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
-                {
-                    ptHost->m_iHostID= atoi(pAttr->Value());
-                }
-                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID_list") == 0)
-                {
-                    ptHost->m_strRulelist= pAttr->Value();
-                }
-
-                m_vRecoveryHost.push_back(ptHost);
-            }
+        {    
+        	for (pESec=pERule->FirstChildElement("host"); pESec; pESec=pESec->NextSiblingElement("host"))
+        	{
+	            TMdbDisasterHost *ptHost = new(std::nothrow) TMdbDisasterHost();
+				CHECK_OBJ(ptHost);
+	            for(pAttr=pESec->FirstAttribute(); pAttr; pAttr=pAttr->Next())
+	            {
+	                if(TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "ID") == 0)
+	                {
+	                    ptHost->m_iHostID= atoi(pAttr->Value());
+	                }
+	                else if (TMdbNtcStrFunc::StrNoCaseCmp(pAttr->Name(), "rule_ID_list") == 0)
+	                {
+	                    ptHost->m_strRulelist= pAttr->Value();
+	                }
+	            }
+	            m_vRecoveryHost.push_back(ptHost);
+        	}
         }
 
 
@@ -1425,32 +1438,36 @@
         for (unsigned int i = 0; i<tSplitSemi.GetFieldCount(); i++)
         {   
             tSplitColon.SplitString(tSplitSemi[i], ':');
-            iHostId = atoi(tSplitColon[1]); 
-            itor = m_vRecoveryHost.begin();
-            for(; itor != m_vRecoveryHost.end(); ++itor)
-            {
-                if((*itor)->m_iHostID == iHostId)
-                {
-                    if((*itor)->m_strRulelist.size() <=0)
-                    {
-                        (*itor)->m_strRulelist += tSplitColon[0];
-                    }
-                    else
-                    {
-                        (*itor)->m_strRulelist += ",";
-                        (*itor)->m_strRulelist += tSplitColon[0];
-                    }
-                    break;
-                }
-            }
+			tSplitComma.SplitString(tSplitColon[1], ',');
+	        for (unsigned int j = 0; j<tSplitComma.GetFieldCount(); j++)
+	        {   
+	            iHostId = atoi(tSplitComma[j]); 
+	            itor = m_vRecoveryHost.begin();
+	            for(; itor != m_vRecoveryHost.end(); ++itor)
+	            {
+	                if((*itor)->m_iHostID == iHostId)
+	                {
+	                    if((*itor)->m_strRulelist.size() <=0)
+	                    {
+	                        (*itor)->m_strRulelist += tSplitColon[0];
+	                    }
+	                    else
+	                    {
+	                        (*itor)->m_strRulelist += ",";
+	                        (*itor)->m_strRulelist += tSplitColon[0];
+	                    }
+	                    break;
+	                }
+	            }
 
-            if(itor == m_vRecoveryHost.end() )
-            {
-                TMdbDisasterHost* pDisasterHost = new(std::nothrow)  TMdbDisasterHost();
-                pDisasterHost->m_iHostID = atoi(tSplitColon[1]);
-                pDisasterHost->m_strRulelist += tSplitColon[0];
-                m_vRecoveryHost.push_back(pDisasterHost);
-            }
+	            if(itor == m_vRecoveryHost.end() )
+	            {
+	                TMdbDisasterHost* pDisasterHost = new(std::nothrow)  TMdbDisasterHost();
+	                pDisasterHost->m_iHostID = iHostId;
+	                pDisasterHost->m_strRulelist += tSplitColon[0];
+	                m_vRecoveryHost.push_back(pDisasterHost);
+	            }
+        	}
             
         }
 

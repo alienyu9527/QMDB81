@@ -17,7 +17,7 @@
     TRoutingRepFile::TRoutingRepFile()
     {
         m_iBufLen = 0;
-        m_iHostID = DEFALUT_ROUT_ID;
+        m_iHostID = DEFAULT_ROUTE_ID;
         m_tCreateTime = 0;
         m_fp = NULL;
         m_iBufLen = 0;
@@ -41,7 +41,7 @@
         m_iCheckCounts = 0;
         m_iLen = 0;
         m_spzRecord = NULL;
-        m_iRoutID = 0;
+        //m_iRoutID = 0;
 
     }
 
@@ -149,15 +149,16 @@
             return iRet;
         }
         m_iLen = m_pOnlineRepQueueCtrl->GetRecordLen();
+		/*
         //iRoutID = m_pRecdParser->GetRoutingID(m_spzRecord);
         m_iRoutID = m_tParser.GetRoutingID(m_spzRecord);
         TADD_NORMAL("Routid=[%d],Recd=[%s]", m_iRoutID, m_spzRecord);
         if(m_pShmRep->m_bNoRtMode == true)
         {
-            TADD_NORMAL("TEST:no-routing-id-rep mode! set send routing-id = %d",DEFALUT_ROUT_ID);
-            m_iRoutID = DEFALUT_ROUT_ID;
-        }
-        Write(m_iRoutID, m_spzRecord, m_iLen);
+            TADD_NORMAL("TEST:no-routing-id-rep mode! set send routing-id = %d",DEFAULT_ROUTE_ID);
+            m_iRoutID = DEFAULT_ROUTE_ID;
+        }*/
+        Write(m_spzRecord, m_iLen);
         ++m_iRecord;
         if(m_iRecord == 10000 )
         {
@@ -176,6 +177,21 @@
     * 返回值	:  0 - 成功!0 -失败
     * 作者		:  jiang.lili
     *******************************************************************************/
+    int TRoutingRepLog::Write(const char* sDataBuf, int iBufLen)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+		
+        TADD_DETAIL("write to rep host.");
+        CHECK_OBJ(m_pRoutingRepFile);
+        CHECK_RET(CheckWriteToFile(m_pRoutingRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
+           
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	
+	/*
     int TRoutingRepLog::Write(int iRoutingID, const char* sDataBuf, int iBufLen)
     {
         TADD_FUNC("Start.");
@@ -210,16 +226,19 @@
             }
         }
         // 写容灾
-        if (pRepHost->m_iRecoveryHostID != MDB_REP_EMPTY_HOST_ID)
+        for (int i = 0; i<MAX_REP_HOST_COUNT; i++)
         {
-            TADD_DETAIL("write to recovery host.");
-            CHECK_OBJ(m_pRoutingRepFile);
-            CHECK_RET(CheckWriteToFile(m_pRoutingRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
+            if (pRepHost->m_iRecoveryHostID[i] != MDB_REP_EMPTY_HOST_ID)
+            {
+                TADD_DETAIL("write to recovery host.");
+                CHECK_OBJ(m_pRoutingRepFile);
+                CHECK_RET(CheckWriteToFile(m_pRoutingRepFile, sDataBuf, iBufLen), "CheckWriteToFile failed.");//缓冲写文件
+            }
         }
-
         TADD_FUNC("Finish.");
         return iRet;
     }
+    */
     /******************************************************************************
     * 函数名称	:  CheckAndBackup
     * 函数描述	:  检查文件创建时间，将超时文件备份
@@ -448,8 +467,8 @@
         TADD_DETAIL("Routid=[%d],Recd=[%s]", m_iRoutID, m_spzRecord);
         if(m_pShmRep->m_bNoRtMode == true)
         {
-            TADD_DETAIL("TEST:no-routing-id-rep mode! set send routing-id = %d",DEFALUT_ROUT_ID);
-            m_iRoutID = DEFALUT_ROUT_ID;
+            TADD_DETAIL("TEST:no-routing-id-rep mode! set send routing-id = %d",DEFAULT_ROUTE_ID);
+            m_iRoutID = DEFAULT_ROUTE_ID;
         }
 		
 		TMdbShmRepRouting* pRepHost = m_pShmMgr->GetRepHosts(m_iRoutID);
@@ -462,6 +481,13 @@
 			if (pRepHost->m_aiHostID[i] != MDB_REP_EMPTY_HOST_ID)
 			{
 				m_pOnlineRepQueueCtrl[pRepHost->m_aiHostID[i]]->Push(m_spzRecord,m_iLen);
+			}
+		}
+		for (int i = 0; i<MAX_REP_HOST_COUNT; i++)
+		{
+			if (pRepHost->m_iRecoveryHostID[i] != MDB_REP_EMPTY_HOST_ID)
+			{
+				m_pOnlineRepQueueCtrl[pRepHost->m_iRecoveryHostID[i]]->Push(m_spzRecord,m_iLen);
 			}
 		}
         ++m_iRecord;

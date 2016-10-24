@@ -68,7 +68,8 @@
         * 返回值	:  0 - 成功!0 -失败
         * 作者		:  jiang.lili
         *******************************************************************************/
-        int Write(int iRoutingID, const char* sDataBuf,  int iBufLen);
+        //int Write(int iRoutingID, const char* sDataBuf,  int iBufLen);
+        int Write(const char* sDataBuf,  int iBufLen);
         /******************************************************************************
         * 函数名称	:  CheckAndBackup
         * 函数描述	: 初始化，连接共享内存，读取配置文件
@@ -128,7 +129,7 @@
         int  m_iCheckCounts;
         int m_iLen;//存储一条记录长度
         char* m_spzRecord;//存储一条记录
-        int m_iRoutID;//记录对应的路由ID
+        //int m_iRoutID;//记录对应的路由ID
         int m_iHostID;
 		TRoutingRepFile* m_pRoutingRepFile;
     };

@@ -140,10 +140,10 @@
                 /*sprintf(sCurtime,"%04d%02d%02d %02d:%02d:%02d",tm_Cur->tm_year+1900,tm_Cur->tm_mon+1,tm_Cur->tm_mday,tm_Cur->tm_hour,tm_Cur->tm_min,tm_Cur->tm_sec);*/
                 sprintf(sCurtime,"%02d:%02d:%02d",tm_Cur->tm_hour,tm_Cur->tm_min,tm_Cur->tm_sec);
                 fprintf (fp," LogTime:[%s] Func:[%-30s] \n   Count:[%6d]  Total:[%8.5f](s)  Rate:[%8.0f]/s 0.01s[%4d] 0.1s[%4d] 1s[%3d] >1s[%3d]\n", 
-                                sCurtime,m_functionName,m_counter,m_Totalmicseconds/m_fOsValue,
-    				(float)m_counter*m_fOsValue/m_Totalmicseconds,
+                                sCurtime,m_functionName,m_counter,(float)(m_Totalmicseconds)/m_fOsValue,
+    				(float)(m_counter)*m_fOsValue/(float)m_Totalmicseconds,
     				m_PerTimeMap[0],m_PerTimeMap[1],m_PerTimeMap[2],m_PerTimeMap[3]); 
-                for ( int ix = 0; ix < (int)m_vecSqls.size(); ++ix )
+                for ( long unsigned int ix = 0; ix < m_vecSqls.size(); ++ix )
                 {
                     fprintf(fp," %s",m_vecSqls[ix].c_str());
                 }

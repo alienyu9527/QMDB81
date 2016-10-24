@@ -169,7 +169,9 @@ class TMdbRBCtrl
 		int RollBackInsert(TRBRowUnit* pRBRowUnit);
 		int RollBackUpdate(TRBRowUnit* pRBRowUnit);
 		int RollBackDelete(TRBRowUnit* pRBRowUnit);
+
 		
+		int CheckPK(TMdbTable* pTable, char* pDataAddr);
 		int UnLockRow(char* pDataAddr);	
 
 		TMdbShmDSN* 	m_pShmDSN;

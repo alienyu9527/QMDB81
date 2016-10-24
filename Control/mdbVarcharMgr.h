@@ -99,6 +99,8 @@ public:
     int AddPageToTop(TMdbPage * pPageToAdd,int & iHeadPageId);//将page添加到头
     int PageFreeToFull(TMdbPage* pCurPage);
     int PageFullToFree(TMdbPage* pCurPage);
+	int RemovePageFromCircle(TMdbPage * pPageToRemove,int & iHeadPageId);
+	int AddPageToCircle(TMdbPage * pPageToAdd,int & iHeadPageId);
     int SetPageDirtyFlag(int iPageID);//设置脏页标
     char* GetAddressRowId(TMdbRowID* pRowID);
     TMdbTSNode* GetNodeByPageId(int iPageID);

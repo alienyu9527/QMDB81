@@ -532,7 +532,6 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        int iRoutingID = DEFALUT_ROUT_ID;
         int iHostID = MDB_REP_EMPTY_HOST_ID;
         TMdbRepLoadThread *pThread = NULL;
         const TMdbShmRepRouting *pRouting = NULL;
@@ -542,7 +541,6 @@
             pRouting = &m_pShmRep->m_arRouting[i];
             pThread = NULL;
             pClient = NULL;
-            iRoutingID = pRouting->m_iRoutingID;
             for (int j = 0; j<MAX_REP_HOST_COUNT; j++)//遍历该路由对应的所有备机
             {
                 if (MDB_REP_EMPTY_HOST_ID == pRouting->m_aiHostID[j])
@@ -556,19 +554,37 @@
                     break;
                 }
             }
-            if (NULL == pClient && pRouting->m_iRecoveryHostID != MDB_REP_EMPTY_HOST_ID)//尝试容灾机
-            {
-                pClient = GetClient(pRouting->m_iRecoveryHostID);
-                if (pClient!=NULL)
-                {
-                    iHostID = pRouting->m_iRecoveryHostID;
-                }
-            }
+			if (NULL == pClient)
+			{
+	            for (int j = 0; j<MAX_REP_HOST_COUNT; j++)//遍历该路由对应的所有备机
+	            {
+	                if (MDB_REP_EMPTY_HOST_ID == pRouting->m_iRecoveryHostID[j])
+	                {
+	                    break;
+	                }
+	                pClient = GetClient(pRouting->m_iRecoveryHostID[j]);
+	                if (pClient!=NULL)
+	                {
+	                    iHostID = pRouting->m_iRecoveryHostID[j];
+	                    break;
+	                }
+	            }
+			}
 
             if(NULL == pClient)//路由找不到对应的加载主机
             {
-                TADD_NORMAL("Routing id [%d] load from standby host failed.", iRoutingID);
-                m_pShmMgr->AddFailedRoutingID(iRoutingID);
+            	for(int j = 0; j<MAX_REP_ROUTING_ID_COUTN; j++)
+        		{
+					if(pRouting->m_iRouteValue[j] != EMPTY_ROUTE_ID)
+					{
+                		TADD_NORMAL("Routing value [%d] load from standby host failed.", pRouting->m_iRouteValue[j]);
+                		m_pShmMgr->AddFailedRoutingID(pRouting->m_iRouteValue[j]);
+					}
+					else
+					{
+						break;
+					}
+        		}
                 continue;
             }
 
@@ -588,14 +604,34 @@
             pThread = GetThread(iHostID);//获取主机ID对应的线程，如果主机ID为MDB_REP_EMPTY_HOST_ID,则对应的线程从存储加载
             if (pThread != NULL)//线程已经存在
             {
-                pThread->AddRoutingID(iRoutingID);//把该路由的加载放入该线程
+            	for(int j = 0; j<MAX_REP_ROUTING_ID_COUTN; j++)
+        		{
+					if(pRouting->m_iRouteValue[j] != EMPTY_ROUTE_ID)
+					{
+						pThread->AddRoutingID(pRouting->m_iRouteValue[j]);//把该路由的加载放入该线程
+					}
+					else
+					{
+						break;
+					}
+        		}
             }
             else //线程不存在
             {
                 pThread = new(std::nothrow)TMdbRepLoadThread(pClient);
                 CHECK_OBJ(pThread);
                 pThread->SetRuningInfo(m_pMdbCfg);
-                pThread->AddRoutingID(iRoutingID);
+				for(int j = 0; j<MAX_REP_ROUTING_ID_COUTN; j++)
+        		{
+					if(pRouting->m_iRouteValue[j] != EMPTY_ROUTE_ID)
+					{
+						pThread->AddRoutingID(pRouting->m_iRouteValue[j]);//把该路由的加载放入该线程
+					}
+					else
+					{
+						break;
+					}
+        		}
                 m_arThread.Add(pThread);
             }
         }

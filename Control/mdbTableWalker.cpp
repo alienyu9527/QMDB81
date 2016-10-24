@@ -805,7 +805,7 @@ bool TMdbTableWalker::NextByPage()
 
 		TMdbTrieIndexNode* pFather = NULL;
 
-		for(int iCurPos = pCur->m_iCurPos; ;iCurPos>=0)
+		for(int iCurPos = pCur->m_iCurPos; iCurPos>=0; )
 		{
 			pFather = (TMdbTrieIndexNode*)GetAddrByTrieIndexNodeId(m_pTrieBranchIndex->iHeadBlockId, iCurPos ,sizeof(TMdbTrieIndexNode),false);				
 			if(pFather ==NULL)

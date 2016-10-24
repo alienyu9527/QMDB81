@@ -1521,7 +1521,7 @@ int TMdbDAOLoad::GetLoadAsNormalSQL(char sSQL[],const int iSize,const char* sFil
 void TMdbDAOLoad::AddRouteIDForLoadSQL(const char* sRoutingList)
 {
     //TADD_NORMAL("TMdbDAOLoad::AddRouteIDForLoadSQL(sRoutingList = %s)", sRoutingList);
-    if (NULL == sRoutingList || '\0' == sRoutingList[0] || TMdbNtcStrFunc::StrNoCaseCmp(sRoutingList, DEFALUT_ROUT_ID_STRING) == 0)
+    if (NULL == sRoutingList || '\0' == sRoutingList[0] || TMdbNtcStrFunc::StrNoCaseCmp(sRoutingList, DEFAULT_ROUTE_ID_STRING) == 0)
     {
         return;
     }

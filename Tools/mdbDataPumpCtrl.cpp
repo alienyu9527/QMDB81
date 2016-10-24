@@ -154,7 +154,7 @@
     {
         TADD_FUNC("Start.");
         int iRet = 0;
-        int iLen = (size_t)(strlen(sData));
+        int iLen = (int)(strlen(sData));
         if(m_iBufPos + iLen < MAX_SEND_BUF)
         {
             strncpy(&m_sBuf[m_iBufPos], sData, (size_t)iLen);

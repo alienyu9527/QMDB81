@@ -509,6 +509,7 @@ using std::endl;
         int UploadData(const char* pDataBuf, int iLen, bool &bOver);
 		int UploadMemData(const char* sDataBuf, int iBufLen, bool &bOver);
 		int SetbTool(bool bToolFlag);
+		
     private:
         void CombineData(const char* sDataBuf, int iBufLen);
         int DealWithMsgBuf();

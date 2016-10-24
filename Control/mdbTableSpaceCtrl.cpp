@@ -530,28 +530,31 @@
 		CHECK_OBJ(pCurPage);
         //从free链上移除
         CHECK_RET(pTable->tFreeMutex.Lock(true, &m_pDsn->tCurTime),"[%s].tFreeMutex.Lock() failed.",pTable->sTableName);
-
-		//move 和 full 状态均不再操作
-		if(0 != strcmp(pCurPage->m_sState,"free"))
+		do
 		{
-			TADD_NORMAL_NO_SCREEN("Page may be moving in other thread, will move again.");
-			pTable->tFreeMutex.UnLock(true, m_pDsn->sCurTime);
-			return iRet;
-		}
-        iRet = RemovePageFromCircle(pCurPage,pTable->iFreePageID);
-		//把状态设成move
-        SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "move");
-		--pTable->iFreePages;
-
+			//move 和 full 状态均不再操作
+			if(0 != strcmp(pCurPage->m_sState,"free"))
+			{
+				TADD_FLOW("Page may be moving in other thread, will move again.");
+				pTable->tFreeMutex.UnLock(true, m_pDsn->sCurTime);
+				return iRet;
+			}
+	        CHECK_RET_BREAK(RemovePageFromCircle(pCurPage,pTable->iFreePageID),"RemovePageFromCircle failed.");
+			//把状态设成move
+	        SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "move");
+			--pTable->iFreePages;
+		}while(0);
         pTable->tFreeMutex.UnLock(true, m_pDsn->sCurTime);
 
          //添加到full链上
         CHECK_RET(pTable->tFullMutex.Lock(true, &m_pDsn->tCurTime),"[%s].tFreeMutex.Lock() failed.",pTable->sTableName);
-
-        CHECK_RET(AddPageToTop(pCurPage,pTable->iFullPageID),"AddPageToTop failed.");
-        //把状态设置为full
-        SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "full");
-        ++pTable->iFullPages;
+		do
+		{
+	        CHECK_RET_BREAK(AddPageToTop(pCurPage,pTable->iFullPageID),"AddPageToTop failed.");
+	        //把状态设置为full
+	        SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "full");
+	        ++pTable->iFullPages;
+		}while(0);
 
         pTable->tFullMutex.UnLock(true, m_pDsn->sCurTime);
         
@@ -576,7 +579,14 @@
         CHECK_RET(pTable->tFullMutex.Lock(true, &m_pDsn->tCurTime),"[%s].tFreeMutex.Lock() failed.",pTable->sTableName);
         do
         {
+        	if(0 != strcmp(pCurPage->m_sState,"full"))
+			{
+				TADD_FLOW("Page may be moving in other thread, will move again.");
+				pTable->tFreeMutex.UnLock(true, m_pDsn->sCurTime);
+				return iRet;
+			}
             CHECK_RET_BREAK(RemovePage(pCurPage,pTable->iFullPageID),"RemovePage failed.");
+	        SAFESTRCPY(pCurPage->m_sState,sizeof(pCurPage->m_sState), "move");
             --pTable->iFullPages;
         }while(0);
         pTable->tFullMutex.UnLock(true, m_pDsn->sCurTime);

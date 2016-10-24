@@ -325,7 +325,7 @@
     bool TMdbDataCheckConfig::CheckQdgTable(std::string strTable)
     {
         bool bFound = false;
-        for (int i = 0 ; i< (int)m_tDsn.m_vTables.size(); i++)
+        for (long unsigned int i = 0 ; i< m_tDsn.m_vTables.size(); i++)
         {
             if (TMdbNtcStrFunc::StrNoCaseCmp(m_tDsn.m_vTables[i].c_str(), strTable.c_str()) == 0)
             {
@@ -770,6 +770,8 @@
             {
                 m_pPeerMdb = new(std::nothrow) TMdbClientDatabase();
                 CHECK_OBJ(m_pPeerMdb);
+				//使用ocp协议,兼容以前的
+				m_pPeerMdb->UseOcp();
                 m_pPeerMdb->SetServer(m_pCheckConfig->m_tDsn.m_strIP.c_str(), m_pCheckConfig->m_tDsn.m_iPort);
                 if (!m_pPeerMdb->Connect(m_pCheckConfig->m_tDsn.m_strUser.c_str(),m_pCheckConfig->m_tDsn.m_strPassword.c_str(), m_pCheckConfig->m_tDsn.m_strDsn.c_str()))
                 {
@@ -1930,7 +1932,7 @@
         }
 
         TMDBDiffRcd tDiffRcd;
-        tDiffRcd.cDiffType = iDiffType;
+        tDiffRcd.cDiffType = (char)iDiffType;
         tDiffRcd.cRecheckSame = 'N';
         tDiffRcd.strPk = strPk;
         CHECK_RET(m_pDiffFile->WriteDiffRcd(&tDiffRcd), "WriteDiffRcd to file failed.");
@@ -2282,7 +2284,7 @@
         int iRet = 0;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(strPks.c_str(), ",");
-        if (tSplit.GetFieldCount() != m_pTable->m_tPriKey.iColumnCounts)
+        if ((int)(tSplit.GetFieldCount()) != m_pTable->m_tPriKey.iColumnCounts)
         {
             CHECK_RET(-1, "PK number in the file is wrong.");
         }
@@ -2294,11 +2296,11 @@
                 iNo = m_pTable->m_tPriKey.iColumnNo[i];
                 if(m_pTable->tColumn[iNo].iDataType == DT_Int)
                 {
-                    m_pPeerQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[i]));
+                    m_pPeerQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[(MDB_UINT32)i]));
                 }
                 else
                 {
-                    m_pPeerQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[i]);
+                    m_pPeerQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[(MDB_UINT32)i]);
                 }
             }//end for(int j=0; j<(pTable->m_tPriKey).iColumnCounts; ++j)
         }
@@ -2312,7 +2314,7 @@
         int iRet = 0;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(strPks.c_str(), ",");
-        if (tSplit.GetFieldCount() != m_pTable->m_tPriKey.iColumnCounts)
+        if ((int)(tSplit.GetFieldCount()) != m_pTable->m_tPriKey.iColumnCounts)
         {
             CHECK_RET(-1, "PK number in the file is wrong.");
         }
@@ -2324,11 +2326,11 @@
                 iNo = m_pTable->m_tPriKey.iColumnNo[i];
                 if(m_pTable->tColumn[iNo].iDataType == DT_Int)
                 {
-                    pLocalQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[i]));
+                    pLocalQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[(MDB_UINT32)i]));
                 }
                 else
                 {
-                    pLocalQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[i]);
+                    pLocalQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[(MDB_UINT32)i]);
                 }
             }
         }
@@ -2342,7 +2344,7 @@
         int iRet = 0;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(strPks.c_str(), ",");
-        if (tSplit.GetFieldCount() != m_pTable->m_tPriKey.iColumnCounts)
+        if ((int)(tSplit.GetFieldCount()) != m_pTable->m_tPriKey.iColumnCounts)
         {
             CHECK_RET(-1, "PK number in the file is wrong.");
         }
@@ -2354,11 +2356,11 @@
                 iNo = m_pTable->m_tPriKey.iColumnNo[i];
                 if(m_pTable->tColumn[iNo].iDataType == DT_Int)
                 {
-                    m_pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[i]));
+                    m_pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[(MDB_UINT32)i]));
                 }
                 else
                 {
-                    m_pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[i]);
+                    m_pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[(MDB_UINT32)i]);
                 }
             }
         }
@@ -2499,7 +2501,7 @@
         int iRet = 0;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(strPks.c_str(), ",");
-        if (tSplit.GetFieldCount() != m_pTable->m_tPriKey.iColumnCounts)
+        if ((int)(tSplit.GetFieldCount()) != m_pTable->m_tPriKey.iColumnCounts)
         {
             CHECK_RET(-1, "PK number in the file is wrong.");
         }
@@ -2511,11 +2513,11 @@
                 iNo = m_pTable->m_tPriKey.iColumnNo[i];
                 if(m_pTable->tColumn[iNo].iDataType == DT_Int)
                 {
-                    m_pLocalQuery->SetParameter(i, atoi(tSplit[i]));
+                    m_pLocalQuery->SetParameter(i, atoi(tSplit[(MDB_UINT32)i]));
                 }
                 else
                 {
-                    m_pLocalQuery->SetParameter(i, tSplit[i]);
+                    m_pLocalQuery->SetParameter(i, tSplit[(MDB_UINT32)i]);
                 }
             }
         }
@@ -2529,7 +2531,7 @@
         int iRet = 0;
         TMdbNtcSplit tSplit;
         tSplit.SplitString(strPks.c_str(), ",");
-        if (tSplit.GetFieldCount() != m_pTable->m_tPriKey.iColumnCounts)
+        if ((int)(tSplit.GetFieldCount()) != m_pTable->m_tPriKey.iColumnCounts)
         {
             CHECK_RET(-1, "PK number in the file is wrong.");
         }
@@ -2541,11 +2543,11 @@
                 iNo = m_pTable->m_tPriKey.iColumnNo[i];
                 if(m_pTable->tColumn[iNo].iDataType == DT_Int)
                 {
-                    pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[i]));
+                    pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, atoi(tSplit[(MDB_UINT32)i]));
                 }
                 else
                 {
-                    pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[i]);
+                    pOraQuery->SetParameter(m_pTable->tColumn[iNo].sName, tSplit[(MDB_UINT32)i]);
                 }
             }
         }
@@ -2647,7 +2649,7 @@ bool TMdbCheckDataMgr::m_bDetail = false;
             if (m_pCheckConfig->m_tCheckInfo.m_iThreadNum > (int)m_vTables.size())
             {
                 TADD_NORMAL("Input thread number is larger than the number of tables, will be set to [%d].", m_vTables.size());
-                m_iThreadNum = m_vTables.size();
+                m_iThreadNum = (int)(m_vTables.size());
             }
         }
         CATCH_MDB_DATA_CHECK_EXEPTION
@@ -2762,7 +2764,7 @@ bool TMdbCheckDataMgr::m_bDetail = false;
             m_pQuery->Open();
             if (m_pQuery->Next())
             {
-                tTmpTable.m_iRecordNum = m_pQuery->Field("NUM").AsInteger();
+                tTmpTable.m_iRecordNum = (int)(m_pQuery->Field("NUM").AsInteger());
             }
         }
         CATCH_MDB_DATA_CHECK_EXEPTION
@@ -2785,7 +2787,7 @@ bool TMdbCheckDataMgr::m_bDetail = false;
             {
                 if (pTable->iRepAttr == REP_NO_REP)//是否是qdg表
                 {
-                    for (int j = 0; j<(int)m_pCheckConfig->m_tDsn.m_vQdgTable.size(); j++)
+                    for (long unsigned int j = 0; j<m_pCheckConfig->m_tDsn.m_vQdgTable.size(); j++)
                     {
                         if (TMdbNtcStrFunc::StrNoCaseCmp(m_pCheckConfig->m_tDsn.m_vQdgTable[j].m_strTableName.c_str(), pTable->sTableName) == 0)
                         {
@@ -2796,7 +2798,7 @@ bool TMdbCheckDataMgr::m_bDetail = false;
                 }
             else if (pTable->iRepAttr  == REP_FROM_DB)//从oracle同步的表，也可以被当做qdg表来处理
             {
-                for (int j = 0; j<(int)m_pCheckConfig->m_tDsn.m_vQdgTable.size(); j++)
+                for (long unsigned int j = 0; j<m_pCheckConfig->m_tDsn.m_vQdgTable.size(); j++)
                 {
                     if (TMdbNtcStrFunc::StrNoCaseCmp(m_pCheckConfig->m_tDsn.m_vQdgTable[j].m_strTableName.c_str(), pTable->sTableName) == 0)
                     {

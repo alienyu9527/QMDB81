@@ -222,57 +222,62 @@
         std::vector<int> vRoutingID;
         tSplitSemi.SplitString(tSplitAll[0], ';');      
         m_pShmRep->m_iRoutingIDCount=0;
-        m_pShmRep->m_sRoutingList[0] = '\0';
         for (unsigned int i = 0; i<tSplitSemi.GetFieldCount(); i++)
         {
             tSplitColon.SplitString(tSplitSemi[i], ':');
             if (tSplitColon.GetFieldCount()==2)
             {
                 tSplitComma.SplitString(tSplitColon[1], ',', true);
-
-                // std::vector<int> tIDArray = tRuleIDMap.find(atoi(tSplitColon[0]))->second();
-                vRoutingID = (tRuleIDMap.find(atoi(tSplitColon[0])))->second;//找到RuleID对应的所有路由数组
-                std::vector<int>::iterator itor = vRoutingID.begin();
-                for(; itor != vRoutingID.end(); ++itor)
-                {
-                    snprintf(m_pShmRep->m_sRoutingList+strlen(m_pShmRep->m_sRoutingList), MAX_REP_ROUTING_LIST_LEN-strlen(m_pShmRep->m_sRoutingList), "%d,", (*itor));
-                    m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRoutingID = (*itor);
+				int j = 0;
+				for(j = 0; j<m_pShmRep->m_iRoutingIDCount; j++)
+				{
+					if(m_pShmRep->m_arRouting[j].m_iRoutingID == atoi(tSplitColon[0]))
+					{
+						break;
+					}
+				}
+				if(j >= m_pShmRep->m_iRoutingIDCount)
+				{
+					m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRoutingID = atoi(tSplitColon[0]);
                     for (unsigned int k = 0; k< tSplitComma.GetFieldCount(); k++)
                     {
                         m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_aiHostID[k] =atoi(tSplitComma[k]);
                     }
-                    
-                    m_pShmRep->m_iRoutingIDCount++;
-                }
+					vRoutingID = (tRuleIDMap.find(atoi(tSplitColon[0])))->second;
+					std::vector<int>::iterator itor = vRoutingID.begin();
+					int iValueCount = 0;
+	                for(; itor != vRoutingID.end(); ++itor)
+	                {
+	                	m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRouteValue[iValueCount++] = (*itor);
+						if(iValueCount >= MAX_REP_ROUTING_ID_COUTN)
+						{
+							CHECK_RET(-1, "Too many routing-value (>%d).", MAX_REP_ROUTING_ID_COUTN);
+						}
+	                }
+					m_pShmRep->m_iRoutingIDCount++;
+				}
             }
             else
             {
                 //该路由数据只存在本机上，不备份到其他主机
-                vRoutingID = (tRuleIDMap.find(atoi(tSplitColon[0])))->second;//找到RuleID对应的所有路由数组
-                std::vector<int>::iterator itor = vRoutingID.begin();
+                m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRoutingID = atoi(tSplitColon[0]);
+				vRoutingID = (tRuleIDMap.find(atoi(tSplitColon[0])))->second;
+				std::vector<int>::iterator itor = vRoutingID.begin();
+				int iValueCount = 0;
                 for(; itor != vRoutingID.end(); ++itor)
                 {
-                    snprintf(m_pShmRep->m_sRoutingList+strlen(m_pShmRep->m_sRoutingList), MAX_REP_ROUTING_LIST_LEN-strlen(m_pShmRep->m_sRoutingList), "%d,", (*itor));
-                    m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRoutingID = (*itor);
-
-                    m_pShmRep->m_iRoutingIDCount++;
+                	m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRouteValue[iValueCount++] = (*itor);
+					if(iValueCount >= MAX_REP_ROUTING_ID_COUTN)
+					{
+						CHECK_RET(-1, "Too many routing-value (>%d).", MAX_REP_ROUTING_ID_COUTN);
+					}
                 }
+				m_pShmRep->m_iRoutingIDCount++;
             }
-            
-
-/*            for(unsigned int j=0; j < pAutoArray->GetSize(); j++)
-            {
-                snprintf(m_pShmRep->m_sRoutingList, MAX_REP_ROUTING_LIST_LEN-strlen(m_pShmRep->m_sRoutingList), "%d,", pAutoArray->GetAt(i));
-                m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_iRoutingID = pAutoArray->GetAt(i);
-                for (unsigned int k = 0; k< tSplitComma.GetFieldCount(); k++)
-                {
-                    m_pShmRep->m_arRouting[m_pShmRep->m_iRoutingIDCount].m_aiHostID[k] =atoi(tSplitComma[i]);
-                }
-            }    */ 
         }
 
         TADD_DETAIL("m_pShmRep->m_iRoutingIDCount=%d, routing-id=%d", m_pShmRep->m_iRoutingIDCount,m_pShmRep->m_arRouting[0].m_iRoutingID);
-        if(m_pShmRep->m_iRoutingIDCount ==1 && m_pShmRep->m_arRouting[0].m_iRoutingID == DEFALUT_ROUT_ID)
+        if(m_pShmRep->m_iRoutingIDCount ==1 && m_pShmRep->m_arRouting[0].m_iRoutingID == DEFAULT_ROUTE_ID)
         {
             TADD_NORMAL("no-routing-id-rep mode.");
             m_pShmRep->m_bNoRtMode = true;
@@ -287,33 +292,36 @@
             {
                 CHECK_RET(-1, "Invalid routing information format. ");
             }
-
-            vRoutingID = tRuleIDMap.find(atoi(tSplitColon[0]))->second;//找到RuleID对应的所有路由数组
-            for(unsigned int j=0; j < vRoutingID.size(); j++)
+			tSplitComma.SplitString(tSplitColon[1], ',', true);
+			for (int n =0; n<m_pShmRep->m_iRoutingIDCount; n++)
             {
-                for (int n =0; n<m_pShmRep->m_iRoutingIDCount; n++)
+                if (m_pShmRep->m_arRouting[n].m_iRoutingID == atoi(tSplitColon[0]))
                 {
-                    if (m_pShmRep->m_arRouting[n].m_iRoutingID== vRoutingID[i])
+                    for (unsigned int k = 0; k< tSplitComma.GetFieldCount(); k++)
                     {
-                        m_pShmRep->m_arRouting[n].m_iRecoveryHostID = atoi(tSplitColon[1]);//路由对应的 容灾主机
-                        break;
-                    }
+                        m_pShmRep->m_arRouting[n].m_iRecoveryHostID[k] =atoi(tSplitComma[k]);
+                    }//路由对应的 容灾主机
+                    break;
                 }
-            }     
+            }
         }
 
         TADD_FUNC("Finish.");
         return iRet;      
     }
 
-    TMdbShmRepRouting* TMdbShmRepMgr::GetRepHosts(int iRoutingID)
+    TMdbShmRepRouting* TMdbShmRepMgr::GetRepHosts(int iRoutingValue)
     {
-        for (int i = 0; i<MAX_REP_ROUTING_ID_COUTN; i++)
+        for (int i = 0; i<m_pShmRep->m_iRoutingIDCount; i++)
         {
-            if (m_pShmRep->m_arRouting[i].m_iRoutingID == iRoutingID)
-            {
-                return &m_pShmRep->m_arRouting[i];
-            }
+        	for (int j = 0; j<MAX_REP_ROUTING_ID_COUTN; j++)
+	        {
+				if(m_pShmRep->m_arRouting[i].m_iRouteValue[j] == EMPTY_ROUTE_ID) break;
+	            if (iRoutingValue == m_pShmRep->m_arRouting[i].m_iRouteValue[j])
+	            {
+	                return &m_pShmRep->m_arRouting[i];
+	            }
+	        }
         }
         return NULL;
     }
@@ -548,6 +556,7 @@
 		{
 			m_iIsLocalCol[i] = -1;
 			m_iColPos[i] = -1;
+			m_iChangePos[i] = -1;
 		}
 		m_iColCount = 0;
 	}

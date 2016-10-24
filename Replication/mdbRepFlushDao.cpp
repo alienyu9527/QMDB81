@@ -821,7 +821,7 @@
         iSqlLen = strlen(pNode->m_sSQL);
         snprintf(pNode->m_sSQL+iSqlLen, MAX_SQL_LEN-iSqlLen, " FROM %s", m_strTableName.c_str());
 
-        if (sRoutinglist!=NULL && atoi(sRoutinglist) != DEFALUT_ROUT_ID)//附加路由条件
+        if (sRoutinglist!=NULL && atoi(sRoutinglist) != DEFAULT_ROUTE_ID)//附加路由条件
         {
             TADD_NORMAL("TEST:  set where clause,routing_in (%s)", sRoutinglist);
             iSqlLen = strlen(pNode->m_sSQL);

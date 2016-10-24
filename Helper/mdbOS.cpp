@@ -404,7 +404,8 @@ int TMdbOS::GetProcFullNameByPID(int pid, char *processName,const int iLen)
             strncpy(Cmd,mdbSplitBuf[1],MAX_PATH_NAME_LEN);
             mdbSplitCmd.SplitString(Cmd, '/');
             iListCount = static_cast<int>(mdbSplitCmd.GetFieldCount());
-            strncpy(processName,mdbSplitCmd[iListCount-1],static_cast<size_t>(iLen));
+			if(iListCount-1>=0)
+            	strncpy(processName,mdbSplitCmd[(MDB_UINT32)(iListCount-1)],static_cast<size_t>(iLen));
             for(iList = 2; iList< mdbSplitBuf.GetFieldCount(); iList++)
             {
                 snprintf(processName+strlen(processName),(size_t)(iLen-(int)strlen(processName))," %s",mdbSplitBuf[iList]);

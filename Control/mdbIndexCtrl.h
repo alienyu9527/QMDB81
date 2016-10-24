@@ -62,7 +62,7 @@
         int DeleteTableSpecifiedIndex(TMdbShmDSN * pMdbShmDsn,TMdbTable * pTable,const char* pIdxName);
 
 
-		int SetLinkInfo(TMdbLocalLink* pLink);
+		int FillLinkInfo(TMdbLocalLink* pLink);
 		int ReturnAllIndexNodeToTable(TMdbLocalLink* pLink, TMdbShmDSN * pMdbShmDsn);
 		
         int AttachDsn(TMdbShmDSN * pMdbShmDsn);

@@ -29,8 +29,8 @@
             c = cSrc[i];   
             h = (c - 0)/10;   
             l = (c - 0)%10;   
-            cDest[j]=h+'A';   
-            cDest[j+1]=l+'A';   
+            cDest[j]=(char)(h+'A');   
+            cDest[j+1]=(char)(l+'A');   
             j += 2;   
         }   
         strcat(cDest,"@@");
@@ -65,7 +65,7 @@
         {   
             h = (cSrc[i]-'A');   
             l = (cSrc[i+1]-'A');   
-            cDest[j] = h*10 + l;   
+            cDest[j] = (char)(h*10 + l);   
             j++;   
         }   
         cDest[j]='\0';   

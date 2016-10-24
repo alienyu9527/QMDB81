@@ -77,11 +77,12 @@
 		int CheckRemoteTableInfo(TMdbTable * pTable, const char * sRemoteTableInfo);
 		int SendMemData(TMdbTable * pTable,  int * iPageIDList, int iPageCount);
         int DealOneTableMem(const char* sTableName, const char* sRoutinglist, const char * sRemoteTableInfo);
-        int SendBufData(const char* sBuf, int iLength);//发送缓冲区中的数据
+        int SendBufData(const char* sBuf, int iLength);//发送缓冲区中的数据       
+		bool CheckRecordIsCommit(const char * pDataAddr);
         bool CheckRecordRoutingId(TMdbTable * pTable, const char * pDataAddr);
 		int CalcNullSize(int iColCounts);
 		int AdjustNullArea(char * sRecord,int & iLen,TMdbTable * pTable);
-		int AdjustMemRecord(char * sRecord, int & iLen, TMdbTable * pTable);
+		int AdjustMemRecord(const char* pAddr, char * sRecord, int & iLen, TMdbTable * pTable);
         void GetOneRecord();//处理一条记录
         int GetOneRecordFromMem(TMdbTable * pTable);
         

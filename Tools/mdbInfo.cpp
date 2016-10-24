@@ -813,7 +813,7 @@
         //路由信息
         printf("\tRouting information:\n");
         printf("\t\tRouting-ID Count = [%d]\n", pShmRep->m_iRoutingIDCount);
-        printf("\t\tRouting-List = [%s]\n", pShmRep->m_sRoutingList);
+        //printf("\t\tRouting-List = [%s]\n", pShmRep->m_sRoutingList);
 
         //备机信息
         printf("\tStandby hosts information:\n");
@@ -829,7 +829,21 @@
         int k = 0;
         for (int j = 0; j<pShmRep->m_iRoutingIDCount; j++)
         {
-            printf("\t\tRouting-ID = [%d] Standby-Host ID = [", pShmRep->m_arRouting[j].m_iRoutingID);
+            printf("\t\tRouting-ID = [%d] Routing-Value = [", pShmRep->m_arRouting[j].m_iRoutingID);
+			bool bFirst = true;
+			for(k = 0; k<MAX_REP_ROUTING_ID_COUTN; k++)
+			{
+				if(pShmRep->m_arRouting[j].m_iRouteValue[k] == EMPTY_ROUTE_ID) break;
+				if(bFirst)
+				{
+					printf("%d", pShmRep->m_arRouting[j].m_iRouteValue[k]);
+				}
+				else
+				{
+					printf(",%d", pShmRep->m_arRouting[j].m_iRouteValue[k]);
+				}
+			}
+			printf("] Standby-Host ID = [");
             if (pShmRep->m_arRouting[j].m_aiHostID[0] ==MDB_REP_EMPTY_HOST_ID)
             {
                 printf("-1");
@@ -853,8 +867,32 @@
                     }
                 }
             }
-            printf("]");
-            printf(" Recovery_Host ID = [%d]\n", pShmRep->m_arRouting[j].m_iRecoveryHostID);
+
+			printf(" Recovery_Host ID = [");
+            if (pShmRep->m_arRouting[j].m_iRecoveryHostID[0] ==MDB_REP_EMPTY_HOST_ID)
+            {
+                printf("-1");
+            }
+            else
+            {
+                k = 0;
+                for (; k < MAX_REP_HOST_COUNT; k++)
+                {
+                    if (pShmRep->m_arRouting[j].m_iRecoveryHostID[k] == MDB_REP_EMPTY_HOST_ID)
+                    {
+                        break;
+                    }
+                    if (0 == k)
+                    {
+                        printf("%d", pShmRep->m_arRouting[j].m_iRecoveryHostID[k]);
+                    }
+                    else
+                    {
+                        printf(",%d", pShmRep->m_arRouting[j].m_iRecoveryHostID[k]);
+                    }
+                }
+            }
+            printf("]\n");
         }
 
         SAFE_DELETE(pShmMgr);
@@ -888,6 +926,56 @@ void TMdbInfo::PrintNotLoadFromDBInfo()//控制表从数据库加载的附加配置信息
     }
     printf("\n");
     
+}
+
+void TMdbInfo::PrintVarcharPageList()
+{
+	TMdbVarCharCtrl tVarCharCtrl;
+	tVarCharCtrl.Init(m_pDsn->sName);
+	
+	for(int i=0;i<10;i++)
+	{
+		TMdbVarchar* pVarChar = m_pShmDSN->GetVarchar(i);
+		if(NULL == pVarChar)
+		{
+			printf("pVarChar is null,pos=%d.",i);
+			return;
+		}
+		else
+		{
+			int iHeadID = pVarChar->iFreePageId;
+	        TMdbPage * pPage = (TMdbPage *)tVarCharCtrl.GetAddrByPageID(pVarChar,iHeadID);
+			if(NULL == pPage) 
+			{
+				printf("FreeList empty\n");continue;
+			}
+			printf("FreeList:\n");
+			while(pPage->m_iNextPageID!=iHeadID)
+			{
+				printf("[%d - %d]",pPage->m_iPageID, pPage->m_iNextPageID);
+				pPage = (TMdbPage *)tVarCharCtrl.GetAddrByPageID(pVarChar,pPage->m_iNextPageID);
+			}
+
+
+			iHeadID = pVarChar->iFullPageId;
+	        pPage = (TMdbPage *)tVarCharCtrl.GetAddrByPageID(pVarChar,iHeadID);
+			if(NULL == pPage) 
+			{
+				printf("FullList empty\n");continue;
+			}
+			printf("FullList:\n");
+			while(pPage->m_iNextPageID!=-1)
+			{
+				printf("[%d - %d]",pPage->m_iPageID, pPage->m_iNextPageID);
+				pPage = (TMdbPage *)tVarCharCtrl.GetAddrByPageID(pVarChar,pPage->m_iNextPageID);
+			}
+
+			
+
+		}
+
+	}
+
 }
 
 TMdbSizeInfo::TMdbSizeInfo()

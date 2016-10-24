@@ -53,7 +53,7 @@ using namespace std;
     {
         memset(&m_tAddr, 0, sizeof(m_tAddr));
         m_tAddr.sin_family      = AF_INET;
-        m_tAddr.sin_port        = htons(iPortID);
+        m_tAddr.sin_port        = htons((uint16_t)iPortID);
         m_tAddr.sin_addr.s_addr = INADDR_ANY;
 
         //…Ë÷√¡¥Ω”◊¥Ã¨ Ù–‘
@@ -257,7 +257,7 @@ using namespace std;
         //int nZero=0;
         ServerAddr.sin_family         = AF_INET;
         ServerAddr.sin_addr.s_addr    = inet_addr( sRemoteHostIP );
-        ServerAddr.sin_port           = htons( iRemotePortID );
+        ServerAddr.sin_port           = htons( (uint16_t)iRemotePortID );
         iSocketId = socket(AF_INET,SOCK_STREAM,0);
         if(iSocketId < 0)
         {
@@ -555,7 +555,7 @@ using namespace std;
         }
         while(true)
         {
-            ret = recv(m_iSocketID, sBuffer,(size_t)iLen,0);
+            ret = recv(m_iSocketID, sBuffer,iLen,0);
             int iErrNo = errno;
             if ( ret < 0 )
             {

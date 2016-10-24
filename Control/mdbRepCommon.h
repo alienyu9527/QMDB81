@@ -39,7 +39,7 @@
 
 #define  MAX_REP_ROUTING_LIST_LEN 1024 //路由ID链表最大长度
 #define  MAX_REP_HOST_COUNT 10 //一个路由最多的备份主机个数
-#define MAX_REP_ROUTING_ID_COUTN 1000//一台主机上路由ID的最大个数
+#define  MAX_REP_ROUTING_ID_COUTN 1000//一台主机上路由ID的最大个数
 #define  MAX_ALL_REP_HOST_COUNT 100 //一台主机对应的最大备机数量
 #define  MDB_SHM_ROUTING_REP_NAME "routing_rep" //路由映射关系共享内存名称
 #define  MDB_REP_FILE_PATTEN "Rep.*.OK" //同步文件格式
@@ -134,17 +134,21 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
         }
         void Clear()
         {
-            m_iRoutingID = DEFALUT_ROUT_ID;
+            m_iRoutingID = DEFAULT_ROUTE_ID;
             for (int i = 0; i<MAX_REP_HOST_COUNT; i++)
             {
                 m_aiHostID[i] = MDB_REP_EMPTY_HOST_ID;
+            	m_iRecoveryHostID[i] = MDB_REP_EMPTY_HOST_ID;
             }
-            m_iRecoveryHostID = MDB_REP_EMPTY_HOST_ID;
-
+			for(int i = 0; i<MAX_REP_ROUTING_ID_COUTN; i++)
+			{
+				m_iRouteValue[i] = EMPTY_ROUTE_ID;
+			}
         }
         int m_iRoutingID;//路由ID
         int m_aiHostID[MAX_REP_HOST_COUNT];//对应的所有备机，按序号确定优先级
-        int m_iRecoveryHostID; //容灾机
+        int m_iRecoveryHostID[MAX_REP_HOST_COUNT]; //容灾机
+        int m_iRouteValue[MAX_REP_ROUTING_ID_COUTN]; //路由规则对应的值集合
     };
 
     /**
@@ -163,7 +167,6 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
             m_iRoutingIDCount = 0;
             m_iRepHostCount = 0;
             m_iLocalPort = 0;
-            memset(m_sRoutingList, 0, MAX_REP_ROUTING_LIST_LEN);
 			for(int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
 			{
 				m_bNetConnect[i] = true;
@@ -179,7 +182,6 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
             m_iRoutingIDCount = 0;
             m_iRepHostCount = 0;
             m_iLocalPort = 0;
-            memset(m_sRoutingList, 0, MAX_REP_ROUTING_LIST_LEN);
             memset(m_sFailedRoutingList, 0, MAX_REP_ROUTING_LIST_LEN);
             for (int i = 0; i<MAX_ALL_REP_HOST_COUNT; i++)
             {
@@ -239,7 +241,6 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
         int m_iRepHostCount;//备机的数量
         int m_iRoutingIDCount;//路由数量
         int m_iLocalPort;//本机的repServer的端口号
-        char m_sRoutingList[MAX_REP_ROUTING_LIST_LEN];//本机的路由列表
         char m_sFailedRoutingList[MAX_REP_ROUTING_LIST_LEN];//加载失败的路由列表
         TMdbShmRepHost m_arHosts[MAX_ALL_REP_HOST_COUNT]; //本机对应的所有备机
         TMdbShmRepRouting m_arRouting[MAX_REP_ROUTING_ID_COUTN]; //本机的路由与其备机（包括容灾机）的对应关系
@@ -382,7 +383,7 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
         * 返回值	:  
         * 作者		:  jiang.lili
         *******************************************************************************/
-        TMdbShmRepRouting* GetRepHosts(int iRoutingID);
+        TMdbShmRepRouting* GetRepHosts(int iRoutingValue);
 
        /******************************************************************************
         * 函数名称	:  AddFailedRoutingList
@@ -480,7 +481,7 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
 		int m_iChangeType;
 		int m_iValue;
 		long long m_llValue;
-		char m_sValue[MAX_DEFAULT_VALUE_LEN];
+		char m_sValue[MAX_VALUE_LEN];
 	};
 
 	class TMdbLoadTableRemoteStruct
@@ -491,8 +492,9 @@ const char MDB_REP_RCD_END[] = "##"; //同步记录的结束
 
 		void Clear();
 	public:
-		int m_iIsLocalCol[MAX_COLUMN_COUNTS]; //0-本地列，1-对端列，-1-没有列
-		int m_iColPos[MAX_COLUMN_COUNTS];//本地列的列号，对端列对应的change序列
+		int m_iIsLocalCol[MAX_COLUMN_COUNTS]; //0-对端列，1-本地列，-1-没有列
+		int m_iColPos[MAX_COLUMN_COUNTS];//本地列的列号
+		int m_iChangePos[MAX_COLUMN_COUNTS];//对应的change序列
 		int m_iColCount;
 	};
 //}

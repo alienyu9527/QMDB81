@@ -402,6 +402,7 @@ public:
     char* GetDSN();
     int SetCaptureRouter(const char * sRouters);//设置捕获路由,
     int GetCaptureRouter(char * sRouterRet);//获取捕获路由
+   	
 private:
     int LinkMonitor(); //链接监控进程
 private:

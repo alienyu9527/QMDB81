@@ -116,7 +116,8 @@
     	void PrintUsageOfLock();//打印锁使用情况
         void PrintRoutingRep();//打印分片备份路由信息
         void PrintNotLoadFromDBInfo();//控制表从数据库加载的附加配置信息
-    private:
+		void PrintVarcharPageList();
+	private:
         TMdbConfig *m_pConfig;
         
         TMdbShmDSN *m_pShmDSN;

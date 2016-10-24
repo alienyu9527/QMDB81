@@ -313,7 +313,7 @@
 
 		for(int i = 0; i<MAX_ROUTER_LIST_LEN; i++)
 		{
-			m_iRouteList[i] = 0;
+			m_iRouteList[i] = EMPTY_ROUTE_ID;
 		}
 		m_iRouteCount = 0;
 
@@ -641,7 +641,7 @@
 		{
 			TMdbNtcSplit tSplit;
             tSplit.SplitString(sRoutinglist, ',');
-			if(atoi(tSplit[0]) != DEFALUT_ROUT_ID)
+			if(atoi(tSplit[0]) != DEFAULT_ROUTE_ID)
     		{
 				for(int i = 0; i<tSplit.GetFieldCount(); i++)
 				{
@@ -758,11 +758,12 @@
 									}
 								}
 								iMiss++;
-								m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;
-								m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+								m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 0;
+								m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
+								m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
 								m_tRemoteStruct.m_iColCount++;
 								
-								if((m_iChangeCount++)>=5)
+								if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
 								{
 									TADD_ERROR(-1, "Too many column changed.");
 									iRet = -1;
@@ -778,20 +779,102 @@
 						}
 					}
 					
-					if(pTable->tColumn[i].iDataType != atoi(tColInfoSplit[1]))//列类型不一致，有待细化
+					if(pTable->tColumn[i].iDataType == DT_Char && atoi(tColInfoSplit[1]) == DT_VarChar)
+					{
+						if(pTable->tColumn[i].iColumnLen <= atoi(tColInfoSplit[2]))
+						{
+							m_tTableChangeOper[m_iChangeCount].m_iColPos = i;
+							m_tTableChangeOper[m_iChangeCount].m_iColType = atoi(tColInfoSplit[1]);
+							m_tTableChangeOper[m_iChangeCount].m_iColLen = atoi(tColInfoSplit[2]);
+							m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColCharToVar;
+							m_iVarColPos[m_iVarColCount++] = m_tRemoteStruct.m_iColCount;
+							m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;//按照本地列处理NULL标志位
+							m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
+							m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+							m_tRemoteStruct.m_iColCount++;
+							if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
+							{
+								TADD_ERROR(-1, "Too many column changed.");
+								iRet = -1;
+								return iRet;
+							}
+						}
+						else
+						{
+							TADD_ERROR(-1, "Rep's column [%s] datalen is too short.", pTable->tColumn[i].sName);
+							iRet = -1;
+							return iRet;
+						}
+					}
+					else if(pTable->tColumn[i].iDataType == DT_VarChar && atoi(tColInfoSplit[1]) == DT_Char)
+					{
+						m_tTableChangeOper[m_iChangeCount].m_iColPos = i;
+						m_tTableChangeOper[m_iChangeCount].m_iColType = atoi(tColInfoSplit[1]);
+						m_tTableChangeOper[m_iChangeCount].m_iColLen = atoi(tColInfoSplit[2]);
+						m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColVarToChar;
+						m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;//按照本地列处理NULL标志位
+						m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
+						m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+						m_tRemoteStruct.m_iColCount++;
+						if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
+						{
+							TADD_ERROR(-1, "Too many column changed.");
+							iRet = -1;
+							return iRet;
+						}
+					}
+					else if(pTable->tColumn[i].iDataType != atoi(tColInfoSplit[1]))//列类型不一致
 					{
 						TADD_ERROR(-1, "Different datatype of column[%s].", pTable->tColumn[i].sName);
 						iRet = -1;
 						return iRet;
 					}
-				
-					if(pTable->tColumn[i].iColumnLen < atoi(tColInfoSplit[2]))//列长度增加
+					else if(pTable->tColumn[i].iDataType == DT_DateStamp && pTable->tColumn[i].iColumnLen != atoi(tColInfoSplit[2]))
+					{
+						if(atoi(tColInfoSplit[2]) >= 14)
+						{
+							if(pTable->tColumn[i].iColumnLen == sizeof(long long))
+							{
+								m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColDateLToN;
+							}
+							else if(pTable->tColumn[i].iColumnLen == sizeof(int))
+							{
+								m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColDateYToN;
+							}
+						}
+						else if(atoi(tColInfoSplit[2]) == sizeof(long long))
+						{
+							if(pTable->tColumn[i].iColumnLen == sizeof(int))
+							{
+								m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColDateYToL;
+							}
+						}
+						else
+						{
+							TADD_ERROR(-1, "Table [%s] column [%s]'s zip-level is higher.", pTable->sTableName, pTable->tColumn[i].sName);
+							iRet = -1;
+							return iRet;
+						}
+						m_tTableChangeOper[m_iChangeCount].m_iColPos = i;
+						m_tTableChangeOper[m_iChangeCount].m_iColType = atoi(tColInfoSplit[1]);
+						m_tTableChangeOper[m_iChangeCount].m_iColLen = atoi(tColInfoSplit[2]);
+						m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;//按照本地列处理NULL标志位
+						m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
+						m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+						m_tRemoteStruct.m_iColCount++;
+						if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
+						{
+							TADD_ERROR(-1, "Too many column changed.");
+							iRet = -1;
+							return iRet;
+						}
+					}
+					else if(pTable->tColumn[i].iColumnLen < atoi(tColInfoSplit[2]))//列长度增加
 					{
 						m_tTableChangeOper[m_iChangeCount].m_iColPos = i;
 						m_tTableChangeOper[m_iChangeCount].m_iColType = atoi(tColInfoSplit[1]);
 						m_tTableChangeOper[m_iChangeCount].m_iColLen = atoi(tColInfoSplit[2]);
 						m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColLenIncrease;
-						m_tTableChangeOper[m_iChangeCount].m_iValue = atoi(tColInfoSplit[2]) - pTable->tColumn[i].iColumnLen;
 
 						if(pTable->tColumn[i].iDataType == DT_VarChar || pTable->tColumn[i].iDataType == DT_Blob)
 						{
@@ -799,10 +882,11 @@
 						}
 						
 						m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;
-						m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+						m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
+						m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
 						m_tRemoteStruct.m_iColCount++;
 						
-						if((m_iChangeCount++)>=5)
+						if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
 						{
 							TADD_ERROR(-1, "Too many column changed.");
 							iRet = -1;
@@ -822,7 +906,7 @@
 							m_iVarColPos[m_iVarColCount++] = m_tRemoteStruct.m_iColCount;
 						}
 						
-						m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 0;
+						m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;
 						m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = i;
 						m_tRemoteStruct.m_iColCount++;
 					}
@@ -836,7 +920,7 @@
 					m_tTableChangeOper[m_iChangeCount].m_iChangeType = TC_ColumnDrop;
 					m_bColMissAdd = true;
 					iExtra++;
-					if((m_iChangeCount++)>=5)
+					if((m_iChangeCount++)>=MAX_LOAD_TABLE_COLUMN_DIFF_COUNT)
 					{
 						TADD_ERROR(-1, "Too many column changed.");
 						iRet = -1;
@@ -845,6 +929,7 @@
 				}
 			}
 		}
+		
 		for(int i = iRMaxMatch+1; i<tColSplit.GetFieldCount(); i++)
 		{
 			TMdbNtcSplit tTemp;
@@ -889,8 +974,9 @@
 					}
 				}
 				iMiss++;
-				m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 1;
-				m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
+				m_tRemoteStruct.m_iIsLocalCol[m_tRemoteStruct.m_iColCount] = 0;
+				m_tRemoteStruct.m_iColPos[m_tRemoteStruct.m_iColCount] = iLMaxMatch;
+				m_tRemoteStruct.m_iChangePos[m_tRemoteStruct.m_iColCount] = m_iChangeCount;
 				m_tRemoteStruct.m_iColCount++;
 				
 				if((m_iChangeCount++)>=5)
@@ -1089,6 +1175,16 @@
         }
     }
 
+	bool TRepServerDataSend::CheckRecordIsCommit(const char * pDataAddr)
+	{
+		TMdbPageNode* pNode = (TMdbPageNode*)pDataAddr - 1;
+		if(pNode->iSessionID == 0) return true;
+
+		TADD_NORMAL("Data %p is not Commit.  Skip",pDataAddr);
+
+		return false;
+	}
+
 	bool TRepServerDataSend::CheckRecordRoutingId(TMdbTable * pTable, const char * pDataAddr)
 	{
 		//暂时只支持整型路由
@@ -1132,7 +1228,7 @@
 		{
 			for(i = 0; i<m_tRemoteStruct.m_iColCount; i++)
 			{
-				if(m_tRemoteStruct.m_iIsLocalCol[i] == 0)
+				if(m_tRemoteStruct.m_iIsLocalCol[i] == 1)
 				{
 					if(m_tRowCtrl.IsColumnNull(&(pTable->tColumn[m_tRemoteStruct.m_iColPos[i]]), sRecord))
 					{
@@ -1145,7 +1241,7 @@
 				        *sNull &=sMask[i%MDB_CHAR_SIZE];
 					}
 				}
-				else if(m_tRemoteStruct.m_iIsLocalCol[i] == 1)
+				else if(m_tRemoteStruct.m_iIsLocalCol[i] == 0)
 				{
 					char * sNull = m_sNullFlag + i/MDB_CHAR_SIZE;
 				    *sNull &=sMask[i%MDB_CHAR_SIZE];
@@ -1167,7 +1263,7 @@
 		return iRet;
 	}
 
-	int TRepServerDataSend::AdjustMemRecord(char * sRecord, int & iLen, TMdbTable * pTable)
+	int TRepServerDataSend::AdjustMemRecord(const char* pAddr, char * sRecord, int & iLen, TMdbTable * pTable)
 	{
 		TADD_FUNC("START");
 		int iRet = 0;
@@ -1207,7 +1303,7 @@
 					memmove(sRecord+iOffset1+1+sizeof(long)*2, sRecord+iOffset1, iLen - iOffset1);
 					iLen += sizeof(long)*2 + 1;
 				}
-				else if(m_tTableChangeOper[j].m_iColType == DT_DateStamp)//Note:发送到对端后再做压缩等处理
+				else if(m_tTableChangeOper[j].m_iColType == DT_DateStamp)
 				{
 					memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset1, iLen - iOffset1);
 					if(m_tTableChangeOper[j].m_iColLen == sizeof(int))
@@ -1255,6 +1351,123 @@
 				memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset2, iLen - iOffset2);
 				iLen += iOffset1+m_tTableChangeOper[j].m_iColLen-iOffset2;
 			}
+			else if(m_tTableChangeOper[j].m_iChangeType == TC_ColCharToVar)
+			{
+				int iOffset1 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos].iOffSet;
+				int iOffset2 = 0;
+				if(m_tTableChangeOper[j].m_iColPos != pTable->iColumnCounts-1)
+				{
+					iOffset2 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos+1].iOffSet;
+				}
+				else
+				{
+					iOffset2 = pTable->m_iTimeStampOffset;
+				}
+				memmove(sRecord+iOffset1+1+sizeof(long)*2, sRecord+iOffset2, iLen - iOffset2);
+				iLen += iOffset1+1+sizeof(long)*2-iOffset2;
+			}
+			else if(m_tTableChangeOper[j].m_iChangeType == TC_ColVarToChar)
+			{
+				int iOffset1 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos].iOffSet;
+				int iOffset2 = 0;
+				if(m_tTableChangeOper[j].m_iColPos != pTable->iColumnCounts-1)
+				{
+					iOffset2 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos+1].iOffSet;
+				}
+				else
+				{
+					iOffset2 = pTable->m_iTimeStampOffset;
+				}
+				memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset2, iLen - iOffset2);
+				iLen += iOffset1+m_tTableChangeOper[j].m_iColLen-iOffset2;
+				if(m_tRowCtrl.IsColumnNull(&pTable->tColumn[m_tTableChangeOper[j].m_iColPos],m_pCurDataAddr) != true)
+				{
+					m_tVarcharCtrl.GetStoragePos(m_pCurDataAddr + iOffset1, m_iWhichPos, m_iRowId);
+					if(m_iWhichPos < VC_16 || m_iWhichPos > VC_8192)
+					{
+						//TADD_ERROR();
+						return -1;
+					}
+					CHECK_RET(m_tVarcharCtrl.GetVarcharValue(sRecord+iOffset1, m_pCurDataAddr + iOffset1, m_iValueSize),"Get Varchar value Faild");
+					sRecord[iOffset1+m_iValueSize] = '\0';
+				}
+			}
+			else if(m_tTableChangeOper[j].m_iChangeType == TC_ColDateLToN)
+			{
+				int iOffset1 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos].iOffSet;
+				long long lLong = 0;
+				bool bNull = m_tRowCtrl.IsColumnNull(&pTable->tColumn[m_tTableChangeOper[j].m_iColPos],m_pCurDataAddr);
+				if(!bNull)
+				{
+					lLong = (long long)*(long long *)(sRecord+iOffset1);
+				}
+				int iOffset2 = 0;
+				if(m_tTableChangeOper[j].m_iColPos != pTable->iColumnCounts-1)
+				{
+					iOffset2 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos+1].iOffSet;
+				}
+				else
+				{
+					iOffset2 = pTable->m_iTimeStampOffset;
+				}
+				memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset2, iLen - iOffset2);
+				iLen += iOffset1+m_tTableChangeOper[j].m_iColLen-iOffset2;
+				if(!bNull)
+				{
+            		TMdbDateTime::TimeToString(lLong,sRecord+iOffset1);
+				}
+			}
+			else if(m_tTableChangeOper[j].m_iChangeType == TC_ColDateYToL)
+			{
+				int iOffset1 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos].iOffSet;
+				int iInt = 0;
+				bool bNull = m_tRowCtrl.IsColumnNull(&pTable->tColumn[m_tTableChangeOper[j].m_iColPos],m_pCurDataAddr);
+				if(!bNull)
+				{
+					iInt = (int)*(int*)(sRecord+iOffset1);
+				}
+				int iOffset2 = 0;
+				if(m_tTableChangeOper[j].m_iColPos != pTable->iColumnCounts-1)
+				{
+					iOffset2 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos+1].iOffSet;
+				}
+				else
+				{
+					iOffset2 = pTable->m_iTimeStampOffset;
+				}
+				memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset2, iLen - iOffset2);
+				iLen += iOffset1+m_tTableChangeOper[j].m_iColLen-iOffset2;
+				if(!bNull)
+				{
+            		long long * pLong = (long long*)(sRecord+iOffset1);
+					*pLong = iInt;
+				}
+			}
+			else if(m_tTableChangeOper[j].m_iChangeType == TC_ColDateYToN)
+			{
+				int iOffset1 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos].iOffSet;
+				int iInt = 0;
+				bool bNull = m_tRowCtrl.IsColumnNull(&pTable->tColumn[m_tTableChangeOper[j].m_iColPos],m_pCurDataAddr);
+				if(!bNull)
+				{
+					iInt = (int)*(int*)(sRecord+iOffset1);
+				}
+				int iOffset2 = 0;
+				if(m_tTableChangeOper[j].m_iColPos != pTable->iColumnCounts-1)
+				{
+					iOffset2 = pTable->tColumn[m_tTableChangeOper[j].m_iColPos+1].iOffSet;
+				}
+				else
+				{
+					iOffset2 = pTable->m_iTimeStampOffset;
+				}
+				memmove(sRecord+iOffset1+m_tTableChangeOper[j].m_iColLen, sRecord+iOffset2, iLen - iOffset2);
+				iLen += iOffset1+m_tTableChangeOper[j].m_iColLen-iOffset2;
+				if(!bNull)
+				{
+            		TMdbDateTime::TimeToString(iInt,sRecord+iOffset1);
+				}
+			}
 			else
 			{
 				TADD_ERROR(ERROR_UNKNOWN, "Invalid table struct change.");
@@ -1291,6 +1504,7 @@
 		{
 			while(m_pCurPage->GetNextDataAddr(m_pCurDataAddr, m_iDataOffset, m_pNextDataAddr) != NULL)
 			{
+				if(!CheckRecordIsCommit(m_pCurDataAddr)) continue;
 				if(!CheckRecordRoutingId(pTable,m_pCurDataAddr)) continue;//校验路由失败则取下一条继续
 				snprintf(m_sOneRecord, MAX_VALUE_LEN, "%s", "!!,");//记录分割
 				m_iOneRecordLen+=3;
@@ -1300,7 +1514,7 @@
 				memcpy(m_sOneRecord+m_iOneRecordLen, m_pCurDataAddr, pTable->iOneRecordSize);
 				m_iOneRecordLen += pTable->iOneRecordSize;
 				// 根据表结构差异调整内存记录
-				CHECK_RET(AdjustMemRecord(sRecord, iLen, pTable), "MemRecordAdjust failed.");
+				CHECK_RET(AdjustMemRecord(m_pCurDataAddr, sRecord, iLen, pTable), "MemRecordAdjust failed.");
 				m_iOneRecordLen += iLen-pTable->iOneRecordSize;
 				
 				for(int i = 0; i < m_iVarColCount; i++)
@@ -1308,29 +1522,44 @@
 					m_iWhichPos = -1;
 					m_iRowId = 0;
 					m_iValueSize = 0;
-					if(m_tRemoteStruct.m_iIsLocalCol[m_iVarColPos[i]] == 1)
+					if(m_tRemoteStruct.m_iIsLocalCol[m_iVarColPos[i]] == 0)
 					{
 						m_sOneRecord[m_iOneRecordLen] = ',';
 						m_sOneRecord[m_iOneRecordLen+1] = '@';
-						char * pValue = m_tTableChangeOper[m_tRemoteStruct.m_iColPos[m_iVarColPos[i]]].m_sValue;
+						char * pValue = m_tTableChangeOper[m_tRemoteStruct.m_iChangePos[m_iVarColPos[i]]].m_sValue;
 						m_iValueSize = strlen(pValue);
 						memcpy(m_sOneRecord+m_iOneRecordLen+6, pValue, m_iValueSize);
 					}
 					else
 					{
 						TMdbColumn * pCol = &pTable->tColumn[m_tRemoteStruct.m_iColPos[m_iVarColPos[i]]];
-						m_tVarcharCtrl.GetStoragePos(m_pCurDataAddr + pCol->iOffSet, m_iWhichPos, m_iRowId);
-						if(m_iWhichPos < VC_16 || m_iWhichPos > VC_8192)
+						if(m_tRowCtrl.IsColumnNull(pCol,m_pCurDataAddr) != true)
 						{
-							if(m_tRowCtrl.IsColumnNull(pCol,m_pCurDataAddr) != true)
+							m_sOneRecord[m_iOneRecordLen] = ',';
+							m_sOneRecord[m_iOneRecordLen+1] = '@';
+							if(m_tTableChangeOper[m_tRemoteStruct.m_iChangePos[m_iVarColPos[i]]].m_iChangeType == TC_ColCharToVar)
 							{
-								return -1;
+								m_iValueSize = strlen(m_pCurDataAddr+pCol->iOffSet);
+								if(m_iValueSize > pCol->iColumnLen)
+								{
+									return -1;
+								}
+								SAFESTRCPY(m_sOneRecord+m_iOneRecordLen+6,m_iValueSize+1,m_pCurDataAddr+pCol->iOffSet);
 							}
+							else
+							{
+								m_tVarcharCtrl.GetStoragePos(m_pCurDataAddr + pCol->iOffSet, m_iWhichPos, m_iRowId);
+								if(m_iWhichPos < VC_16 || m_iWhichPos > VC_8192)
+								{
+										return -1;
+								}
+								CHECK_RET(m_tVarcharCtrl.GetVarcharValue(m_sOneRecord+m_iOneRecordLen+6, m_pCurDataAddr + pCol->iOffSet, m_iValueSize),"Get Varchar value Faild");
+							}
+						}
+						else
+						{
 							continue;//NULL就不进行设置了，等到了对端对NULL标志位进行解析判断
 						}
-						m_sOneRecord[m_iOneRecordLen] = ',';
-						m_sOneRecord[m_iOneRecordLen+1] = '@';
-						CHECK_RET(m_tVarcharCtrl.GetVarcharValue(m_sOneRecord+m_iOneRecordLen+6, m_pCurDataAddr + pCol->iOffSet, m_iValueSize),"Get Varchar value Faild");
 					}
 					m_sOneRecord[m_iOneRecordLen+2] = m_iValueSize/1000 + '0';
 					m_sOneRecord[m_iOneRecordLen+3] = (m_iValueSize%1000)/100 + '0';

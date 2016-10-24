@@ -44,7 +44,7 @@ INFO g_info[] = {
 
 int CYCLE_NUM = 40000;
 int FLAG = 0;
-int DSN_INDEX = 0;
+int T_INDEX = 0;
 //判断_ret值,_ret可能是函数返回。若不为0则报错并返回错误码
 #define CHECK_RET(_ret,...) if((iRet = _ret)!= 0){ printf(__VA_ARGS__);return iRet;}
 //安全删除指针
@@ -99,11 +99,13 @@ void* TestInsert(void* p)
 	int index = *(int*)p;
     TMdbDatabase mdb;
     TMdbQuery* pQuery = NULL;
+
+	
     printf("\nTestInsert\n");
     try
     {
        	printf("begin to connect mdb\n");
-       	ConnectMDB(mdb,index);
+       	ConnectMDB(mdb,0);
 
 		printf("begin to CreateDBQuery\n");
         pQuery = mdb.CreateDBQuery();
@@ -120,7 +122,6 @@ void* TestInsert(void* p)
     	gettimeofday(&tTV, NULL);
     	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
     	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
-		//char blob[8] = {'y','l','x',0,0,'l','a',0};
         for(int i=0;i<CYCLE_NUM;i++)
     	{
     		char sSession_ID[128] = {0};
@@ -128,7 +129,7 @@ void* TestInsert(void* p)
 
 			
 	 		pQuery->SetParameter(0,sSession_ID);
-			pQuery->SetParameter(1,i);
+			pQuery->SetParameter(1, i + index* CYCLE_NUM);
 	        pQuery->SetParameter(2,"20160222125959");
 	        pQuery->SetParameter(3,"ylx");
 
@@ -155,6 +156,66 @@ void* TestInsert(void* p)
     SAFE_DELETE(pQuery);
 }
 
+void* TestUpdate(void* p)
+{
+    int iRet = 0;
+	int iaffact = 0;
+	int index = *(int*)p;
+	srand(getpid());
+	int irand = rand()%8;
+	
+    TMdbDatabase mdb;
+    TMdbQuery* pQuery = NULL;
+    printf("\nTestInsert\n");
+    try
+    {
+       	printf("begin to connect mdb\n");
+       	ConnectMDB(mdb,0);
+
+		printf("begin to CreateDBQuery\n");
+        pQuery = mdb.CreateDBQuery();
+        pQuery->Close();
+
+		printf("begin to SetSQL\n");
+		pQuery->SetSQL("Update ylx set SESSION_ID=:New where routing_id=:Old;");
+
+		char m_sExecStartTime[256];
+		char m_sExecEndTime[256];
+		float fDiffTime = 0.0;
+
+		struct timeval tTV;
+    	gettimeofday(&tTV, NULL);
+    	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
+    	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
+        for(int i=0;i<CYCLE_NUM;i++)
+    	{
+
+	 		pQuery->SetParameter(0,"new");
+			pQuery->SetParameter(1,CYCLE_NUM*index+i);
+	        
+	 		pQuery->Execute();
+
+			pQuery->Commit();
+			
+			iaffact += pQuery->RowsAffected();
+    	}    
+
+		    gettimeofday(&tTV, NULL);
+		    TMdbDateTime::GetCurrentTimeStr(m_sExecEndTime);
+		    sprintf(&m_sExecEndTime[14],"%03d",tTV.tv_usec/1000);
+		    fDiffTime = TMdbDateTime::GetDiffMSecond(m_sExecEndTime,m_sExecStartTime);
+		    printf("Done in %0.3f seconds.Update iAffect:%d\n",fDiffTime/1000,iaffact);
+		
+    }
+    catch(...)
+    {
+        printf("exception\n");
+        iRet = -1;
+    }
+    SAFE_DELETE(pQuery);
+}
+
+
 
 void* TestSelect(void* p)
 {
@@ -167,7 +228,7 @@ void* TestSelect(void* p)
     try
     {
        	printf("begin to connect mdb\n");
-       	ConnectMDB(mdb,index);
+       	ConnectMDB(mdb,1);
 
 		printf("begin to CreateDBQuery\n");
         pQuery = mdb.CreateDBQuery();
@@ -209,72 +270,6 @@ void* TestSelect(void* p)
     SAFE_DELETE(pQuery);
 }
 
-void* TestUpdate(void* p)
-{
-    int iRet = 0;
-	int iaffact = 0;
-	int index = *(int*)p;
-	int irand = getpid() %  CYCLE_NUM;
-	
-    TMdbDatabase mdb;
-    TMdbQuery* pQuery = NULL;
-    printf("\nTestInsert\n");
-    try
-    {
-       	printf("begin to connect mdb\n");
-       	ConnectMDB(mdb,index);
-
-		printf("begin to CreateDBQuery\n");
-        pQuery = mdb.CreateDBQuery();
-        pQuery->Close();
-
-		printf("begin to SetSQL\n");
-		pQuery->SetSQL("Update ylx set SESSION_ID=:New where SESSION_ID=:Old and  routing_id>2");
-
-		char m_sExecStartTime[256];
-		char m_sExecEndTime[256];
-		float fDiffTime = 0.0;
-
-		struct timeval tTV;
-    	gettimeofday(&tTV, NULL);
-    	TMdbDateTime::GetCurrentTimeStr(m_sExecStartTime);
-    	sprintf(&m_sExecStartTime[14],"%03d",tTV.tv_usec/1000);
-		//char blob[8] = {'y','l','x',0,0,'l','a',0};
-        for(int i=0;i<CYCLE_NUM;i++)
-    	{
-    		char New[128] = {0};
-			char Old[128] = {0};
-			sprintf(New,"%d",i-1);
-			sprintf(Old,"%d",(i+irand) % CYCLE_NUM);
-			
-
-			
-	 		pQuery->SetParameter(0,New);
-			pQuery->SetParameter(1,Old);
-	        
-
-			
-	 		pQuery->Execute();
-
-			pQuery->Commit();
-			
-			iaffact += pQuery->RowsAffected();
-    	}    
-
-		    gettimeofday(&tTV, NULL);
-		    TMdbDateTime::GetCurrentTimeStr(m_sExecEndTime);
-		    sprintf(&m_sExecEndTime[14],"%03d",tTV.tv_usec/1000);
-		    fDiffTime = TMdbDateTime::GetDiffMSecond(m_sExecEndTime,m_sExecStartTime);
-		    printf("Done in %0.3f seconds.\n",fDiffTime/1000);
-		
-    }
-    catch(...)
-    {
-        printf("exception\n");
-        iRet = -1;
-    }
-    SAFE_DELETE(pQuery);
-}
 
 
 void* TestDelete(void* p)
@@ -284,18 +279,19 @@ void* TestDelete(void* p)
 	int index = *(int*)p;
     TMdbDatabase mdb;
     TMdbQuery* pQuery = NULL;
+    
     printf("\nTestInsert\n");
     try
     {
        	printf("begin to connect mdb\n");
-       	ConnectMDB(mdb,index);
+       	ConnectMDB(mdb,0);
 
 		printf("begin to CreateDBQuery\n");
         pQuery = mdb.CreateDBQuery();
         pQuery->Close();
 
 		printf("begin to SetSQL\n");
-		pQuery->SetSQL("Delete from  ylx  where SESSION_ID=:Old");
+		pQuery->SetSQL("Delete from  ylx  where routing_id=:Old");
 
 		char m_sExecStartTime[256];
 		char m_sExecEndTime[256];
@@ -308,9 +304,7 @@ void* TestDelete(void* p)
 		//char blob[8] = {'y','l','x',0,0,'l','a',0};
         for(int i=0;i<CYCLE_NUM;i++)
     	{
-			char Old[128] = {0};
-			sprintf(Old,"%d",i);
-	 		pQuery->SetParameter(0,Old);
+	 		pQuery->SetParameter(0,CYCLE_NUM*index+i);
 	 		pQuery->Execute();
 			pQuery->Commit();
 			iaffact += pQuery->RowsAffected();
@@ -320,7 +314,7 @@ void* TestDelete(void* p)
 		    TMdbDateTime::GetCurrentTimeStr(m_sExecEndTime);
 		    sprintf(&m_sExecEndTime[14],"%03d",tTV.tv_usec/1000);
 		    fDiffTime = TMdbDateTime::GetDiffMSecond(m_sExecEndTime,m_sExecStartTime);
-		    printf("Done in %0.3f seconds.\n",fDiffTime/1000);
+		    printf("Done in %0.3f seconds.Delete iAffect:%d\n",fDiffTime/1000,iaffact);
 		
     }
     catch(...)
@@ -337,24 +331,24 @@ int main(int argc, char** argv)
 {		
 		if(argc >1) CYCLE_NUM=atoi(argv[1]);
 		if(argc >2) FLAG=atoi(argv[2]);
-		if(argc >3) DSN_INDEX = atoi(argv[3]);
+		if(argc >3) T_INDEX = atoi(argv[3]);
 		int iRet = 0;
-		int index = DSN_INDEX;
+		int thid = T_INDEX;
 
 
 		switch(FLAG)
 		{
 			case 0:
-				TestSelect((void*)&index);	
+				TestSelect((void*)&thid);	
 				break;
 			case 1:
-				TestInsert((void*)&index);	
+				TestInsert((void*)&thid);	
 				break;
 			case 2:
-				TestUpdate((void*)&index);	
+				TestUpdate((void*)&thid);	
 				break;	
 			case 3:
-				TestDelete((void*)&index);	
+				TestDelete((void*)&thid);	
 				break;
 
 		}

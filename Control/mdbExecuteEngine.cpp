@@ -118,7 +118,7 @@
                        ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachTable failed.");
         CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(m_pMdbSqlParser->m_stSqlStruct.pShmDSN,m_pMdbSqlParser->m_stSqlStruct.pMdbTable,m_pMdbSqlParser->m_stSqlStruct.iSqlType),
 						ERR_OS_ATTACH_SHM,"m_MdbTableWalker.AttachTable failed.");
-		CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(pLocalLink),ERROR_UNKNOWN,"m_mdbIndexCtrl.SetLinkInfo failed");
+		CHECK_RET_FILL_CODE(m_mdbIndexCtrl.FillLinkInfo(pLocalLink),ERROR_UNKNOWN,"m_mdbIndexCtrl.FillLinkInfo failed");
         CHECK_RET_FILL_CODE(m_tMdbFlush.Init(pMdbSqlParser,iFlag),ERR_SQL_FLUSH_DATA,"m_tMdbFlush.Init failed");//初始化flush模块
         CHECK_RET_FILL_CODE(m_tObserveTableExec.Init(m_pDsn->sName,OB_TABLE_EXEC),ERR_DB_OBSERVE,"m_tObserveTableExec.Init failed");
         CHECK_RET_FILL_CODE(m_tObserveTableExec.SetExecEngine(this),ERR_DB_OBSERVE,"m_tObserveTableExec.SetExecEngine failed.");
@@ -139,10 +139,14 @@
 		if(m_pMdbShmDsn != pMdbShmDsn)
 		{
 			m_pMdbShmDsn = pMdbShmDsn;
+			m_pDsn = pMdbShmDsn->GetInfo();
 			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.AttachDsn(pMdbShmDsn),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.AttachDsn error.");
 			CHECK_RET_FILL_CODE(m_tVarcharCtrl.Init(pMdbShmDsn->GetInfo()->sName),ERR_OS_ATTACH_SHM,"m_tVarcharCtrl.Init error.");
 			m_mdbPageCtrl.SetDSN(pMdbShmDsn->GetInfo()->sName);
 		}
+		
+		CHECK_RET_FILL_CODE(m_MdbTableWalker.AttachTable(pMdbShmDsn,pTable,TK_INSERT),ERR_OS_ATTACH_SHM,"m_MdbTableWalker.AttachTable error.");
+		
 		if(m_pTable != pTable)
 		{
 			m_pTable = pTable;
@@ -152,7 +156,7 @@
 		if(m_pLocalLink!=pLocalLink)
 		{
 			m_pLocalLink = pLocalLink;
-			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.SetLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.SetLinkInfo error.");
+			CHECK_RET_FILL_CODE(m_mdbIndexCtrl.FillLinkInfo(m_pLocalLink),ERR_OS_ATTACH_SHM,"m_mdbIndexCtrl.FillLinkInfo error.");
 		}
 
         return iRet;
@@ -334,7 +338,7 @@
             TADD_FLOW("Create new Insert Block.size[%d].",m_pTable->iOneRecordSize);
         }
 
-		
+
 		bool bNext = false;
         while(1)
         {
@@ -352,13 +356,8 @@
 			if(0 != SetDataFlagDelete(m_pDataAddr) ) break;
 			//后插入
 			memcpy(m_pInsertBlock, m_pDataAddr, m_pTable->iOneRecordSize);
-			//复制VarChar和blob
-			CloneVarChar(m_pInsertBlock, m_pDataAddr);
-
-			char* pOldDataAddr = m_pDataAddr;
-			CHECK_OBJ(pOldDataAddr);
-			char* pOldPageAddr = m_pPageAddr;
-			CHECK_OBJ(pOldPageAddr);
+			//复制不需要修改的VarChar和blob
+			CHECK_RET_FILL_BREAK(CloneVarChar(m_pInsertBlock, m_pDataAddr, m_pMdbSqlParser->m_listOutputCollist),"CloneVarChar Failed.");
 			
 			TMdbRowID RowID;
 			do
@@ -396,14 +395,29 @@
     }
 
 	
-	int TMdbExecuteEngine::CloneVarChar(char* pDestBlock,char* pSourceBlock)
+	int TMdbExecuteEngine::CloneVarChar(char* pDestBlock,char* pSourceBlock, ST_MEM_VALUE_LIST & stMemSkipList )
 	{
 		int iRet = 0 ;
 		for(int i=0;i<m_pTable->iColumnCounts;i++)
 		{
-			if(m_pTable->tColumn[i].iDataType == DT_Blob ||
-				m_pTable->tColumn[i].iDataType == DT_VarChar)
+			if(m_pTable->tColumn[i].iDataType == DT_Blob ||m_pTable->tColumn[i].iDataType == DT_VarChar)
 			{
+				bool bSkip = false;
+		        for(int j = 0; j< stMemSkipList.iItemNum; j++)
+		        {
+		        	TMdbColumn * pColumn = stMemSkipList.pValueArray[j]->pColumnToSet;
+		            if( 0 == strcmp(pColumn->sName, m_pTable->tColumn[i].sName))
+		            {
+						bSkip = true;
+						//重置varchar记录位
+						m_tVarcharCtrl.SetStorgePos(-1, 0, pDestBlock+m_pTable->tColumn[i].iOffSet);
+						continue;
+					}
+		        }
+
+				//跳过需要update的列
+				if(bSkip) continue;
+		
 				do
 	            {
 	                int iWhichPos = -1;
@@ -413,7 +427,7 @@
 					TMdbShmDSN* pMdbShmDSN = TMdbShmMgr::GetShmDSN(m_pDsn->sName);
 	                TMdbTableSpace * pTablespace = pMdbShmDSN->GetTableSpaceAddrByName(m_pTable->m_sTableSpace);
 	                char cStorage = pTablespace->m_bFileStorage?'Y':'N';
-	                if(iWhichPos >= VC_16 && iWhichPos <=VC_8192)
+	                if(iWhichPos >= VC_16 && iWhichPos <= VC_8192)
 	                {
 	                	int iLen = m_tVarcharCtrl.GetValueSize(iWhichPos);
 	                	char*  pResultValue = new char[iLen];
@@ -459,8 +473,9 @@
 	        TADD_ERROR(ERR_TAB_NO_CONFLICT_INDEX_NODE,"table[%s] CheckHashConflictIndexFull falied!",m_pTable->sTableName);
 	        return ERR_TAB_NO_CONFLICT_INDEX_NODE;
 	    }
-		
-        if(m_pMdbSqlParser->m_stSqlStruct.bCheckInsertPriKey)
+
+		//事务模式下，execute的时候不检测主键，而是在commit的时候检测
+        if(m_pMdbSqlParser->m_stSqlStruct.bCheckInsertPriKey && !IsUseTrans())
         {
             //检测主键
             TADD_DETAIL("Need to Check Primary Key.");
@@ -519,6 +534,7 @@
     {		
         TADD_FUNC("Start.");
 		int iRet = 0;
+		m_pTable = pTable;
 		do
 		{
 			for(int i=0; i<m_pTable->iIndexCounts; ++i)
@@ -563,6 +579,13 @@
         m_iRowsAffected = 0;
         int i = 0;
         bool bNext = false;
+
+		bool bUpdateLSN = true;
+		if(IsUseTrans())
+		{
+			bUpdateLSN = false;
+		}
+		
         while(1)
         {
             CHECK_RET_FILL_BREAK(Next(bNext),"next failed.");
@@ -609,7 +632,7 @@
 	            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.Attach(m_pPageAddr, m_pTable->bReadLock, m_pTable->bWriteLock),
 	                            "m_mdbPageCtrl.Attach faild");
 	            CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
-	            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(m_iPagePos),"m_mdbPageCtrl.DeleteData");
+	            CHECK_RET_FILL_BREAK(m_mdbPageCtrl.DeleteData_NoMutex(m_iPagePos, bUpdateLSN),"m_mdbPageCtrl.DeleteData");
 	            m_mdbTSCtrl.SetPageDirtyFlag(((TMdbPage*)m_pPageAddr)->m_iPageID);//设置脏页
 	            m_mdbPageCtrl.UnWLock();//解页锁
 	            //调节表中的页面链
@@ -674,6 +697,12 @@
     {
         TADD_FUNC("(iSize=%d) : Start.", iSize);
 
+		bool bUpdateLSN = true;
+		if(IsUseTrans())
+		{
+			bUpdateLSN = false;
+		}
+
         int iRet = 0;
         while(true)
         {
@@ -687,7 +716,7 @@
             CHECK_RET_FILL_CODE(m_mdbPageCtrl.Attach((char *)pFreePage, m_pTable->bReadLock, m_pTable->bWriteLock),
                            ERR_OS_ATTACH_SHM,"Can't Attach to page.");
             CHECK_RET_FILL(m_mdbPageCtrl.WLock(),"tPageCtrl.WLock() failed.");
-            iRet = m_mdbPageCtrl.InsertData_NoMutex((unsigned char*)pAddr, iSize, rowID,m_pDataAddr);
+            iRet = m_mdbPageCtrl.InsertData_NoMutex((unsigned char*)pAddr, iSize, rowID,m_pDataAddr, bUpdateLSN);
             if(iRet == 0)
             {
                 m_mdbTSCtrl.SetPageDirtyFlag(pFreePage->m_iPageID);
@@ -1790,10 +1819,6 @@
             m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
             m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
             m_iPagePos      = m_MdbTableWalker.GetPagePos();
-
-			bool bVisible = true;
-			CHECK_RET_FILL(CheckVisible(bVisible),"CheckVisible failed");
-			if(false == bVisible) continue;
 			
             CHECK_RET_FILL(FillSqlParserValue(m_pMdbSqlParser->m_listInputPriKey),"FillSqlParserValue error.");
             if(TMdbMemValue::CompareMemValueList(m_pMdbSqlParser->m_listInputPriKey,
@@ -1820,6 +1845,95 @@
         TADD_FUNC("Finish.");
         return iRet;
     }
+
+
+	//外部调用 @ Commit的时候
+	int TMdbExecuteEngine::IsPKExist(char* pDataAddr)
+    {
+        TADD_FUNC("Start.");
+        int iRet= 0;
+        long long llValue = 0;
+		
+		ST_TABLE_INDEX_INFO * pstTablePKIndex = m_mdbIndexCtrl.GetVerfiyPKIndex();
+		CHECK_OBJ(pstTablePKIndex);		
+		
+        CalcMemValueHash(pstTablePKIndex, pDataAddr, llValue, m_tIColumnAddr);//计算主键索引hash值
+		//SetTrieWord(stIndexForVerifyPK);
+        m_MdbTableWalker.WalkByIndex(pstTablePKIndex, llValue);
+        while(m_MdbTableWalker.Next())
+        {
+            m_pDataAddr     = m_MdbTableWalker.GetDataAddr();
+            m_tCurRowIDData = m_MdbTableWalker.GetDataRowID();
+            m_pPageAddr     = m_MdbTableWalker.GetPageAddr();
+            m_iPagePos      = m_MdbTableWalker.GetPagePos();
+
+			//查到了自己
+			if(m_pDataAddr == pDataAddr)
+			{
+				continue; 
+			}
+
+			bool bVisible = true;
+			CHECK_RET(CheckVisible(bVisible),"CheckVisible failed");
+			if(false == bVisible) continue;
+
+			//获取已有的记录行，并比较
+			GetOneRowData(&m_tNColumnAddr,false);
+			if( true == IsPKValueSame(m_tIColumnAddr, m_tNColumnAddr))
+			{
+                CHECK_RET(ERR_TAB_PK_CONFLICT,"primary key conflict....");
+            }
+        }
+        TADD_FUNC("Finish.");
+        return iRet;
+    }
+
+	//return false 不等   return true  相等
+	bool  TMdbExecuteEngine::IsPKValueSame(TMdbColumnAddr& tIColumnAddr, TMdbColumnAddr& tNColumnAddr)
+	{
+
+		int iPKColumnNo = m_pTable->m_tPriKey.iColumnCounts;
+
+		for(int i = 0; i < iPKColumnNo; ++i)
+        {
+        	int iColumnNo = m_pTable->m_tPriKey.iColumnNo[i];
+            if(iColumnNo < 0)
+            {
+                break;
+            }
+
+			//该列都是空
+			if( NULL == tNColumnAddr[iColumnNo] && NULL == tIColumnAddr[iColumnNo])
+			{
+				continue;
+			}
+			
+			//只有一边为空
+			if( (NULL == tNColumnAddr[iColumnNo] && NULL!= tIColumnAddr[iColumnNo]) ||
+				(NULL != tNColumnAddr[iColumnNo] && NULL== tIColumnAddr[iColumnNo]))
+			{
+                return false;
+            }
+			else if(m_pTable->tColumn[iColumnNo].iDataType == DT_Int)
+			{
+				if(*(long long*)tIColumnAddr[iColumnNo] != *(long long*)tNColumnAddr[iColumnNo])
+				{
+					return false;
+				}
+			}
+			else
+			{
+                if( 0!=strcmp( (char*)tIColumnAddr[iColumnNo], (char*)tNColumnAddr[iColumnNo]))
+				{
+					return false;
+				}
+			}
+        }
+
+	
+		
+		return true;
+	}
 
     /******************************************************************************
     * 函数名称	:  IsDataPosBefore
@@ -2023,7 +2137,7 @@
         return iRet;
     }
 
-    int TMdbExecuteEngine::GetOneRowData(TMdbColumnAddr* pTColumnAddr)
+    int TMdbExecuteEngine::GetOneRowData(TMdbColumnAddr* pTColumnAddr, bool bBlob)
     {
         TADD_FUNC("Start.");
         int iRet = 0;
@@ -2077,6 +2191,8 @@
 		            TADD_FLOW("Column[%d] is NULL",i);
 		            break;
 		        }
+				if(!bBlob) return iRet;
+				
                 int iWhichPos = 0;
 				unsigned int iRowId = 0;
 				size_t iEnCodeLen = 0;
@@ -2349,7 +2465,7 @@
 			//
 		}
 		
-
+		return 0;
 	}
 
 	
@@ -2458,6 +2574,74 @@
             //进行散列
             llValue = llValue % m_pTable->iRecordCounts; 
         }
+        TADD_FUNC("Finish.llValue = %lld.m_sTempValue=[%s].",llValue,m_sTempValue);
+        return iRet;
+    }
+
+	//根据主键索引 和记录地址  找出主键的hash值
+	int TMdbExecuteEngine::CalcMemValueHash(ST_TABLE_INDEX_INFO * pstTablePKIndex,char* pDataAddr,long long & llValue,TMdbColumnAddr &tColumnAddr)
+    {
+        TADD_FUNC("Start.");
+        int iRet = 0;
+		if(pstTablePKIndex->pIndexInfo->m_iAlgoType != INDEX_HASH &&
+			pstTablePKIndex->pIndexInfo->m_iAlgoType != INDEX_M_HASH)
+		{
+			return iRet;	
+		}
+		
+        m_sTempValue[0] = 0;
+		//先根据pDataAddr 获取整条记录
+		m_pDataAddr = pDataAddr;
+		CHECK_RET(GetOneRowData(&tColumnAddr, false),"GetOneRowData Failed");
+
+        if(HT_CMP ==  pstTablePKIndex->pIndexInfo->m_iIndexType)
+        {
+            //组合索引
+            int i = 0;
+            for(i = 0; i < MAX_INDEX_COLUMN_COUNTS; ++i)
+            {
+            	int iColumnNo = pstTablePKIndex->pIndexInfo->iColumnNo[i];
+                if(iColumnNo < 0)
+                {
+                    break;
+                }
+					
+				if(NULL == tColumnAddr[iColumnNo])
+				{
+                    sprintf(m_sTempValue, "%s;0",m_sTempValue);
+                }
+				else if(m_pTable->tColumn[iColumnNo].iDataType == DT_Int)
+				{
+                    sprintf(m_sTempValue, "%s;%lld", m_sTempValue, *(long long*)tColumnAddr[iColumnNo]);
+				}
+				else
+				{
+                    sprintf(m_sTempValue, "%s;%s", m_sTempValue, (char*)tColumnAddr[iColumnNo]);
+				}
+            }
+            llValue = TMdbNtcStrFunc::StrToHash(m_sTempValue);
+        }
+        else
+        {
+            //单索引
+            int iColumnNo = pstTablePKIndex->pIndexInfo->iColumnNo[0];
+			if(NULL == tColumnAddr[iColumnNo])
+			{
+                llValue = 0;
+            }
+			else if(m_pTable->tColumn[iColumnNo].iDataType == DT_Int)
+			{
+                llValue = *(long long*)tColumnAddr[iColumnNo];
+			}
+			else
+			{
+                llValue = TMdbNtcStrFunc::StrToHash((char*)tColumnAddr[iColumnNo]);
+			}
+        }
+        llValue = llValue<0? -llValue:llValue;
+        //进行散列
+        llValue = llValue % m_pTable->iRecordCounts; 
+
         TADD_FUNC("Finish.llValue = %lld.m_sTempValue=[%s].",llValue,m_sTempValue);
         return iRet;
     }

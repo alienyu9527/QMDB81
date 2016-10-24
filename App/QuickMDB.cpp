@@ -143,16 +143,16 @@ int ParseQmdbOper(const char * sOperStr,struct cmdopt &strValue)
     int iRet = 0;
     TMdbNtcSplit tSplit;
     tSplit.SplitString(sOperStr,';');
-    int i = 0;
+    unsigned int i = 0;
     const char * sPrefix[] = {"dsn=","uid=","pwd=","oper="};
     int iCount = 4;
     char * sContextAddr[] = {strValue.sDsn,strValue.sUid,strValue.sPwd,strValue.sOperation};
-    for(i = 0;i < tSplit.GetFieldCount() ;++i)
+    for(i = 0;i < (unsigned int)(tSplit.GetFieldCount()) ;++i)
     {
         int j = 0;
         for(j = 0 ;j < iCount;++j)
         {
-            if(TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i],sPrefix[j],strlen(sPrefix[j])) == 0)
+            if(TMdbNtcStrFunc::StrNoCaseCmp(tSplit[i],sPrefix[j],(unsigned int)(strlen(sPrefix[j]))) == 0)
             {//Ç°×ºÏàÍ¬
                 SAFESTRCPY(sContextAddr[j],32,tSplit[i]+strlen(sPrefix[j]));
                 break;

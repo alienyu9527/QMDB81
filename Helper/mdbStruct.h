@@ -33,7 +33,7 @@ V1.2.14：是指内核版本号，这个只有在内核发生重大变更的时候才会修改。（需要重建qmd
 QMDB只维护主版本，只有当出现紧急bug，才会在现场分支版本上修改。这时候，现场分支的代码版本里就会多一个“path”(和主版本区分出来),相应的日期版本也会修改。
 QuickMDB V1.2.14.20131226.patch
 */
-#define MDB_VERSION  "QuickMDB V1.4.1.20160918"
+#define MDB_VERSION  "QuickMDB V1.4.1.20161011"
 
 
 /**
@@ -81,7 +81,7 @@ QuickMDB V1.2.14.20131226.patch
 #define MAX_PATH_NAME_LEN   512
 
 #define MAX_SEND_BUF  (1024*32)
-#define MAX_VARCHAR_SIZE  (128*1024*1024)
+#define MAX_VARCHAR_SIZE  (256*1024*1024)
 #define MAX_SHM_ID         100 //最多申请的共享内存数
 #define MAX_VARCHAR_SHM_ID 10000
 
@@ -96,8 +96,9 @@ QuickMDB V1.2.14.20131226.patch
 #define SHADOW_SERVER_KEY 0x7765454
 
 // 默认的路由ID，作为不区分路由使用
-#define DEFALUT_ROUT_ID (-999)
-#define DEFALUT_ROUT_ID_STRING "-999"
+#define DEFAULT_ROUTE_ID (-999)
+#define DEFAULT_ROUTE_ID_STRING "-999"
+#define EMPTY_ROUTE_ID (-9999)
 
 
 #ifdef WIN32
