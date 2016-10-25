@@ -263,7 +263,7 @@
             rowID.SetDataOffset(m_pPage->DataOffsetToRecordPos(iDataOffset));//设置数据位置
             rowID.SetPageID(m_pPage->m_iPageID);
             pMemData = m_pAddr + iDataOffset;
-            memcpy(pMemData, pData, iSize);
+            memcpy(pMemData, pData, iLen);
             //修改头信息:记录数、数据偏移量、剩余空间大小、时间戳
             SAFESTRCPY(m_pPage->m_sUpdateTime,sizeof(m_pPage->m_sUpdateTime),m_pDSN->sCurTime);
             ++(m_pPage->m_iRecordCounts); 

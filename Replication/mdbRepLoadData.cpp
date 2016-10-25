@@ -419,7 +419,7 @@
         if(!TMdbNtcDirOper::IsExist(m_pRepConfig->m_sRepPath.c_str()))
         {
             TADD_NORMAL("Path[%s] not exist,create it!",m_pRepConfig->m_sRepPath.c_str());
-            if(!TMdbNtcDirOper::MakeDir(m_pRepConfig->m_sRepPath.c_str()))
+            if(!TMdbNtcDirOper::MakeFullDir(m_pRepConfig->m_sRepPath.c_str()))
             {
                 CHECK_RET(ERR_OS_CREATE_DIR,"create path[%s] failed.", m_pRepConfig->m_sRepPath.c_str());
             }
